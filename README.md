@@ -18,7 +18,18 @@ PyTorch supplies tensor kernels, automatic differentiation and device execution.
 The architecture, tokenizer and training loop are implemented here. This is a
 from-scratch model, not a reimplementation of GPU kernels or autograd.
 
-## Run locally or in Colab
+## Prepare a corpus
+
+Place multiple UTF-8 `.txt` documents in `data/raw/`, then run:
+
+```bash
+python prepare_corpus.py
+```
+
+This normalizes Unicode, removes exact duplicate paragraphs and writes
+`data/input.txt`. Only use material you have permission to train on.
+
+## Train and generate
 
 Install:
 
@@ -26,7 +37,7 @@ Install:
 pip install -r requirements.txt
 ```
 
-Place a UTF-8 corpus at `data/input.txt`, then:
+Then:
 
 ```bash
 python train.py --steps 2000
@@ -42,6 +53,12 @@ python train.py --resume --steps 2000
 The trainer selects CUDA when available and otherwise uses CPU. The included
 `FirstAI_Colab.ipynb` notebook guides you through uploading a corpus and
 training on a Colab GPU when one is available.
+
+## Tests
+
+```bash
+python -m unittest discover -s tests
+```
 
 ## Important limitations
 
