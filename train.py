@@ -1,4 +1,4 @@
-"""Train FirstGPT from random initialization on a plain-text corpus."""
+"""Train FirstGPT from random initialization; supports resumable checkpoints."""
 import argparse
 import math
 from pathlib import Path
@@ -9,10 +9,24 @@ from firstai.model import FirstGPT, GPTConfig
 from firstai.bpe import BPETokenizer
 
 
+def save_checkpoint(path, model, optimizer, config, tokenizer, step, best_val):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    torch.save({
+        "model": model.state_dict(),
+        "optimizer": optimizer.state_dict(),
+        "config": vars(config),
+        "tokenizer": tokenizer.to_dict(),
+        "step": step,
+        "best_validation_loss": best_val,
+    }, path)
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--data", default="data/input.txt")
     parser.add_argument("--out", default="checkpoints/firstgpt.pt")
+    parser.add_argument("--resume", action="store_true")
     parser.add_argument("--steps", type=int, default=2000)
     parser.add_argument("--eval-interval", type=int, default=200)
     parser.add_argument("--batch-size", type=int, default=32)
@@ -30,18 +44,43 @@ def main():
         raise ValueError("steps and eval-interval must be positive")
     torch.manual_seed(args.seed)
     text = Path(args.data).read_text(encoding="utf-8")
-    tokenizer = BPETokenizer.train(text, args.vocab_size, args.min_frequency)
+    split_at = max(1, int(len(text) * 0.9))
+    tokenizer = BPETokenizer.train(
+        text[:split_at], vocab_size=args.vocab_size,
+        min_frequency=args.min_frequency
+    )
     train_data, val_data = make_splits(text, tokenizer)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    config = GPTConfig(
-        vocab_size=tokenizer.vocab_size,
-        block_size=args.block_size,
-        n_layer=args.layers,
-        n_head=args.heads,
-        n_embd=args.width,
-    )
-    model = FirstGPT(config).to(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    start_step = 0
+    best_val = float("inf")
+
+    if args.resume:
+        checkpoint = torch.load(args.out, map_location=device, weights_only=True)
+        config = GPTConfig(**checkpoint["config"])
+        saved_tokenizer = BPETokenizer.from_dict(checkpoint["tokenizer"])
+        if saved_tokenizer.to_dict() != tokenizer.to_dict():
+            raise ValueError("Training corpus/tokenizer differs from checkpoint; cannot resume safely")
+        if config.block_size != args.block_size:
+            raise ValueError("block_size differs from checkpoint")
+        model = FirstGPT(config).to(device)
+        model.load_state_dict(checkpoint["model"])
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+        if "optimizer" in checkpoint:
+            optimizer.load_state_dict(checkpoint["optimizer"])
+        start_step = int(checkpoint["step"])
+        best_val = float(checkpoint.get("best_validation_loss", float("inf")))
+        print(f"Resuming at step {start_step}")
+    else:
+        config = GPTConfig(
+            vocab_size=tokenizer.vocab_size,
+            block_size=args.block_size,
+            n_layer=args.layers,
+            n_head=args.heads,
+            n_embd=args.width,
+        )
+        model = FirstGPT(config).to(device)
+        optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+
     print(f"Device: {device}")
     if device == "cuda":
         print(f"GPU: {torch.cuda.get_device_name(0)}")
@@ -56,37 +95,38 @@ def main():
         for name, data in (("train", train_data), ("validation", val_data)):
             losses = []
             for _ in range(20):
-                x, y = get_batch(data, args.batch_size, args.block_size, device)
+                x, y = get_batch(data, args.batch_size, config.block_size, device)
                 _, loss = model(x, y)
                 losses.append(loss.item())
             result[name] = sum(losses) / len(losses)
         model.train()
         return result
 
+    best_path = str(Path(args.out).with_name(Path(args.out).stem + ".best.pt"))
     model.train()
-    for step in range(args.steps):
-        if step % args.eval_interval == 0 or step == args.steps - 1:
+    for step in range(start_step, start_step + args.steps):
+        if step % args.eval_interval == 0 or step == start_step + args.steps - 1:
             scores = estimate()
             print(
                 f"step {step:5d} | train {scores['train']:.4f} "
                 f"| validation {scores['validation']:.4f} "
                 f"| ppl {math.exp(min(scores['validation'], 20)):.2f}"
             )
-        x, y = get_batch(train_data, args.batch_size, args.block_size, device)
+            if scores["validation"] < best_val:
+                best_val = scores["validation"]
+                save_checkpoint(best_path, model, optimizer, config, tokenizer, step, best_val)
+                print(f"  saved best checkpoint: {best_path}")
+
+        x, y = get_batch(train_data, args.batch_size, config.block_size, device)
         _, loss = model(x, y)
         optimizer.zero_grad(set_to_none=True)
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
 
-    output = Path(args.out)
-    output.parent.mkdir(parents=True, exist_ok=True)
-    torch.save(
-        {"model": model.state_dict(), "config": vars(config),
-         "tokenizer": tokenizer.to_dict(), "step": args.steps},
-        output,
-    )
-    print(f"Saved checkpoint: {output}")
+    save_checkpoint(args.out, model, optimizer, config, tokenizer,
+                    start_step + args.steps, best_val)
+    print(f"Saved resumable checkpoint: {args.out}")
 
 
 if __name__ == "__main__":
