@@ -2,7 +2,7 @@
 import argparse
 import torch
 from firstai.model import FirstGPT, GPTConfig
-from firstai.tokenizer import CharTokenizer
+from firstai.bpe import BPETokenizer
 
 
 def main():
@@ -16,14 +16,13 @@ def main():
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     saved = torch.load(args.checkpoint, map_location=device, weights_only=True)
-    tokenizer = CharTokenizer.from_dict(saved["tokenizer"])
+    tokenizer = BPETokenizer.from_dict(saved["tokenizer"])
     config = GPTConfig(**saved["config"])
     model = FirstGPT(config).to(device)
     model.load_state_dict(saved["model"])
     model.eval()
 
-    encoded = tokenizer.encode(args.prompt)
-    ids = torch.tensor([encoded], dtype=torch.long, device=device)
+    ids = torch.tensor([tokenizer.encode(args.prompt)], dtype=torch.long, device=device)
     result = model.generate(ids, args.tokens, args.temperature, args.top_k)
     print(tokenizer.decode(result[0].tolist()))
 
