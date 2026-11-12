@@ -6,7 +6,7 @@ import torch
 
 from firstai.data import get_batch, make_splits
 from firstai.model import FirstGPT, GPTConfig
-from firstai.tokenizer import CharTokenizer
+from firstai.bpe import BPETokenizer
 
 
 def main():
@@ -20,13 +20,17 @@ def main():
     parser.add_argument("--layers", type=int, default=4)
     parser.add_argument("--heads", type=int, default=4)
     parser.add_argument("--width", type=int, default=128)
+    parser.add_argument("--vocab-size", type=int, default=512)
+    parser.add_argument("--min-frequency", type=int, default=2)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=1337)
     args = parser.parse_args()
 
+    if args.steps < 1 or args.eval_interval < 1:
+        raise ValueError("steps and eval-interval must be positive")
     torch.manual_seed(args.seed)
     text = Path(args.data).read_text(encoding="utf-8")
-    tokenizer = CharTokenizer(text)
+    tokenizer = BPETokenizer.train(text, args.vocab_size, args.min_frequency)
     train_data, val_data = make_splits(text, tokenizer)
     device = "cuda" if torch.cuda.is_available() else "cpu"
     config = GPTConfig(
@@ -41,7 +45,8 @@ def main():
     print(f"Device: {device}")
     if device == "cuda":
         print(f"GPU: {torch.cuda.get_device_name(0)}")
-    print(f"Corpus characters: {len(text):,} | Vocabulary: {tokenizer.vocab_size}")
+    print(f"Corpus characters: {len(text):,} | Tokens: {len(train_data)+len(val_data):,}")
+    print(f"BPE vocabulary: {tokenizer.vocab_size} | Learned merges: {len(tokenizer.merges)}")
     print(f"Parameters: {sum(p.numel() for p in model.parameters()):,}")
 
     @torch.no_grad()
