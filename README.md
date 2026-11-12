@@ -1,44 +1,50 @@
 # FirstAI
 
-An experimental decoder-only language model built from random initialization.
-No pretrained model or hosted language-model API is used.
+An experimental decoder-only language model trained from random initialization.
+No pretrained weights or hosted language-model API are used.
 
-## What is here
+## Architecture
 
-- Multi-head causal self-attention
-- Residual Transformer blocks with pre-layer normalization
-- Learned token and position embeddings
-- Character tokenizer (deliberately simple and inspectable)
-- Next-token training objective
-- AdamW optimization, gradient clipping, validation loss and checkpoints
-- Autoregressive text generation
+- Multi-head causal self-attention with a future-token mask
+- Pre-layer-normalized residual Transformer blocks
+- Learned token and positional embeddings
+- GELU feed-forward networks and tied input/output embeddings
+- Next-token cross-entropy objective
+- AdamW, gradient clipping, train/validation loss and perplexity
+- Best-checkpoint saving and resumable optimizer state
+- Byte-level BPE tokenizer implemented in this repository
 
-PyTorch supplies tensor operations, automatic differentiation and device
-execution. The model architecture, tokenizer and training loop are our own.
-This means the model is trained from scratch; it does not mean we have
-reimplemented low-level GPU kernels or automatic differentiation.
+PyTorch supplies tensor kernels, automatic differentiation and device execution.
+The architecture, tokenizer and training loop are implemented here. This is a
+from-scratch model, not a reimplementation of GPU kernels or autograd.
 
-## Run
+## Run locally or in Colab
 
-Install dependencies:
+Install:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Put a UTF-8 corpus in `data/input.txt`, then:
+Place a UTF-8 corpus at `data/input.txt`, then:
 
 ```bash
 python train.py --steps 2000
 python generate.py --prompt "Your prompt"
 ```
 
-The trainer automatically selects CUDA when available, otherwise CPU. For a
-free Colab GPU session, clone this repository into the notebook, upload or
-mount your corpus, install requirements, and run the same commands.
+Resume from the saved checkpoint using the same corpus and model settings:
 
-## Important
+```bash
+python train.py --resume --steps 2000
+```
 
-The included model is a learning/research baseline, not a capable assistant.
-A small corpus and small model will produce limited, repetitive text. Better
-data, tokenization, evaluation, scaling and safety work are separate milestones.
+The trainer selects CUDA when available and otherwise uses CPU. The included
+`FirstAI_Colab.ipynb` notebook guides you through uploading a corpus and
+training on a Colab GPU when one is available.
+
+## Important limitations
+
+This is a research/learning baseline, not yet a capable assistant. A small
+model and small corpus will produce limited output. Corpus curation, robust
+evaluation, scaling, instruction tuning and safety are later milestones.
