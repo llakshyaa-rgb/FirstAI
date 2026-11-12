@@ -1,58 +1,68 @@
 # FirstAI
 
-An experimental decoder-only language model trained from random initialization.
-No pretrained weights or hosted language-model API are used.
+FirstAI is a decoder-only language model trained from random initialization.
+It does not load pretrained weights or call a hosted language-model API.
 
-## Architecture
+## Implemented technical foundation
 
+- Byte-level BPE tokenizer implemented in this repository
+- Learned token and positional embeddings
 - Multi-head causal self-attention with a future-token mask
 - Pre-layer-normalized residual Transformer blocks
-- Learned token and positional embeddings
 - GELU feed-forward networks and tied input/output embeddings
-- Next-token cross-entropy objective
-- AdamW, gradient clipping, train/validation loss and perplexity
-- Best-checkpoint saving and resumable optimizer state
-- Byte-level BPE tokenizer implemented in this repository
+- Next-token cross-entropy objective and AdamW optimization
+- Gradient clipping, train/validation loss and validation perplexity
+- Best-model checkpoints, periodic resumable checkpoints and corpus integrity checks
+- Text generation from a saved checkpoint
 
-PyTorch supplies tensor kernels, automatic differentiation and device execution.
-The architecture, tokenizer and training loop are implemented here. This is a
-from-scratch model, not a reimplementation of GPU kernels or autograd.
+PyTorch supplies tensor operations, automatic differentiation and device execution.
+The model architecture, tokenizer, corpus preparation and training loop are custom.
+This is a from-scratch model, not a fine-tune of an existing language model.
 
 ## Prepare a corpus
 
-Place multiple UTF-8 `.txt` documents in `data/raw/`, then run:
+Place UTF-8 `.txt` documents that you have permission to use in `data/raw/`.
+Then run:
 
 ```bash
 python prepare_corpus.py
 ```
 
-This normalizes Unicode, removes exact duplicate paragraphs and writes
-`data/input.txt`. Only use material you have permission to train on.
+The preparation script normalizes Unicode, removes exact duplicate paragraphs
+and writes `data/input.txt`. It does not automatically verify factual quality,
+remove every form of boilerplate, or grant rights to source material.
 
-## Train and generate
-
-Install:
+## Install
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Then:
+## Train
 
 ```bash
 python train.py --steps 2000
-python generate.py --prompt "Your prompt"
 ```
 
-Resume from the saved checkpoint using the same corpus and model settings:
+Useful options include `--steps`, `--block-size`, `--layers`, `--heads`,
+`--width`, `--batch-size`, `--eval-interval` and `--checkpoint-interval`.
+The trainer automatically uses CUDA when available and otherwise CPU.
+
+Resume from the same corpus and checkpoint:
 
 ```bash
 python train.py --resume --steps 2000
 ```
 
-The trainer selects CUDA when available and otherwise uses CPU. The included
-`FirstAI_Colab.ipynb` notebook guides you through uploading a corpus and
-training on a Colab GPU when one is available.
+The checkpoint stores a SHA-256 fingerprint of the corpus and rejects a changed
+corpus rather than silently resuming incompatible training. Saved model
+architecture and optimizer state are restored from the checkpoint.
+
+## Generate
+
+```bash
+python generate.py --checkpoint checkpoints/firstgpt.best.pt --prompt "The " --tokens 200
+```
 
 ## Tests
 
@@ -60,8 +70,22 @@ training on a Colab GPU when one is available.
 python -m unittest discover -s tests
 ```
 
-## Important limitations
+Tests cover BPE UTF-8 round-tripping, unseen characters, corpus deduplication,
+next-token batch alignment, model tensor shapes, causal masking, gradient flow
+and generation.
 
-This is a research/learning baseline, not yet a capable assistant. A small
-model and small corpus will produce limited output. Corpus curation, robust
-evaluation, scaling, instruction tuning and safety are later milestones.
+## Colab
+
+Open [FirstAI_Colab.ipynb](https://colab.research.google.com/github/llakshyaa-rgb/FirstAI/blob/main/FirstAI_Colab.ipynb).
+The notebook uses the PyTorch installation already provided by Colab and
+automatically falls back to CPU if CUDA is unavailable. A free GPU is not
+guaranteed. Download checkpoints before the temporary runtime disconnects.
+
+## Scope and limitations
+
+This completes the code foundation for training and running a small GPT-style
+language model. It does not mean the model has been trained or has learned
+useful language yet. Quality depends on corpus volume and quality, compute,
+model scale and subsequent training. Personality, conversational behaviour,
+instruction tuning, memory, tool use and assistant policies are deliberately
+outside this milestone.
