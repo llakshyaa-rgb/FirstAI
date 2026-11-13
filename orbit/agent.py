@@ -5,17 +5,46 @@ continue to the language model; no guessed destructive action is executed.
 """
 from __future__ import annotations
 import re
+import hashlib
 from .local_tools import WorkspaceTools, safe_calculate
 
 
 class LocalAgent:
-    def __init__(self, workspace=None, progress=None):
+    def __init__(self, workspace=None, progress=None, memory=None):
         self.workspace = WorkspaceTools(workspace)
         self.progress = progress or (lambda message, **details: None)
+        self.memory = memory
 
     def try_execute(self, message):
         text = message.strip()
         lower = text.casefold()
+
+        if self.memory and lower.startswith("remember that "):
+            note = text[len("remember that "):].strip()
+            if not note:
+                return "Tell me what you'd like me to remember."
+            key = "owner_note_" + hashlib.sha256(note.casefold().encode("utf-8")).hexdigest()[:12]
+            self.memory.set(key, note)
+            return "I'll remember that preference or note on this device."
+
+        if self.memory and (lower.startswith("i prefer ") or lower.startswith("i don't like ")):
+            key = "preference_" + hashlib.sha256(lower.encode("utf-8")).hexdigest()[:12]
+            self.memory.set(key, text)
+            return "Noted. I'll use that preference in future conversations on this device."
+
+        if self.memory and lower in {"what do you remember", "what do you remember about me", "show my preferences"}:
+            items = self.memory.get_all()
+            if not items:
+                return "I don't have any saved preferences or notes yet."
+            return "Saved preferences and notes:\n" + "\n".join(
+                f"- {item['value']}" for item in items
+            )
+
+        if self.memory and lower.startswith("forget:"):
+            key = text.split(":", 1)[1].strip()
+            if not key:
+                return "Give me the exact memory key to remove."
+            return "Memory removed." if self.memory.delete(key) else "I couldn't find that memory key."
 
         match = re.match(r"^(?:calculate|compute|what is|what's)\s+(.+?)\s*[?]?$", text, re.I)
         if match and re.search(r"\d", match.group(1)) and re.fullmatch(r"[\d\s()+\-*/%.^]+", match.group(1)):
