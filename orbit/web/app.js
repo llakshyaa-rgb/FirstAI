@@ -48,3 +48,24 @@ form.addEventListener("submit",async e=>{
   finally{busy=false;send.disabled=false;presence.textContent="Personal AI · Online";input.focus();}
 });
 health();
+
+const memoryKey=document.querySelector("#memory-key");
+const memoryValue=document.querySelector("#memory-value");
+const memorySave=document.querySelector("#memory-save");
+const memoryList=document.querySelector("#memory-list");
+async function loadMemories(){
+  try{const r=await fetch("/api/memory");const d=await r.json();memoryList.textContent="";
+    for(const item of d.memories||[]){const p=document.createElement("p");p.className="memory-item";p.textContent=item.key+": "+item.value;memoryList.append(p);}
+  }catch{}
+}
+memorySave?.addEventListener("click",async()=>{
+  const key=memoryKey.value.trim(),value=memoryValue.value.trim();if(!key||!value)return;
+  memorySave.disabled=true;
+  try{const r=await fetch("/api/memory",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({key,value})});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Could not save preference");
+    memoryKey.value="";memoryValue.value="";memoryList.textContent="";
+    for(const item of d.memories||[]){const p=document.createElement("p");p.className="memory-item";p.textContent=item.key+": "+item.value;memoryList.append(p);}
+  }catch(err){bubble("orbit","I couldn't save that preference: "+err.message,"status");}
+  finally{memorySave.disabled=false;}
+});
+loadMemories();
