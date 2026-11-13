@@ -28,6 +28,8 @@ class TaskStore:
         self.path = str(path)
         self._lock = threading.RLock()
         with self._connect() as db:
+            db.execute("PRAGMA journal_mode=WAL")
+            db.execute("PRAGMA synchronous=NORMAL")
             db.execute("""CREATE TABLE IF NOT EXISTS tasks (
                 id TEXT PRIMARY KEY, goal TEXT NOT NULL, status TEXT NOT NULL,
                 result TEXT, error TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
@@ -40,6 +42,7 @@ class TaskStore:
 
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=30)
+        db.execute("PRAGMA busy_timeout=30000")
         db.row_factory = sqlite3.Row
         return db
 
