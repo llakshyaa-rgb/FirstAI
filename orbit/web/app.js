@@ -161,6 +161,9 @@ uploadForm?.addEventListener("submit",async e=>{
         const meta=document.createElement("p");meta.textContent=item.category+" · "+item.content_type;card.append(meta);
       }
       if(item.text){
+        const use=document.createElement("button");use.type="button";use.textContent="Use extracted text in chat";
+        use.addEventListener("click",()=>{input.value="Please work with this uploaded file ("+item.name+"):\\n\\n"+item.text;input.focus();});
+        card.append(use);
         const details=document.createElement("details");const summary=document.createElement("summary");summary.textContent="Extracted text preview";
         const pre=document.createElement("pre");pre.textContent=item.text.slice(0,3000);details.append(summary,pre);card.append(details);
       }
@@ -196,3 +199,26 @@ imageSearchForm?.addEventListener("submit",async e=>{
     if(!results.length)imageSearchResults.textContent="No results returned for this search.";
   }catch(err){imageSearchResults.textContent=err.message;}
 });
+
+async function restoreUploads(){
+  try{
+    const r=await fetch("/api/uploads");if(!r.ok)return;
+    const d=await r.json();
+    for(const item of d.files||[]){
+      const card=document.createElement("article");card.className="upload-card";
+      const heading=document.createElement("strong");heading.textContent=item.name+" · "+Math.ceil(item.size/1024)+" KB";card.append(heading);
+      if(item.category==="image"){
+        const img=document.createElement("img");img.src=item.url;img.alt=item.name;img.loading="lazy";img.className="uploaded-image";card.append(img);
+        const analyze=document.createElement("button");analyze.type="button";analyze.textContent="Ask Orbit to analyse";
+        analyze.addEventListener("click",async()=>{
+          analyze.disabled=true;
+          try{const response=await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file_id:item.id})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Vision analysis failed");bubble("orbit",result.description);}
+          catch(err){bubble("orbit","Image analysis isn't available: "+err.message,"status");}
+          finally{analyze.disabled=false;}
+        });card.append(analyze);
+      }
+      uploadResults.append(card);
+    }
+  }catch{}
+}
+restoreUploads();
