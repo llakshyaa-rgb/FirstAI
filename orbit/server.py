@@ -30,7 +30,6 @@ class OrbitApplication:
         self.runtime = OrbitRuntime(checkpoint)
         self.store = TaskStore(state_path)
         self.memory = MemoryStore(state_path)
-        self.agent = LocalAgent(workspace=Path(__file__).resolve().parent.parent)
         self._threads = set()
         self._lock = threading.Lock()
         # Resume interrupted chat-generation tasks after the checkpoint is loaded.
@@ -98,17 +97,20 @@ class OrbitApplication:
             self.store.emit(task_id, "status", "Certainly. I'm considering your request.")
             # Run only narrowly matched, deterministic local utility intents.
             # All other messages are passed to the language model.
-            self.agent.progress = lambda text, **details: self.store.emit(task_id, "status", text, **details)
-            answer = self.agent.try_execute(message)
+            agent = LocalAgent(
+                workspace=Path(__file__).resolve().parent.parent,
+                progress=lambda text, **details: self.store.emit(task_id, "status", text, **details),
+            )
+            answer = agent.try_execute(message)
             if answer is None:
                 answer = self.runtime.reply(
                     message,
                     history=self.store.recent_history(),
-                owner_preferences=self.memory.prompt_context(),
-                on_progress=lambda event: self.store.emit(
-                    task_id, event["kind"], event["message"],
+                    owner_preferences=self.memory.prompt_context(),
+                    on_progress=lambda event: self.store.emit(
+                        task_id, event["kind"], event["message"],
                         **{key: value for key, value in event.items() if key not in ("kind", "message")}
-                    )
+                    ),
                 )
             self.store.update(task_id, "completed", result=answer)
             self.store.emit(task_id, "message", answer)
