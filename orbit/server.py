@@ -197,7 +197,10 @@ def make_handler(app):
             if parsed.path == "/api/memory":
                 return self._json(200, {"memories": app.memory.get_all()})
             if parsed.path == "/api/history":
-                return self._json(200, {"history": app.store.recent_history(limit=40)})
+                return self._json(200, {
+                    "history": app.store.recent_history(limit=40),
+                    "images": app.store.recent_images(limit=20),
+                })
             if parsed.path == "/api/events":
                 params = parse_qs(parsed.query)
                 task_id = (params.get("task_id") or [""])[0]
