@@ -38,3 +38,33 @@ The workflow must be exported in API format and its node inputs must match the i
 
 ## Mature artwork
 The prompt can describe adult fictional characters, styling, pose, composition, and artistic anatomy. The actual image model and its configured restrictions determine what it will render. Do not assume that a model supports every degree of nudity or explicit sexual content. Never use the system for sexual imagery of minors or non-consensual intimate imagery.
+
+## Uploads, image search and vision
+
+Orbit's local browser UI also accepts uploads independently of image generation:
+- JPG/JPEG, PNG, WEBP and GIF images (including mature images) are stored locally and previewed in the private local interface.
+- PDF text extraction uses `pypdf`; DOCX, XLSX and PPTX text is extracted from their Open XML package; common text, code, JSON and CSV files are read as UTF-8.
+- ZIP, audio and video files can be uploaded and stored, but this release does not unpack archives or transcribe/decode audio/video.
+- Files are size-limited to 20 MB each. Uploads are data, never executable code.
+
+### Internet image search
+
+Set a Brave Search API token in the environment before starting Orbit:
+
+```bash
+export BRAVE_SEARCH_API_KEY=your_brave_search_api_token
+python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
+```
+
+The Image Search panel uses Brave's image index. Its mature-results toggle switches between `safesearch=off` and `safesearch=strict`. The provider may return mature results when filtering is off, but results are not guaranteed, and the provider may still block illegal material. Orbit shows thumbnails and links to the original source page; it does not claim ownership or bypass a source site's access controls. Check the source's licence and terms before reusing images. The search API requires its own key and account; it is not bundled and may have usage limits or cost.
+
+### Image understanding (optional)
+
+FirstGPT itself is currently text-only. To let Orbit inspect an uploaded image, configure an Ollama-compatible vision endpoint and a vision-capable model:
+
+```bash
+export ORBIT_VISION_URL=http://127.0.0.1:11434/api/generate
+export ORBIT_VISION_MODEL=llava
+```
+
+Restart Orbit, upload an image, and choose **Ask Orbit to analyse**. The endpoint/model must support image input. The vision adapter sends the image to that configured endpoint; if the endpoint is remote, the image leaves the device and is handled by that provider. Do not send private images to an endpoint you do not trust. A separate vision model is not FirstGPT's own learned vision ability, and mature-image interpretation depends on that model's own capabilities and restrictions.
