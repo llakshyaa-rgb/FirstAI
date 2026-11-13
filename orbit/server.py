@@ -100,6 +100,38 @@ class OrbitApplication:
         self._submit(self._chat_worker, task_id, message, attachments or [])
         return task_id
 
+    def retry_task(self, task_id):
+        task = self.store.get(task_id)
+        if not task:
+            raise KeyError(task_id)
+        if task["status"] not in {"failed", "interrupted", "needs_input"}:
+            raise ValueError("Only failed, interrupted or waiting tasks can be retried.")
+        goal = task["goal"]
+        if goal.startswith("Generate image: "):
+            prompt = goal.removeprefix("Generate image: ")
+            self.store.update(task_id, "queued", result=None, error=None)
+            self.store.emit(task_id, "queued", "Image task queued for another attempt.")
+            self._submit(self._image_worker, task_id, prompt, "", None)
+            return task_id
+        if goal.startswith("Design "):
+            requests = [event for event in self.store.events(task_id) if event["kind"] == "design_request"]
+            if requests:
+                details = requests[-1]["details"]
+                if not self.runtime.ready:
+                    raise RuntimeError("A trained FirstGPT checkpoint is required before retrying this design.")
+                self.store.update(task_id, "queued", result=None, error=None)
+                self.store.emit(task_id, "queued", "Design task queued for another attempt.")
+                self._launch_design(task_id, details["title"], details["brief"], details["format"], details["theme"])
+                return task_id
+        if not self.runtime.ready:
+            raise RuntimeError("A trained FirstGPT checkpoint is required before retrying this chat task.")
+        attachment_events = [event for event in self.store.events(task_id) if event["kind"] == "attachments"]
+        attachments = attachment_events[-1]["details"].get("file_ids", []) if attachment_events else []
+        self.store.update(task_id, "queued", result=None, error=None)
+        self.store.emit(task_id, "queued", "Chat task queued for another attempt.")
+        self._submit(self._chat_worker, task_id, goal, attachments)
+        return task_id
+
     def start_design(self, title, brief, file_format="pdf", theme="midnight"):
         task_id = self.store.create("Design " + file_format.upper() + ": " + title)
         self.store.emit(task_id, "design_request", "Design request saved for recovery.",
@@ -489,7 +521,7 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design"):
+            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -504,6 +536,12 @@ def make_handler(app):
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
                 if not isinstance(payload, dict):
                     return self._json(400, {"error": "Request body must be a JSON object"})
+                if route == "/api/tasks/retry":
+                    task_id = payload.get("task_id")
+                    if not isinstance(task_id, str) or not task_id:
+                        return self._json(400, {"error": "task_id is required"})
+                    task_id = app.retry_task(task_id)
+                    return self._json(202, {"task_id": task_id, "status": "queued"})
                 if route == "/api/design":
                     title = payload.get("title", "Orbit design")
                     brief = payload.get("brief", "")
