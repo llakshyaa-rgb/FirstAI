@@ -353,6 +353,7 @@ def make_handler(app):
                     "vision_configured": bool(os.environ.get("ORBIT_VISION_MODEL", "").strip()),
                     "vision_provider": os.environ.get("ORBIT_VISION_PROVIDER", "ollama"),
                     "agent_workers": max(1, min(4, int(os.environ.get("ORBIT_AGENT_WORKERS", "3")))),
+                    "task_workers": max(1, min(4, int(os.environ.get("ORBIT_TASK_WORKERS", "3")))),
                     "gpu_memory_fraction": app.runtime.gpu_memory_fraction,
                     "cpu_threads": app.runtime.cpu_threads,
                     "max_new_tokens": app.runtime.max_new_tokens,
