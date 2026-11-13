@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 
-def download_wikitext(output, config="wikitext-2-raw-v1", max_chars=1_000_000):
+def download_wikitext(output, config="wikitext-2-raw-v1", max_chars=5_000_000):
     try:
         from datasets import load_dataset
     except ImportError as exc:
@@ -77,8 +77,8 @@ def main():
     parser = argparse.ArgumentParser(description="Download open text and instruction datasets without manual uploads.")
     parser.add_argument("--wikitext-out", default="data/wikitext_train.txt")
     parser.add_argument("--wikitext-config", choices=("wikitext-2-raw-v1", "wikitext-103-raw-v1"),
-                        default="wikitext-2-raw-v1")
-    parser.add_argument("--max-chars", type=int, default=1_000_000)
+                        default="wikitext-103-raw-v1")
+    parser.add_argument("--max-chars", type=int, default=5_000_000)
     parser.add_argument("--instructions-out", default="data/orbit_instructions_full.jsonl")
     parser.add_argument("--max-instructions", type=int, default=15_000)
     parser.add_argument("--extra-instructions", default="data/orbit_instructions.example.jsonl")
