@@ -59,8 +59,8 @@ async function health(){
     if(d.status!=="ready")bubble("orbit","The chat interface is running, but no trained checkpoint is loaded. "+(d.model_error||""));
   }catch{presence.textContent="Connection unavailable";}
 }
-async function follow(taskId){
-  let after=0,finished=false;
+async function follow(taskId,afterStart=0){
+  let after=afterStart,finished=false,finalStatus="";
   while(!finished){
     const r=await fetch("/api/events?task_id="+encodeURIComponent(taskId)+"&after="+after);
     if(!r.ok)throw new Error("Lost connection while checking task progress.");
@@ -104,9 +104,24 @@ async function follow(taskId){
       }
       else if(event.kind==="method_failed"||event.kind==="status")bubble("orbit",event.message,"status");
     }
-    const status=d.task.status;
+    const status=d.task.status;finalStatus=status;
     if(["completed","failed","needs_input","interrupted"].includes(status))finished=true;
     else await new Promise(resolve=>setTimeout(resolve,650));
+  }
+  if(["failed","needs_input","interrupted"].includes(finalStatus)){
+    const node=document.createElement("article");node.className="bubble orbit task-retry";
+    const label=document.createElement("strong");label.textContent="Task stopped";
+    const p=document.createElement("p");p.textContent="The task state is preserved. Orbit can retry it using the same request.";
+    const retry=document.createElement("button");retry.type="button";retry.textContent="Retry task";
+    retry.addEventListener("click",async()=>{
+      retry.disabled=true;retry.textContent="Retrying…";
+      try{
+        const r=await fetch("/api/tasks/retry",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({task_id:taskId})});
+        const d=await r.json();if(!r.ok)throw new Error(d.error||"Retry request failed");
+        await follow(taskId,after);
+      }catch(err){p.textContent="Retry could not start: "+err.message;retry.disabled=false;retry.textContent="Retry task";}
+    });
+    node.append(label,p,retry);conversation.append(node);conversation.scrollTop=conversation.scrollHeight;
   }
 }
 form.addEventListener("submit",async e=>{
