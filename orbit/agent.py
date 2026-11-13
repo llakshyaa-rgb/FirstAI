@@ -7,6 +7,7 @@ from __future__ import annotations
 import re
 import hashlib
 from .local_tools import WorkspaceTools, safe_calculate
+from .tools import ToolRegistry
 
 
 class LocalAgent:
@@ -14,6 +15,15 @@ class LocalAgent:
         self.workspace = WorkspaceTools(workspace)
         self.progress = progress or (lambda message, **details: None)
         self.memory = memory
+        self.registry = ToolRegistry()
+        self.registry.register("calculate", "Evaluate restricted arithmetic", safe_calculate, requires_confirmation=False)
+        self.registry.register("list_files", "List visible workspace files", self.workspace.list_files, requires_confirmation=False)
+        self.registry.register("read_file", "Read a UTF-8 workspace file", self.workspace.read_file, requires_confirmation=False)
+        self.registry.register("search_files", "Search visible workspace text", self.workspace.search_files, requires_confirmation=False)
+        self.registry.register("create_file", "Create a new workspace file", self.workspace.create_file)
+        self.registry.register("update_file", "Update a workspace file after backing it up", self.workspace.update_file)
+        self.registry.register("run_tests", "Run the repository unit tests", self.workspace.run_project_tests)
+        self.registry.register("compile_project", "Compile-check project modules", self.workspace.compile_project)
 
     def try_execute(self, message):
         text = message.strip()
@@ -50,12 +60,12 @@ class LocalAgent:
         if match and re.search(r"\d", match.group(1)) and re.fullmatch(r"[\d\s()+\-*/%.^]+", match.group(1)):
             expression = match.group(1).replace("^", "**")
             self.progress("I'll calculate that directly.")
-            result = safe_calculate(expression)
+            result = self.registry.call("calculate", {"expression": expression})
             return f"{expression} = {result}"
 
         if lower in {"list files", "show files", "list project files", "show project files"}:
             self.progress("I'll inspect the project workspace.")
-            items = self.workspace.list_files(".")
+            items = self.registry.call("list_files", {"relative": "."})
             return "Project files:\n" + ("\n".join(
                 ("[dir] " if item["type"] == "directory" else "[file] ") + item["name"]
                 for item in items
@@ -65,14 +75,14 @@ class LocalAgent:
         if match:
             relative, content = match.group(1).strip(), match.group(2)
             self.progress(f"I'll create {relative} inside the workspace.")
-            result = self.workspace.create_file(relative, content)
+            result = self.registry.call("create_file", {"relative": relative, "content": content}, confirmed=True)
             return f"Created {result['path']} ({result['bytes']:,} bytes)."
 
         match = re.match(r"^update\s+file:\s*([^\n]+)\n([\s\S]+)$", text, re.I)
         if match:
             relative, content = match.group(1).strip(), match.group(2)
             self.progress(f"I'll update {relative}; the previous version will be backed up first.")
-            result = self.workspace.update_file(relative, content)
+            result = self.registry.call("update_file", {"relative": relative, "content": content}, confirmed=True)
             backup = result["backup"] or "no backup was needed"
             return f"Updated {result['path']} ({result['bytes']:,} bytes). Backup: {backup}."
 
@@ -80,14 +90,14 @@ class LocalAgent:
         if match:
             relative = match.group(1)
             self.progress(f"I'll read {relative}.")
-            content = self.workspace.read_file(relative)
+            content = self.registry.call("read_file", {"relative": relative})
             return content[:16000] + ("\n[Output truncated at 16,000 characters.]" if len(content) > 16000 else "")
 
         match = re.match(r"^(?:search|find)\s+(?:the\s+)?project\s+for\s+(.+?)\s*$", text, re.I)
         if match:
             query = match.group(1).strip('"\' ')
             self.progress(f"I'll search the workspace for {query!r}.")
-            matches = self.workspace.search_files(query)
+            matches = self.registry.call("search_files", {"query": query})
             if not matches:
                 return f"I couldn't find {query!r} in the visible project files."
             return "Matches:\n" + "\n".join(
@@ -96,13 +106,13 @@ class LocalAgent:
 
         if lower in {"run tests", "run the tests", "test the project", "run project tests"}:
             self.progress("I'll run the repository's unittest suite.")
-            result = self.workspace.run_project_tests()
+            result = self.registry.call("run_tests", confirmed=True)
             status = "passed" if result["passed"] else "failed"
             return f"Project tests {status} (exit {result['returncode']}).\n{result['output']}"
 
         if lower in {"check syntax", "compile project", "check project syntax"}:
             self.progress("I'll compile-check the project modules.")
-            result = self.workspace.compile_project()
+            result = self.registry.call("compile_project", confirmed=True)
             status = "passed" if result["passed"] else "failed"
             return f"Project compile check {status} (exit {result['returncode']}).\n{result['output']}"
 
