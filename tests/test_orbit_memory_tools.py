@@ -3,6 +3,8 @@ import unittest
 from pathlib import Path
 from orbit.memory import MemoryStore
 from orbit.tools import ToolRegistry
+from orbit.agent import LocalAgent
+from unittest.mock import patch
 
 class MemoryTests(unittest.TestCase):
     def test_memory_persists_and_deletes(self):
@@ -17,6 +19,15 @@ class MemoryTests(unittest.TestCase):
             store=MemoryStore(Path(tmp)/"memory.db")
             with self.assertRaises(ValueError):store.set("", "x")
             with self.assertRaises(ValueError):store.set("x", "a"*4001)
+
+class AgentFallbackTests(unittest.TestCase):
+    def test_web_search_failure_falls_back_without_ending_task(self):
+        events = []
+        with patch("orbit.agent.search_web", side_effect=RuntimeError("missing key")):
+            agent = LocalAgent(progress=lambda message, **details: events.append((message, details)))
+            result = agent.try_execute("search web for recent transformer research")
+        self.assertIsNone(result)
+        self.assertTrue(any(item[1].get("kind") == "method_failed" for item in events))
 
 class ToolTests(unittest.TestCase):
     def test_confirmation_gate(self):
