@@ -35,3 +35,20 @@ footer{text-align:center;padding:14px 0 0}
 .generated-image{display:block;max-width:min(100%,560px);max-height:70vh;object-fit:contain;margin-top:9px;border-radius:10px}
 
 .bubble.partial{border-color:#526577;background:#18222c;color:#dce7f0;min-height:36px}
+
+.media-panel{margin:0 0 12px;padding:10px 12px;border:1px solid #293541;border-radius:12px;color:#c8d2dc}
+.media-panel summary{cursor:pointer;font-size:13px;color:#b8c8d7}
+.media-form{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border:0;padding:9px 0}
+.media-form input[type=file],.media-form input[type=search]{min-width:0;flex:1;padding:9px;border-radius:8px;border:1px solid #34404c;background:#121922;color:#eef3f8}
+.media-form button{padding:10px 13px}
+.media-note,.mature-toggle{font-size:11px;color:#8d9aa8}
+.mature-toggle{display:flex;gap:7px;align-items:center}
+.upload-card,.search-card{border:1px solid #2b3540;border-radius:10px;padding:9px;margin:8px 0;min-width:0}
+.upload-card strong{font-size:12px;overflow-wrap:anywhere}
+.uploaded-image{display:block;max-width:100%;max-height:360px;object-fit:contain;margin-top:8px;border-radius:8px}
+.upload-card pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:220px;overflow:auto;font-size:11px;color:#b9c6d2}
+.image-results{display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;margin-top:10px}
+.search-card{margin:0;position:relative}
+.search-card img{width:100%;height:125px;object-fit:cover;border-radius:7px}
+.search-card p{font-size:11px;margin:5px 0;overflow-wrap:anywhere}
+.search-card small{font-size:10px;color:#8d9aa8}
