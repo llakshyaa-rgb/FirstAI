@@ -135,7 +135,7 @@ class AgentTeam:
 
         self.progress(
             "Coordinator assigned " + ", ".join(item.name for item in selected) +
-            " specialist agent(s). Independent work is running in parallel."
+            " specialist agent(s). Independent work runs concurrently where possible."
         )
         results = []
         with ThreadPoolExecutor(max_workers=min(self.max_workers, len(selected)),
