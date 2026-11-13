@@ -72,7 +72,8 @@ class OrbitRuntime:
                 token = int(next_id.item())
                 generated.append(token)
                 input_ids = torch.cat((input_ids, next_id), dim=1)
-                if token in (10, 13):
+                decoded_so_far = self.tokenizer.decode(generated)
+                if token in (10, 13) or "\n" in decoded_so_far:
                     break
                 if on_progress and (index + 1) % 8 == 0:
                     partial = self.tokenizer.decode(generated).strip()
@@ -82,7 +83,7 @@ class OrbitRuntime:
                         "tokens_generated": index + 1,
                         "strategy": mode,
                     })
-        return self.tokenizer.decode(generated).strip()
+        return self.tokenizer.decode(generated).split("\\n", 1)[0].strip()
 
     def _build_prompt_ids(self, message, history=None, owner_preferences=None):
         """Budget context deliberately: current owner request always has priority."""
