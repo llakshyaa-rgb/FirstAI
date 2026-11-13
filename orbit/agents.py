@@ -25,9 +25,13 @@ SPECIALISTS = (
                ("research", "search the web", "search web", "look up", "latest", "current", "sources", "fact check"), "web_search"),
     Specialist("image_researcher", "Find existing image references and return source links",
                ("image_search", "image", "picture", "photo"), "image_search"),
-    Specialist("code_scout", "Map relevant source files, definitions, dependencies and call sites",
+    Specialist("code_scout", "Map project files, imports, definitions and entrypoints",
                ("project", "repository", "repo", "codebase", "workspace", "file", "code", "bug", "error",
-                "build", "implement", "create", "add", "fix", "debug", "modify", "refactor", "integrate"), "search_files"),
+                "build", "implement", "create", "add", "fix", "debug", "modify", "refactor", "integrate"), "inspect_project"),
+    Specialist("debugger", "Trace likely fault locations and related references",
+               ("bug", "error", "debug", "crash", "broken", "fails", "failure", "exception"), "search_files"),
+    Specialist("code_reviewer", "Inspect implementation patterns and potential regression surfaces",
+               ("review", "refactor", "security", "performance", "architecture"), "search_files"),
     Specialist("analyst", "Handle calculations, data checks and explicit numerical reasoning",
                ("calculate", "compute", "equation", "percentage", "average", "total", "compare", "estimate"), "calculate"),
     Specialist("verifier", "Run compile and test checks only when explicitly requested",
@@ -92,12 +96,16 @@ class AgentTeam:
         if specialist.tool_name == "image_search":
             explicit_mature = any(term in message.casefold() for term in ("mature", "adult", "nsfw", "18+"))
             return search_web_images(query, count=8, safesearch="off" if explicit_mature else "strict")
-        if specialist.tool_name == "search_files":
-            files = self.registry.call("list_files", {"relative": "."})
-            matches = self.registry.call("search_files", {"query": query})
-            return {"project_files": files[:120], "matching_lines": matches[:80],
+        if specialist.tool_name == "inspect_project":
+            overview = self.registry.call("inspect_project", {"relative": ".", "max_files": 80})
+            matches = self.registry.call("search_files", {"query": query}) if query else []
+            return {"architecture": overview, "matching_lines": matches[:80],
                     "search_term": query,
-                    "guidance": "Map call sites and dependencies before edits; prefer minimal targeted patches."}
+                    "guidance": "Identify entrypoints, dependencies, definitions and affected call sites before proposing a targeted change."}
+        if specialist.tool_name == "search_files":
+            matches = self.registry.call("search_files", {"query": query})
+            return {"matching_lines": matches[:100], "search_term": query,
+                    "guidance": "Trace the relevant call path and inspect surrounding definitions before proposing a fix."}
         if specialist.tool_name == "compile_project":
             compiled = self.registry.call("compile_project", confirmed=True)
             if not compiled.get("passed"):
@@ -118,6 +126,8 @@ class AgentTeam:
                 (specialist.name == "researcher" and ("research" in requested or any(x in lower for x in ("research", "search the web", "search web", "look up", "latest", "current", "fact check"))))
                 or (specialist.name == "image_researcher" and "image_search" in requested)
                 or (specialist.name == "code_scout" and ("coding" in requested or "code_scout" in requested))
+                or (specialist.name == "debugger" and ("coding" in requested or any(x in lower for x in ("bug", "error", "debug", "crash", "fails", "failure", "exception"))))
+                or (specialist.name == "code_reviewer" and ("coding" in requested and any(x in lower for x in ("review", "refactor", "security", "performance", "architecture"))))
                 or (specialist.name == "analyst" and ("analysis" in requested or any(x in lower for x in ("calculate", "compute", "equation", "percentage", "average", "total")) and any(ch.isdigit() for ch in text)))
                 or (specialist.name == "verifier" and ("verification" in requested or any(x in lower for x in ("verify project", "validate project", "run project tests", "test the project"))))
             )
