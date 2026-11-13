@@ -84,6 +84,15 @@ class OrbitApplication:
         route = classify_request(message)
         # Artifacts and generated images are still submitted from the same chat box.
         if route["kind"] == "image_generation":
+            backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
+            if backend_kind == "diffusers" and find_spec("diffusers") is None:
+                raise RuntimeError("Diffusers is not installed. Install requirements-image.txt or configure ComfyUI.")
+            if backend_kind == "comfyui":
+                workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
+                if not workflow_path or not Path(workflow_path).is_file():
+                    raise RuntimeError("Image generation is not configured. Configure ComfyUI or enable the Diffusers backend.")
+            elif backend_kind != "diffusers":
+                raise ValueError("ORBIT_IMAGE_BACKEND must be comfyui or diffusers.")
             return self.start_image(message)
         task_id = self.store.create(message)
         if attachments:
@@ -557,45 +566,6 @@ def make_handler(app):
                     return self._json(400, {"error": "message must be a non-empty string"})
                 if not isinstance(attachments, list) or len(attachments) > 5 or any(not isinstance(x, str) for x in attachments):
                     return self._json(400, {"error": "attachments must be a list of up to five uploaded file IDs"})
-                # Explicit document/design requests from the main composer become real artifact jobs.
-                design_match = re.match(
-                    r"^(?:create|make|design|build)\s+(?:me\s+)?(?:a\s+)?"
-                    r"(pdf|docx|word document|presentation|powerpoint|pptx|spreadsheet|excel|xlsx|csv|json|web page|website|html|poster|svg|markdown document|md)"
-                    r"\b\s*(?:(?:about|on|for)\s+|:\s*)?(.*)$",
-                    message.strip(), re.I | re.S,
-                )
-                if design_match and not attachments:
-                    format_map = {
-                        "word document": "docx", "presentation": "pptx", "powerpoint": "pptx",
-                        "spreadsheet": "xlsx", "excel": "xlsx", "web page": "html",
-                        "website": "html", "poster": "svg", "markdown document": "md",
-                    }
-                    requested_format = format_map.get(design_match.group(1).lower(), design_match.group(1).lower())
-                    brief = design_match.group(2).strip()
-                    if not brief:
-                        return self._json(400, {"error": "Tell Orbit what the " + requested_format.upper() + " should contain."})
-                    if not app.runtime.ready:
-                        return self._json(503, {"error": "The design studio needs a trained FirstGPT checkpoint. Open Creative Studio after loading one."})
-                    title = brief[:70].strip(" .:-") or "Orbit design"
-                    task_id = app.start_design(title, brief, requested_format, "midnight")
-                    return self._json(202, {"task_id": task_id, "status": "queued"})
-                # Image requests can be issued naturally from the main chat composer.
-                image_match = re.match(r"^(?:create|generate|make) image\s*:\s*(.+)$", message.strip(), re.I | re.S)
-                if image_match and not attachments:
-                    image_prompt = image_match.group(1).strip()
-                    if len(image_prompt) > 5000:
-                        return self._json(400, {"error": "Image prompt must be no longer than 5000 characters."})
-                    backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
-                    if backend_kind == "diffusers" and find_spec("diffusers") is None:
-                        return self._json(503, {"error": "Diffusers is not installed. Run pip install -r requirements-image.txt."})
-                    if backend_kind == "comfyui":
-                        workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
-                        if not workflow_path or not Path(workflow_path).is_file():
-                            return self._json(503, {"error": "ComfyUI workflow is not configured. Configure ComfyUI or enable the Diffusers backend."})
-                    elif backend_kind != "diffusers":
-                        return self._json(400, {"error": "ORBIT_IMAGE_BACKEND must be comfyui or diffusers."})
-                    task_id = app.start_image(image_prompt)
-                    return self._json(202, {"task_id": task_id, "status": "queued"})
                 # Deterministic local tools remain available even before a language checkpoint is trained.
                 task_id = app.start_chat(message.strip(), attachments)
                 return self._json(202, {"task_id": task_id, "status": "queued"})
