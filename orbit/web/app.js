@@ -7,6 +7,18 @@ const device=document.querySelector("#device");
 let busy=false;
 let livePartial=null;
 let modelReady=false;
+let pendingAttachments=[];
+const attachmentQueue=document.querySelector("#attachment-queue");
+function renderAttachmentQueue(){
+  if(!attachmentQueue)return;
+  attachmentQueue.textContent="";
+  for(const item of pendingAttachments){
+    const chip=document.createElement("span");chip.className="attachment-chip";chip.textContent=item.name+" ";
+    const remove=document.createElement("button");remove.type="button";remove.textContent="×";remove.setAttribute("aria-label","Remove "+item.name);
+    remove.addEventListener("click",()=>{pendingAttachments=pendingAttachments.filter(x=>x.id!==item.id);renderAttachmentQueue();});
+    chip.append(remove);attachmentQueue.append(chip);
+  }
+}
 function bubble(role,text,kind=""){
   const node=document.createElement("article");
   node.className="bubble "+role+(kind?" "+kind:"");
@@ -62,8 +74,9 @@ form.addEventListener("submit",async e=>{
   livePartial=null;
   bubble("user",message);input.value="";busy=true;send.disabled=true;presence.textContent="Personal AI · Working";
   try{
-    const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message})});
+    const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,attachments:pendingAttachments.map(x=>x.id)})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");
+    pendingAttachments=[];renderAttachmentQueue();
     await follow(d.task_id);
   }catch(err){bubble("orbit","I couldn't complete that request: "+err.message);}
   finally{busy=false;send.disabled=false;presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";input.focus();}
@@ -177,7 +190,13 @@ uploadForm?.addEventListener("submit",async e=>{
         const details=document.createElement("details");const summary=document.createElement("summary");summary.textContent="Extracted text preview";
         const pre=document.createElement("pre");pre.textContent=item.text.slice(0,3000);details.append(summary,pre);card.append(details);
       }
-      uploadResults.prepend(card);bubble("user","Attached "+item.name+" ("+item.category+").");
+      const attach=document.createElement("button");attach.type="button";attach.textContent="Attach to next chat";
+      attach.addEventListener("click",()=>{
+        if(pendingAttachments.length>=5){bubble("orbit","A maximum of five files can be attached to one message.","status");return;}
+        if(!pendingAttachments.some(x=>x.id===item.id)){pendingAttachments.push({id:item.id,name:item.name});renderAttachmentQueue();}
+      });
+      card.append(attach);
+      uploadResults.prepend(card);bubble("user","Stored "+item.name+" ("+item.category+").");
     }
     fileInput.value="";
   }catch(err){bubble("orbit","I couldn't attach those files: "+err.message,"status");}
@@ -233,7 +252,12 @@ async function restoreUploads(){
           finally{analyze.disabled=false;}
         });card.append(analyze);
       }
-      uploadResults.append(card);
+      const attach=document.createElement("button");attach.type="button";attach.textContent="Attach to next chat";
+      attach.addEventListener("click",()=>{
+        if(pendingAttachments.length>=5){bubble("orbit","A maximum of five files can be attached to one message.","status");return;}
+        if(!pendingAttachments.some(x=>x.id===item.id)){pendingAttachments.push({id:item.id,name:item.name});renderAttachmentQueue();}
+      });
+      card.append(attach);uploadResults.append(card);
     }
   }catch{}
 }
