@@ -9,8 +9,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import os
 import re
-import threading
-import time
 
 
 @dataclass(frozen=True)
@@ -41,7 +39,6 @@ class AgentTeam:
         self.progress = progress or (lambda message, **details: None)
         requested = int(max_workers or os.environ.get("ORBIT_AGENT_WORKERS", "3"))
         self.max_workers = max(1, min(4, requested))
-        self._lock = threading.Lock()
 
     @staticmethod
     def _query_for(name, message):
