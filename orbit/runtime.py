@@ -96,11 +96,11 @@ class OrbitRuntime:
     def ready(self):
         return self.model is not None and self.tokenizer is not None
 
-    def _generate_once(self, prompt_ids, mode, on_progress=None):
+    def _generate_once(self, prompt_ids, mode, on_progress=None, max_new_tokens=None):
         input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=self.device)
         generated = []
         with torch.inference_mode():
-            for index in range(self.max_new_tokens):
+            for index in range(self.max_new_tokens if max_new_tokens is None else max(1, min(1024, int(max_new_tokens)))):
                 context = input_ids[:, -self.model.config.block_size:]
                 with torch.autocast(
                     device_type="cuda", dtype=self._amp_dtype, enabled=self._amp_enabled
@@ -189,7 +189,7 @@ class OrbitRuntime:
             except Exception:
                 return ""
 
-    def reply(self, message, history=None, owner_preferences=None, on_progress=None):
+    def reply(self, message, history=None, owner_preferences=None, on_progress=None, max_new_tokens=None):
         if not self.ready:
             raise ModelNotReady(self.load_error or "No trained checkpoint is loaded.")
         if not isinstance(message, str) or not message.strip():
@@ -199,7 +199,7 @@ class OrbitRuntime:
         with self._lock:
             first_error = None
             try:
-                answer = self._generate_once(prompt_ids, "greedy", on_progress)
+                answer = self._generate_once(prompt_ids, "greedy", on_progress, max_new_tokens)
                 if answer:
                     return answer
                 first_error = "The first decoding strategy returned an empty response."
@@ -234,7 +234,7 @@ class OrbitRuntime:
                     "strategy": "sample",
                 })
             try:
-                answer = self._generate_once(prompt_ids, "sample", on_progress)
+                answer = self._generate_once(prompt_ids, "sample", on_progress, max_new_tokens)
                 if answer:
                     return answer
                 raise RuntimeError("The alternate decoding strategy also returned an empty response.")
