@@ -21,10 +21,10 @@ from xml.etree import ElementTree
 ROOT = Path(__file__).resolve().parent
 UPLOAD_DIR = ROOT / "uploads"
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".avif"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".avif", ".heic", ".heif"}
 TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".jsonl", ".xml", ".html", ".htm", ".py", ".js", ".ts", ".tsx", ".jsx", ".css", ".sql", ".yaml", ".yml", ".toml", ".ini", ".log"}
 DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx"}
-MEDIA_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".mp4", ".mov", ".webm", ".mkv"}
+MEDIA_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".aiff", ".aif", ".opus", ".amr", ".wma", ".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".3gp", ".mpeg", ".mpg", ".wmv", ".flv", ".ts"}
 ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS | TEXT_EXTENSIONS | DOCUMENT_EXTENSIONS | MEDIA_EXTENSIONS | {".zip"}
 
 def _safe_name(name: str) -> str:
@@ -40,6 +40,7 @@ def _image_signature(data: bytes, ext: str) -> bool:
     if ext == ".bmp": return data.startswith(b"BM")
     if ext in {".tif", ".tiff"}: return data.startswith((b"II*\x00", b"MM\x00*"))
     if ext == ".avif": return len(data) >= 12 and data[4:8] == b"ftyp" and b"avif" in data[8:16]
+    if ext in {".heic", ".heif"}: return len(data) >= 12 and data[4:8] == b"ftyp" and any(tag in data[8:32] for tag in (b"heic", b"heix", b"mif1", b"msf1"))
     return True
 
 def parse_multipart(content_type: str, body: bytes):
