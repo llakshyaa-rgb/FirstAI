@@ -196,7 +196,7 @@ Examples you can send in the local chat:
 
 Preferences are saved explicitly in the local SQLite memory store and included as context in later model conversations. This is deliberate preference memory, not automatic recording of every private conversation.
 
-The chat now restores saved text history and displays partial generated text while the model is responding. Context budgeting prioritizes the newest owner request over older history and preferences.
+The chat now restores saved text history and displays partial generated text while the model is responding. Generation preserves multi-line responses instead of stopping at the first newline. Context budgeting prioritizes the newest owner request over older history and preferences.
 
 ### Download open training data without uploads
 
@@ -255,10 +255,30 @@ FirstGPT's current checkpoint remains text-only, but Orbit can now read image pi
 
 Image generation remains separate: configure ComfyUI and an image checkpoint as described in [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
 
+### Public website browser
+
+Orbit includes an optional Playwright browser adapter. Install it with:
+
+```bash
+pip install -r requirements-browser.txt
+python -m playwright install chromium
+```
+
+Explicit browser commands in Orbit's local chat:
+
+- `open website: https://example.com` — navigate and read visible page text.
+- `read website` — read the currently open page.
+- `fill website: input[name=q]` followed by the text on the next line — fill a field without submitting it.
+- `click website: text=Continue` — click the selector you explicitly specify; this can change website state.
+
+The browser is optional and starts only when used. It restricts navigation and page requests to public HTTP(S) addresses and blocks localhost/private-network destinations. It does not bypass logins, CAPTCHAs, paywalls, website restrictions, or account permissions. Form submission, purchases, and other consequential website actions are not automated.
+
+The Colab notebook includes an optional browser installation cell. When the separate Ollama vision model is enabled, the Orbit PyTorch CUDA allocator ceiling is lowered to 60% to leave more VRAM headroom; otherwise it remains 86%. This is a memory-allocation ceiling, not a GPU-utilisation target.
+
 ### Capability and safety note
 
 The identity blueprint supports natural, nonjudgmental discussion of mature topics within applicable boundaries. The local image adapter does not bundle an image model; its output depends on the separately configured ComfyUI model and workflow.
 
 ## Scope and limitations
 
-The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. The instruction-tuning pipeline and image-studio adapter/UI are implemented, but the included tuning examples are only a tiny demo. The optional open-corpus and Dolly instruction-data pipeline is implemented but must still be run on a GPU. Local deterministic tools are available, but open-ended general-purpose tool planning and execution remain future engineering work; the current model planner is deliberately limited to validated read-only tools. Native vision training inside FirstGPT, full audio/video comprehension, robust recovery across every external service, and extensive end-to-end testing also remain future work. Orbit's connected vision and optional media-processing adapters require their respective external/local backends. Orbit is currently a local prototype, not an always-on service.
+The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. The instruction-tuning pipeline and image-studio adapter/UI are implemented, but the included tuning examples are only a tiny demo. The optional open-corpus and Dolly instruction-data pipeline is implemented but must still be run on a GPU. Local deterministic tools are available, but open-ended general-purpose tool planning and execution remain future engineering work; the current model planner is deliberately limited to validated read-only tools. Public-site browser commands are available through the optional Playwright adapter, but they are explicit selector-based actions rather than autonomous account workflows. Native vision training inside FirstGPT, full audio/video comprehension, robust recovery across every external service, and extensive end-to-end testing also remain future work. Orbit's connected vision and optional media-processing adapters require their respective external/local backends. Orbit is currently a local prototype, not an always-on service.
