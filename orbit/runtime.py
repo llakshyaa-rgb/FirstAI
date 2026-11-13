@@ -133,7 +133,7 @@ class OrbitRuntime:
             "You are Orbit's tool planner. Decide whether a listed read-only tool is needed. "
             "Return exactly one JSON object on one line with schema "
             '{"steps":[{"tool":"tool_name","arguments":{}}]}. '
-            "Use one to five steps. If no listed tool is needed, return {\"steps":[]}. "
+            "Use one to five steps. If no listed tool is needed, return a JSON object with an empty steps array. "
             "Never invent tools or arguments. Owner request: " + str(message)[:3000] +
             " Available tools: " + str(safe) + "\nJSON:"
         )
