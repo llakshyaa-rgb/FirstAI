@@ -31,6 +31,8 @@ def _vision_image_bytes(path: Path):
         if suffix in {".heic", ".heif"}:
             import pillow_heif
             pillow_heif.register_heif_opener()
+        if suffix == ".avif":
+            import pillow_avif
         from PIL import Image
     except ImportError as exc:
         raise RuntimeError("This image format needs Pillow conversion support. Install requirements-media.txt for HEIC/HEIF/AVIF and other image conversion.") from exc
