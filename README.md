@@ -182,7 +182,7 @@ By default it downloads up to 1 million characters from WikiText-2 for base lang
 Train a fresh base checkpoint and then instruction-tune it:
 
 ```bash
-python train.py --data data/wikitext_train.txt --out checkpoints/firstgpt-wikitext.pt --steps 2000 --block-size 256 --batch-size 8 --grad-accum-steps 2 --amp
+python train.py --data data/wikitext_train.txt --out checkpoints/firstgpt-wikitext.pt --steps 2000 --block-size 256 --layers 6 --heads 8 --width 256 --batch-size 8 --grad-accum-steps 2 --amp
 python finetune_instructions.py --checkpoint checkpoints/firstgpt-wikitext.best.pt --data data/orbit_instructions_full.jsonl --out checkpoints/orbit-instruct.pt --steps 1000 --batch-size 8
 ```
 
