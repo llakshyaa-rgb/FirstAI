@@ -33,6 +33,14 @@ class ComfyUIImageBackend:
             raise ImageBackendError(f"Image backend request failed: {exc}") from exc
         return raw, content_type
 
+    def health(self):
+        """Return ComfyUI system information or raise ImageBackendError."""
+        raw, _ = self._request("/system_stats")
+        try:
+            return json.loads(raw.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise ImageBackendError("Image backend health response was not valid JSON") from exc
+
     def submit(self, workflow, client_id=None):
         if not isinstance(workflow, dict) or not workflow:
             raise ValueError("A non-empty ComfyUI API workflow dictionary is required")
@@ -48,7 +56,7 @@ class ComfyUIImageBackend:
             raise ImageBackendError(f"Image backend did not return prompt_id: {result}")
         return result["prompt_id"]
 
-    def wait(self, prompt_id, poll_interval=2.0, timeout=600):
+    def wait(self, prompt_id, poll_interval=2.0, timeout=600, on_progress=None):
         if poll_interval <= 0 or timeout <= 0:
             raise ValueError("poll_interval and timeout must be positive")
         deadline = time.monotonic() + timeout
@@ -57,6 +65,8 @@ class ComfyUIImageBackend:
             raw, _ = self._request("/history/" + quoted)
             history = json.loads(raw.decode("utf-8"))
             item = history.get(str(prompt_id))
+            if on_progress:
+                on_progress({"kind": "status", "message": "The image model is rendering the requested artwork."})
             if item and item.get("outputs"):
                 images = []
                 for node_id, output in item["outputs"].items():
@@ -75,7 +85,10 @@ class ComfyUIImageBackend:
         raw, content_type = self._request("/view?" + query, method="GET")
         return raw, content_type
 
-    def generate(self, workflow, poll_interval=2.0, timeout=600):
+    def generate(self, workflow, poll_interval=2.0, timeout=600, on_progress=None):
         prompt_id = self.submit(workflow)
-        images = self.wait(prompt_id, poll_interval=poll_interval, timeout=timeout)
+        if on_progress:
+            on_progress({"kind": "status", "message": "The image request was accepted by ComfyUI."})
+        images = self.wait(prompt_id, poll_interval=poll_interval, timeout=timeout,
+                           on_progress=on_progress)
         return [{"info": item, "content": self.download(item)[0]} for item in images]
