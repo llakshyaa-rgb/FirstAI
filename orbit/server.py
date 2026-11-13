@@ -22,6 +22,7 @@ from .image_workflow import load_workflow_template
 from .agent import LocalAgent
 from .media import parse_multipart, save_upload, list_uploads, get_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
 from .vision import describe_image
+from .media_processing import process_upload
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -131,20 +132,16 @@ class OrbitApplication:
             for file_id in (attachments or [])[:5]:
                 try:
                     item = get_upload(file_id)
-                    if item.get("category") == "image":
-                        self.store.emit(task_id, "status", "Inspecting image: " + item["name"])
-                        try:
-                            description = describe_image(file_id, "Describe visible contents, objects, text, layout and relevant details. Distinguish observations from guesses.")
-                            context_parts.append("Image " + item["name"] + " analysis:\n" + description)
-                        except Exception as vision_error:
-                            self.store.emit(task_id, "method_failed", "I received " + item["name"] + ", but image analysis failed (" + type(vision_error).__name__ + ": " + str(vision_error) + "). I'll continue with the rest of the request.")
-                            context_parts.append("Image " + item["name"] + " was received but its pixels could not be analysed.")
-                    elif item.get("text"):
-                        context_parts.append("File " + item["name"] + " extracted text:\n" + item["text"][:30000])
-                    else:
-                        context_parts.append("File " + item["name"] + " was attached, but no parser is configured for its contents.")
+                    self.store.emit(task_id, "status", "Processing attachment: " + item["name"])
+                    try:
+                        processed = process_upload(file_id, "User request: " + message + "\nAnalyse this attachment and extract the details relevant to the request.")
+                        context_parts.append(processed["kind"].capitalize() + " " + processed["name"] + " analysis:\n" + processed["content"][:30000])
+                    except Exception as processing_error:
+                        self.store.emit(task_id, "method_failed", "I received " + item["name"] + ", but its content-processing method failed (" + type(processing_error).__name__ + ": " + str(processing_error) + "). I'll continue with the rest of the request.")
+                        if item.get("text"):
+                            context_parts.append("Readable text from " + item["name"] + ":\n" + item["text"][:30000])
                 except Exception as attachment_error:
-                    self.store.emit(task_id, "method_failed", "I couldn't process one attachment: " + type(attachment_error).__name__ + ": " + str(attachment_error) + ". I'll continue.")
+                    self.store.emit(task_id, "method_failed", "I couldn't open one attachment: " + type(attachment_error).__name__ + ": " + str(attachment_error) + ". I'll continue.")
             if context_parts:
                 message = message + "\n\nAttached material:\n" + "\n\n".join(context_parts)
             # Run only narrowly matched, deterministic local utility intents.
@@ -323,7 +320,8 @@ def make_handler(app):
                     prompt = payload.get("prompt", "Describe this image in detail.")
                     if not isinstance(file_id, str) or not isinstance(prompt, str):
                         return self._json(400, {"error": "file_id and prompt must be text"})
-                    return self._json(200, {"description": describe_image(file_id, prompt)})
+                    processed = process_upload(file_id, prompt)
+                    return self._json(200, {"description": processed["content"], "kind": processed["kind"], "name": processed["name"]})
                 if route == "/api/memory":
                     key, value = payload.get("key"), payload.get("value")
                     app.memory.set(key, value)
