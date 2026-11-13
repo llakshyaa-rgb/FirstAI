@@ -25,6 +25,7 @@ from .vision import describe_image
 from .media_processing import process_upload
 from .planner import execute_tool_plan
 from .agents import AgentTeam
+from .browser import BrowserTools
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -33,6 +34,7 @@ GENERATED = ROOT / "generated"
 class OrbitApplication:
     def __init__(self, checkpoint, state_path):
         self.runtime = OrbitRuntime(checkpoint)
+        self.browser = BrowserTools()
         self.store = TaskStore(state_path)
         self.memory = MemoryStore(state_path)
         self._threads = set()
@@ -163,6 +165,7 @@ class OrbitApplication:
                 workspace=Path(__file__).resolve().parent.parent,
                 progress=emit_progress,
                 memory=self.memory,
+                browser=self.browser,
             )
             answer = agent.try_execute(message)
             if answer is None:
@@ -430,6 +433,7 @@ def main():
         print("\nShutting down Orbit.")
     finally:
         server.server_close()
+        app.browser.close()
 
 if __name__ == "__main__":
     main()
