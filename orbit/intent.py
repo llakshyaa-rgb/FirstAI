@@ -50,6 +50,10 @@ def classify_request(message: str) -> dict:
         title = " ".join(text.split()[:8]).strip(" ,.:;!?") or "Orbit deliverable"
         route.update(kind="artifact", format=fmt, title=title, prompt=text)
         route["capabilities"].append("creative_studio")
+        if _has(lower, ("research", "latest", "current", "recent", "look up", "sources", "fact check")):
+            route["capabilities"].append("research")
+        if _has(lower, ("calculate", "compute", "estimate", "compare")):
+            route["capabilities"].append("analysis")
         return route
 
     if search_image:
