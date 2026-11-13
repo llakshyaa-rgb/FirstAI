@@ -59,6 +59,17 @@ class OrbitTaskTests(unittest.TestCase):
                              ["user", "assistant", "user", "assistant"])
             self.assertEqual(history[-1]["content"], "Operating normally.")
 
+    def test_generated_images_are_restored_from_task_events(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = TaskStore(Path(tmp) / "state.db")
+            task_id = store.create("Generate image: a mountain at sunrise")
+            store.emit(task_id, "image", "Image generated.", url="/generated/example.png")
+            store.update(task_id, "completed", result="Generated 1 image(s).")
+            images = store.recent_images()
+            self.assertEqual(len(images), 1)
+            self.assertEqual(images[0]["prompt"], "a mountain at sunrise")
+            self.assertEqual(images[0]["url"], "/generated/example.png")
+
     def test_interrupted_running_task_is_preserved(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = TaskStore(Path(tmp) / "state.db")
