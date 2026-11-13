@@ -64,7 +64,13 @@ class OrbitApplication:
             self.store.emit(task_id, "status", "The image backend is preparing the requested artwork.")
             workflow = load_workflow_template(workflow_path, prompt, negative_prompt=negative_prompt, seed=seed)
             backend = ComfyUIImageBackend(base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"))
-            outputs = backend.generate(workflow)
+            outputs = backend.generate(
+                workflow,
+                on_progress=lambda event: self.store.emit(
+                    task_id, event["kind"], event["message"],
+                    **{key: value for key, value in event.items() if key not in ("kind", "message")}
+                ),
+            )
             if not outputs:
                 raise RuntimeError("The image backend completed without returning images.")
             GENERATED.mkdir(parents=True, exist_ok=True)
@@ -146,11 +152,24 @@ def make_handler(app):
         def do_GET(self):
             parsed = urlparse(self.path)
             if parsed.path == "/api/health":
+                workflow_configured = bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file()
+                image_connected, image_error = False, None
+                if workflow_configured:
+                    try:
+                        ComfyUIImageBackend(
+                            base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"),
+                            timeout=2,
+                        ).health()
+                        image_connected = True
+                    except Exception as exc:
+                        image_error = f"{type(exc).__name__}: {exc}"
                 return self._json(200, {
                     "name": "Orbit", "status": "ready" if app.runtime.ready else "model_missing",
                     "device": app.runtime.device, "checkpoint": str(app.runtime.checkpoint_path),
                     "model_error": app.runtime.load_error,
-                    "image_workflow_configured": bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file(),
+                    "image_workflow_configured": workflow_configured,
+                    "image_backend_connected": image_connected,
+                    "image_backend_error": image_error,
                     "image_backend": os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188")
                 })
             if parsed.path == "/api/memory":
