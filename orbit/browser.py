@@ -18,6 +18,8 @@ def validate_public_url(url: str) -> str:
     parsed = urlparse(url.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
         raise ValueError("Only public HTTP and HTTPS websites are supported.")
+    if parsed.username or parsed.password:
+        raise ValueError("URLs containing embedded usernames or passwords are not accepted.")
     host = parsed.hostname.rstrip(".").lower()
     if host in {"localhost", "localhost.localdomain"} or host.endswith(".localhost") or host.endswith(".local"):
         raise PermissionError("Orbit's browser cannot access local or private network hosts.")
