@@ -42,13 +42,12 @@ class CausalSelfAttention(nn.Module):
         q = q.view(batch, length, self.n_head, head_dim).transpose(1, 2)
         k = k.view(batch, length, self.n_head, head_dim).transpose(1, 2)
         v = v.view(batch, length, self.n_head, head_dim).transpose(1, 2)
-        scores = (q @ k.transpose(-2, -1)) * (head_dim ** -0.5)
-        scores = scores.masked_fill(
-            self.causal_mask[:, :, :length, :length] == 0,
-            torch.finfo(scores.dtype).min,
+        # PyTorch can select fused/Flash attention kernels on supported GPUs.
+        causal = self.causal_mask[:, :, :length, :length].bool()
+        out = F.scaled_dot_product_attention(
+            q, k, v, attn_mask=causal,
+            dropout_p=self.attn_dropout.p if self.training else 0.0,
         )
-        weights = self.attn_dropout(F.softmax(scores, dim=-1))
-        out = weights @ v
         out = out.transpose(1, 2).contiguous().view(batch, length, channels)
         return self.resid_dropout(self.proj(out))
 
