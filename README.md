@@ -107,8 +107,11 @@ The repository now includes an initial Orbit runtime layer:
 - `ORBIT_IDENTITY.md`: canonical identity and Jarvis-inspired communication contract.
 - `orbit.identity`: builds a system prompt from that contract and optional owner/task context.
 - `orbit.tasks`: SQLite-backed task/event persistence and a strategy runner that reports a failed method, tries the next supplied strategy, and records completion or failure.
-- `orbit.images`: optional ComfyUI-compatible HTTP adapter for a separately hosted image-generation workflow.
-- `tests/test_orbit.py`: tests for identity, progress events, fallback execution, and interrupted-task preservation.
+- `orbit.images`: ComfyUI-compatible adapter for a separately hosted image-generation workflow.
+- `orbit.memory`: explicit SQLite-backed owner preferences, editable through the local UI/API.
+- `orbit.tools`: allow-list tool registry with confirmation gates for consequential actions.
+- `orbit.runtime` and `orbit.server`: local chat runtime, HTTP API, browser UI, task progress polling, and restart recovery for interrupted generation tasks.
+- `tests/test_orbit.py` and `tests/test_orbit_memory_tools.py`: identity, fallback, persistence, memory, and authorization tests.
 
 Run the tests:
 
@@ -132,7 +135,17 @@ runner = TaskRunner(store, progress_callback=lambda event: print(event.message))
 runner.run(task_id, [("primary workflow", primary)])
 ```
 
-The runner only executes strategies supplied by the application. A real assistant interface must connect its progress callback to the chat stream or UI and provide real tools. A persistent background worker and automatic resumption scheduler are not included yet.
+### Run the local Orbit interface
+
+After training and downloading a compatible checkpoint into the repository:
+
+```bash
+python -m orbit.server --checkpoint checkpoints/firstgpt.best.pt --port 8767
+```
+
+Open `http://127.0.0.1:8767` on the same device. The UI streams task events by polling the local event API, and owner preferences are stored in the same SQLite database as task state. Interrupted generation tasks are re-queued on server restart when a usable checkpoint is available. This is restart recovery, not an always-on service: the Python process must remain running.
+
+The tool registry is an allow-list foundation. No arbitrary shell or code execution is exposed, and tools requiring confirmation are blocked until the application supplies explicit confirmation. No external tools are registered by default.
 
 ### Image generation
 
@@ -144,4 +157,4 @@ The identity blueprint supports natural, nonjudgmental discussion of mature topi
 
 ## Scope and limitations
 
-The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. Full instruction tuning, integrated tools, a chat UI/streaming server, a persistent worker/scheduler, user memory management, and deployment of a separate image-generation model remain future engineering work.
+The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. Full instruction tuning, registration of real-world tools, true token-by-token model streaming, a supervised always-on service, a dedicated image-model deployment, and extensive end-to-end testing remain future engineering work.
