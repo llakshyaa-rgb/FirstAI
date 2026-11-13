@@ -71,13 +71,27 @@ class OrbitApplication:
                 cfg=float(os.environ.get("ORBIT_IMAGE_CFG", "7.0")),
             )
             backend = ComfyUIImageBackend(base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"))
-            outputs = backend.generate(
-                workflow,
-                on_progress=lambda event: self.store.emit(
-                    task_id, event["kind"], event["message"],
-                    **{key: value for key, value in event.items() if key not in ("kind", "message")}
-                ),
+            progress = lambda event: self.store.emit(
+                task_id, event["kind"], event["message"],
+                **{key: value for key, value in event.items() if key not in ("kind", "message")}
             )
+            try:
+                outputs = backend.generate(workflow, on_progress=progress)
+            except Exception as primary_error:
+                fallback_url = os.environ.get("ORBIT_COMFYUI_FALLBACK_URL", "").strip()
+                if not fallback_url or fallback_url.rstrip("/") == backend.base_url:
+                    raise
+                self.store.emit(
+                    task_id, "method_failed",
+                    f"The primary image backend failed ({type(primary_error).__name__}: {primary_error}). I'm trying the configured fallback image backend."
+                )
+                fallback = ComfyUIImageBackend(base_url=fallback_url)
+                try:
+                    outputs = fallback.generate(workflow, on_progress=progress)
+                except Exception as fallback_error:
+                    raise RuntimeError(
+                        f"Primary image backend failed: {primary_error}; fallback also failed: {fallback_error}"
+                    ) from fallback_error
             if not outputs:
                 raise RuntimeError("The image backend completed without returning images.")
             GENERATED.mkdir(parents=True, exist_ok=True)
