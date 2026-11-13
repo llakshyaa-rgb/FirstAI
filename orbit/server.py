@@ -50,6 +50,14 @@ class OrbitApplication:
             if task and task["goal"].startswith("Generate image: "):
                 self.store.update(task_id, "needs_input", error="Image generation was interrupted by a server restart. Resubmit the image request.")
                 self.store.emit(task_id, "method_failed", "The image job was interrupted by a restart. Its prompt is preserved; please resubmit it.")
+            elif task and task["goal"].startswith("Design ") and self.runtime.ready:
+                requests = [event for event in self.store.events(task_id) if event["kind"] == "design_request"]
+                if requests:
+                    details = requests[-1]["details"]
+                    self.store.update(task_id, "queued")
+                    self._launch_design(task_id, details["title"], details["brief"], details["format"], details["theme"])
+                else:
+                    self.store.update(task_id, "needs_input", error="Design request details are missing. Please submit it again.")
             elif task and self.runtime.ready:
                 self.store.update(task_id, "queued")
                 attachment_events = [event for event in self.store.events(task_id) if event["kind"] == "attachments"]
@@ -68,12 +76,16 @@ class OrbitApplication:
 
     def start_design(self, title, brief, file_format="pdf", theme="midnight"):
         task_id = self.store.create("Design " + file_format.upper() + ": " + title)
+        self.store.emit(task_id, "design_request", "Design request saved for recovery.",
+                        title=title, brief=brief, format=file_format, theme=theme)
+        self._launch_design(task_id, title, brief, file_format, theme)
+        return task_id
+
+    def _launch_design(self, task_id, title, brief, file_format, theme):
         thread = threading.Thread(target=self._design_worker, args=(task_id, title, brief, file_format, theme), daemon=True)
         with self._lock:
             self._threads.add(thread)
         thread.start()
-        return task_id
-
     def _design_worker(self, task_id, title, brief, file_format, theme):
         try:
             self.store.update(task_id, "running")
