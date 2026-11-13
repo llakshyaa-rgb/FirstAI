@@ -17,6 +17,39 @@ class BPETests(unittest.TestCase):
         text = "A new 🧠 character"
         self.assertEqual(tokenizer.decode(tokenizer.encode(text)), text)
 
+    def test_priority_queue_matches_reference_merge_order(self):
+        import random
+        rng = random.Random(17)
+        training = " ".join(
+            "".join(rng.choice("abcde xyz") for _ in range(40))
+            for _ in range(100)
+        )
+        tokenizer = BPETokenizer.train(training, vocab_size=320)
+
+        def reference(text):
+            tokens = list(text.encode("utf-8"))
+            while len(tokens) > 1:
+                ranked = [(tokenizer.ranks[pair], pair)
+                          for pair in zip(tokens, tokens[1:])
+                          if pair in tokenizer.ranks]
+                if not ranked:
+                    break
+                _, best = min(ranked, key=lambda item: item[0])
+                merged, index = [], 0
+                while index < len(tokens):
+                    if index + 1 < len(tokens) and (tokens[index], tokens[index + 1]) == best:
+                        merged.append(256 + tokenizer.ranks[best])
+                        index += 2
+                    else:
+                        merged.append(tokens[index])
+                        index += 1
+                tokens = merged
+            return tokens
+
+        for _ in range(30):
+            sample = "".join(rng.choice("abcde xyz") for _ in range(60))
+            self.assertEqual(tokenizer.encode(sample), reference(sample))
+
     def test_vocab_is_bounded(self):
         tokenizer = BPETokenizer.train("ababababcdcdcd" * 10, vocab_size=260)
         self.assertLessEqual(tokenizer.vocab_size, 260)
