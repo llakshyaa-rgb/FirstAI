@@ -222,3 +222,13 @@ __marimo__/
 # Locally generated Orbit artwork and runtime state
 orbit/generated/
 orbit_state.sqlite3
+
+# Orbit local runtime, generated data, backups, and model artifacts
+.orbit_backups/
+orbit/generated/
+orbit_state.sqlite3
+checkpoints/
+data/raw/
+data/input.txt
+data/wikitext_train.txt
+data/orbit_instructions_full.jsonl
