@@ -85,37 +85,42 @@ class OrbitRuntime:
         return self.tokenizer.decode(generated).strip()
 
     def _build_prompt_ids(self, message, history=None, owner_preferences=None):
-        """Budget context deliberately: latest owner request always wins."""
+        """Budget context deliberately: current owner request always has priority."""
         limit = self.model.config.block_size
         system = self.tokenizer.encode(
             "You are Orbit: composed, articulate, capable, candid and helpful. "
-            "Answer the owner's request directly. Make reasonable choices. "
-            "If a method fails, explain and try another safe approach. Never fake success.\n"
+            "Answer directly. Make sensible choices. If a method fails, explain "
+            "and try a safe alternative. Never fake success.\n"
         )
-        system = system[:min(28, max(12, limit // 4))]
+        system = system[:min(20, max(8, limit // 5))]
         prefs = []
         if owner_preferences:
-            prefs = self.tokenizer.encode("Preferences: " + str(owner_preferences)[:500] + "\n")
-            prefs = prefs[:min(12, max(0, limit // 10))]
-        history_ids = []
-        for item in (history or [])[-2:]:
-            role = "Owner" if item.get("role") == "user" else "Orbit"
-            part = self.tokenizer.encode(f"{role}: {str(item.get('content', ''))}\n")
-            remaining = min(18, max(0, limit // 5)) - len(history_ids)
-            if remaining <= 0:
-                break
-            history_ids.extend(part[-remaining:])
-        fixed = system + prefs + history_ids
+            prefs = self.tokenizer.encode("Preferences: " + str(owner_preferences)[:300] + "\n")
+            prefs = prefs[:min(8, max(0, limit // 12))]
+        fixed = system + prefs
         message_ids = self.tokenizer.encode(f"Owner: {message.strip()}\nOrbit:")
-        budget = max(8, limit - len(fixed))
+        history_ids = []
+        available_for_history = max(0, limit - len(fixed) - len(message_ids))
+        if available_for_history:
+            history_budget = min(18, available_for_history)
+            for item in reversed((history or [])[-4:]):
+                role = "Owner" if item.get("role") == "user" else "Orbit"
+                part = self.tokenizer.encode(f"{role}: {str(item.get('content', ''))}\n")
+                take = min(len(part), history_budget - len(history_ids))
+                if take <= 0:
+                    break
+                history_ids = part[-take:] + history_ids
+                if len(history_ids) >= history_budget:
+                    break
+        budget = max(8, limit - len(fixed) - len(history_ids))
         if len(message_ids) > budget:
             marker = self.tokenizer.encode(" ... ")
-            marker = marker[:min(len(marker), max(1, budget // 8))]
+            marker = marker[:min(len(marker), max(1, budget // 10))]
             available = max(2, budget - len(marker))
-            left = (available + 1) // 2
+            left = max(1, available // 4)
             right = available - left
             message_ids = message_ids[:left] + marker + (message_ids[-right:] if right else [])
-        ids = fixed + message_ids
+        ids = fixed + history_ids + message_ids
         if len(ids) > limit:
             ids = ids[-limit:]
         return ids
