@@ -24,6 +24,7 @@ class LocalAgent:
         self.registry.register("list_files", "List visible workspace files", self.workspace.list_files, requires_confirmation=False)
         self.registry.register("read_file", "Read a UTF-8 workspace file", self.workspace.read_file, requires_confirmation=False)
         self.registry.register("search_files", "Search visible workspace text", self.workspace.search_files, requires_confirmation=False)
+        self.registry.register("inspect_project", "Build a bounded source map of the project", self.workspace.inspect_project, requires_confirmation=False)
         self.registry.register("create_file", "Create a new workspace file", self.workspace.create_file)
         self.registry.register("update_file", "Update a workspace file after backing it up", self.workspace.update_file)
         self.registry.register("run_tests", "Run the repository unit tests", self.workspace.run_project_tests)
