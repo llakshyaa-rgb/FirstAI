@@ -168,7 +168,7 @@ export ORBIT_IMAGE_WORKFLOW=/absolute/path/to/orbit_api_workflow.json
 python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
 ```
 
-The UI submits image tasks asynchronously, records progress, saves returned images under `orbit/generated/`, and displays them in the conversation. The image backend is external and is not bundled or automatically downloaded. Its model and workflow determine which visual requests it can fulfill; this code does not bypass the model's restrictions. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
+The UI submits image tasks asynchronously, records progress, saves returned images under `orbit/generated/`, and displays them in the conversation. The image backend is external and is not bundled or automatically downloaded. Its model and workflow determine which visual requests it can fulfill; this code does not bypass model restrictions or guarantee nude/explicit output. The local prototype has no built-in age verification, authentication, or full content-moderation system. Do not expose it to a network or public users as-is. A public adult-facing deployment needs authentication, age assurance, consent/privacy protections, rate limits, and robust content safeguards. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
 
 ### Image generation
 
@@ -180,4 +180,4 @@ The identity blueprint supports natural, nonjudgmental discussion of mature topi
 
 ## Scope and limitations
 
-The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. Full instruction tuning, registration of real-world tools, true token-by-token model streaming, a supervised always-on service, a dedicated image-model deployment, and extensive end-to-end testing remain future engineering work.
+The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. The instruction-tuning pipeline and image-studio adapter/UI are implemented, but the included tuning examples are only a tiny demo. Meaningful instruction tuning on a large curated corpus, registration of real-world tools, actual model-driven tool calling, vision understanding, true token-by-token streaming, a supervised always-on service, a dedicated image-model deployment, and extensive end-to-end testing remain future engineering work.
