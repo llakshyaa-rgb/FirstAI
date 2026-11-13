@@ -293,7 +293,7 @@ async function restoreUploads(){
         if(pendingAttachments.length>=5){bubble("orbit","A maximum of five files can be attached to one message.","status");return;}
         if(!pendingAttachments.some(x=>x.id===item.id)){pendingAttachments.push({id:item.id,name:item.name});renderAttachmentQueue();}
       });
-      card.append(attach);uploadResults.append(card);
+      card.append(attach);await addUploadDelete(card,item);uploadResults.append(card);
     }
   }catch{}
 }
