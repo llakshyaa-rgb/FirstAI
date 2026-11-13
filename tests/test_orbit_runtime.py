@@ -1,5 +1,6 @@
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 from firstai.bpe import BPETokenizer
 from firstai.model import FirstGPT, GPTConfig
@@ -7,6 +8,17 @@ from orbit.runtime import OrbitRuntime
 
 
 class OrbitPromptTests(unittest.TestCase):
+    def test_resource_limits_are_configurable_and_bounded(self):
+        with tempfile.TemporaryDirectory() as tmp, patch.dict("os.environ", {
+            "ORBIT_GPU_MEMORY_FRACTION": "0.86",
+            "ORBIT_CPU_THREADS": "4",
+            "ORBIT_MAX_NEW_TOKENS": "96",
+        }):
+            runtime = OrbitRuntime(Path(tmp) / "missing.pt", device="cpu")
+            self.assertAlmostEqual(runtime.gpu_memory_fraction, 0.86)
+            self.assertEqual(runtime.cpu_threads, 4)
+            self.assertEqual(runtime.max_new_tokens, 96)
+
     def test_prompt_respects_context_and_keeps_latest_request(self):
         with tempfile.TemporaryDirectory() as tmp:
             runtime = OrbitRuntime(Path(tmp) / "missing.pt", device="cpu")
