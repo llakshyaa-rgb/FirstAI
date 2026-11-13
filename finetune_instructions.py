@@ -29,8 +29,8 @@ def load_examples(path):
         if not isinstance(prompt, str) or not prompt.strip() or not isinstance(response, str) or not response.strip():
             raise ValueError(f"Line {line_no} needs non-empty string fields 'prompt' and 'response'")
         examples.append((prompt.strip(), response.strip()))
-    if len(examples) < 2:
-        raise ValueError("At least two instruction examples are required for train/validation splitting")
+    if len(examples) < 4:
+        raise ValueError("At least four instruction examples are required for train/validation splitting")
     return examples
 
 
@@ -90,7 +90,7 @@ def main():
     examples = load_examples(args.data)
     digest = hashlib.sha256(Path(args.data).read_bytes()).hexdigest()
     random.shuffle(examples)
-    split = max(1, min(len(examples) - 1, int(len(examples) * 0.9)))
+    split = max(2, min(len(examples) - 2, int(len(examples) * 0.9)))
     train_raw, val_raw = examples[:split], examples[split:]
 
     saved = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
