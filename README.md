@@ -246,7 +246,7 @@ Orbit now has two image-generation backends:
 - **Diffusers (direct GPU backend):** no ComfyUI server or workflow JSON is required. Install requirements-image.txt, set ORBIT_IMAGE_BACKEND=diffusers, and choose a public Diffusers model with ORBIT_IMAGE_MODEL. The first generation downloads model weights automatically.
 - **ComfyUI:** retain the existing workflow adapter for custom graphs and externally hosted image models by setting ORBIT_IMAGE_BACKEND=comfyui, ORBIT_COMFYUI_URL, and ORBIT_IMAGE_WORKFLOW.
 
-The Colab notebook includes an optional T4 setup cell for Diffusers using Lykon/dreamshaper-8. It downloads the model on first use. During Diffusers generation, Orbit temporarily moves FirstGPT to CPU, clears its CUDA allocations, renders with Diffusers CPU offload, and restores FirstGPT to its original device. This reduces GPU-memory overlap; it does not make image generation instantaneous or guarantee compatibility with every GPU. The UI submits image jobs asynchronously and displays saved results in the conversation.
+The Colab notebook includes an optional T4 setup cell for Diffusers using Lykon/dreamshaper-8. It downloads the model on first use. During Diffusers generation, Orbit temporarily moves FirstGPT to CPU, clears its CUDA allocations, renders with Diffusers CPU offload, and restores FirstGPT to its original device. This reduces GPU-memory overlap; it does not make image generation instantaneous or guarantee compatibility with every GPU. The UI submits image jobs asynchronously and displays saved results in the conversation. You can also type `create image: ...` or `generate image: ...` directly into the main chat composer.
 
 For a local Diffusers setup:
 
