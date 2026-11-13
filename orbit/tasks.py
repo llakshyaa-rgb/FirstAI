@@ -97,11 +97,11 @@ class TaskStore:
         return history
 
     def recover_interrupted(self):
-        """Mark tasks left running by a dead process; the application may safely retry them."""
+        """Mark queued/running tasks left by a dead process; the application may safely retry them."""
         with self._lock, self._connect() as db:
-            rows = db.execute("SELECT id FROM tasks WHERE status='running'").fetchall()
+            rows = db.execute("SELECT id FROM tasks WHERE status IN ('running', 'queued')").fetchall()
             ids = [r["id"] for r in rows]
-            db.execute("UPDATE tasks SET status='interrupted', updated_at=? WHERE status='running'", (_now(),))
+            db.execute("UPDATE tasks SET status='interrupted', updated_at=? WHERE status IN ('running', 'queued')", (_now(),))
         for task_id in ids:
             self.emit(task_id, "interrupted", "Execution stopped unexpectedly; task state is preserved for recovery.")
         return ids
