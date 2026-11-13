@@ -150,7 +150,7 @@ Orbit uses a coordinator with five lightweight specialists:
 - **Media specialist:** processes uploaded documents, images, archives, audio and video, using safe text fallbacks when a parser or vision backend is unavailable.
 - **Verifier:** runs compilation and tests when explicitly asked to verify the project.
 
-Independent specialist tools run concurrently (default maximum: 3 workers). The main language model is shared, so the agents do not each load another model onto the GPU. The model synthesizes the collected results once. This is deliberately a tool-specialist team, not three duplicate LLMs; separate model instances would consume more RAM/VRAM and often slow a phone down.
+Independent specialist tools run concurrently (default maximum: 3 workers). The main language model is shared, so the agents do not each load another model onto the GPU. The model synthesizes the collected results once. The media specialist receives attachment IDs directly and processes them while unrelated research or workspace tasks run concurrently. This is deliberately a tool-specialist team, not three duplicate LLMs; separate model instances would consume more RAM/VRAM and often slow a phone down.
 
 Inference defaults are conservative and configurable:
 
@@ -268,7 +268,7 @@ Common readable formats include:
 - Text, Markdown, CSV, JSON, XML, HTML, RTF and source-code files.
 - PDF, DOCX, XLSX, PPTX and OpenDocument files (ODT, ODS, ODP).
 - EPUB books.
-- ZIP, TAR and TGZ archives. Orbit inspects supported text entries without extracting or executing archive contents.
+- ZIP, TAR, TGZ and TAR.GZ archives. Orbit inspects supported text entries without extracting or executing archive contents.
 - Audio formats such as MP3, WAV, M4A, OGG and FLAC; video formats such as MP4, MOV, WEBM and MKV.
 
 PDF text extraction uses pypdf; scanned-page OCR uses optional PDFium plus the configured vision model. Audio transcription uses optional faster-whisper. Video analysis samples up to six frames and, when ffmpeg and faster-whisper are available, transcribes up to five minutes of its audio track. This is sampled media understanding, not frame-by-frame temporal comprehension. Optional media dependencies are in requirements-media.txt; ffmpeg is installed separately.
