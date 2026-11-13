@@ -7,6 +7,7 @@ import argparse
 import subprocess
 import sys
 import tempfile
+import time
 from pathlib import Path
 import torch
 
@@ -43,6 +44,7 @@ def main():
         temp_context = tempfile.TemporaryDirectory(prefix="firstai-smoke-")
         work = Path(temp_context.name)
 
+    started = time.perf_counter()
     try:
         corpus = work / "smoke.txt"
         paragraph = (
@@ -92,6 +94,7 @@ def main():
         if device == "cuda":
             torch.cuda.synchronize()
             print(f"Peak allocated GPU memory: {torch.cuda.max_memory_allocated() / 1024**2:.1f} MiB")
+        print(f"Total smoke-test time: {time.perf_counter() - started:.2f} seconds")
         if args.keep_artifacts:
             print(f"Artifacts retained at: {work}")
             print(f"Latest checkpoint: {checkpoint}")
