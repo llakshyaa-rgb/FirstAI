@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#11151b">
+<title>Orbit</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+<main class="shell">
+  <header><div class="mark">O</div><div><h1>Orbit</h1><p id="presence">Personal AI · Initialising</p></div><span id="device" class="device"></span></header>
+  <section id="conversation" class="conversation" aria-live="polite">
+    <article class="bubble orbit"><strong>Orbit</strong><p>Good evening. I'm ready when you are.</p></article>
+  </section>
+  <form id="composer">
+    <textarea id="message" rows="2" maxlength="12000" placeholder="What would you like me to do?" required></textarea>
+    <button id="send" type="submit">Send</button>
+  </form>
+  <footer>Local prototype · Responses depend on the trained checkpoint</footer>
+</main>
+<script src="/static/app.js" defer></script>
+</body>
+</html>
