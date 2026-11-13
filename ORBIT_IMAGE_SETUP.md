@@ -12,7 +12,7 @@ Orbit's FirstGPT language checkpoint does not generate pixels. Image creation is
 2. Export a workflow in ComfyUI's API format.
 3. Use the included `workflows/comfyui_checkpoint_template.json` as a starting point. It contains placeholders for prompt, negative prompt, checkpoint filename, seed, width, height, steps and CFG; Orbit replaces these with typed values.
 4. Keep the workflow file local and pass it to `load_workflow_template`.
-5. Set `ORBIT_IMAGE_CHECKPOINT` to the exact filename shown in ComfyUI's `models/checkpoints` folder. Optional render settings are `ORBIT_IMAGE_WIDTH`, `ORBIT_IMAGE_HEIGHT`, `ORBIT_IMAGE_STEPS`, and `ORBIT_IMAGE_CFG`. The local server reads these when each image task starts.
+5. Set `ORBIT_IMAGE_CHECKPOINT` to the exact filename shown in ComfyUI's `models/checkpoints` folder. Optional render settings are `ORBIT_IMAGE_WIDTH`, `ORBIT_IMAGE_HEIGHT`, `ORBIT_IMAGE_STEPS`, and `ORBIT_IMAGE_CFG`. You may also set `ORBIT_COMFYUI_FALLBACK_URL` to a second compatible ComfyUI endpoint; Orbit announces a primary failure and retries the image job there. The local server reads these when each image task starts.
 
 Example:
 
