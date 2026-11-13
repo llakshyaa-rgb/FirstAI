@@ -28,7 +28,7 @@ from .media_processing import process_upload
 from .planner import execute_tool_plan
 from .agents import AgentTeam
 from .browser import BrowserTools
-from .design_studio import create_artifact
+from .design_studio import create_artifact, SUPPORTED, THEMES
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -458,6 +458,14 @@ def make_handler(app):
                         return self._json(400, {"error": "title, brief, format and theme must be text"})
                     if not brief.strip() or len(brief) > 6000:
                         return self._json(400, {"error": "Describe what to design in 1-6000 characters."})
+                    file_format = file_format.lower().lstrip(".")
+                    theme = theme.lower()
+                    if file_format not in SUPPORTED:
+                        return self._json(400, {"error": "Unsupported export format. Choose: " + ", ".join(sorted(SUPPORTED))})
+                    if theme not in THEMES:
+                        return self._json(400, {"error": "Unknown design theme. Choose: " + ", ".join(sorted(THEMES))})
+                    if not title.strip():
+                        return self._json(400, {"error": "A design title is required."})
                     if not app.runtime.ready:
                         return self._json(503, {"error": "The design studio needs a trained FirstGPT checkpoint. Export finished Markdown using the design engine."})
                     task_id = app.start_design(title, brief, file_format, theme)
@@ -506,7 +514,7 @@ def make_handler(app):
                 # Explicit document/design requests from the main composer become real artifact jobs.
                 design_match = re.match(
                     r"^(?:create|make|design|build)\s+(?:me\s+)?(?:a\s+)?"
-                    r"(pdf|docx|word document|presentation|powerpoint|pptx|spreadsheet|excel|xlsx|csv|web page|website|html|poster|svg|markdown document|md)"
+                    r"(pdf|docx|word document|presentation|powerpoint|pptx|spreadsheet|excel|xlsx|csv|json|web page|website|html|poster|svg|markdown document|md)"
                     r"\b\s*(?:(?:about|on|for)\s+|:\s*)?(.*)$",
                     message.strip(), re.I | re.S,
                 )
