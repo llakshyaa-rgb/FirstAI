@@ -44,10 +44,14 @@ class OrbitApplication:
                 self.store.emit(task_id, "method_failed", "The image job was interrupted by a restart. Its prompt is preserved; please resubmit it.")
             elif task and self.runtime.ready:
                 self.store.update(task_id, "queued")
-                self._launch_chat(task_id, task["goal"])
+                attachment_events = [event for event in self.store.events(task_id) if event["kind"] == "attachments"]
+                attachments = attachment_events[-1]["details"].get("file_ids", []) if attachment_events else []
+                self._launch_chat(task_id, task["goal"], attachments)
 
     def start_chat(self, message, attachments=None):
         task_id = self.store.create(message)
+        if attachments:
+            self.store.emit(task_id, "attachments", "File attachments linked to this task.", file_ids=list(attachments[:5]))
         thread = threading.Thread(target=self._chat_worker, args=(task_id, message, attachments or []), daemon=True)
         with self._lock:
             self._threads.add(thread)
@@ -119,8 +123,8 @@ class OrbitApplication:
             with self._lock:
                 self._threads = {t for t in self._threads if t.is_alive() and t is not threading.current_thread()}
 
-    def _launch_chat(self, task_id, message):
-        thread = threading.Thread(target=self._chat_worker, args=(task_id, message, []), daemon=True)
+    def _launch_chat(self, task_id, message, attachments=None):
+        thread = threading.Thread(target=self._chat_worker, args=(task_id, message, attachments or []), daemon=True)
         with self._lock:
             self._threads.add(thread)
         thread.start()
