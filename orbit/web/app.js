@@ -21,7 +21,11 @@ async function health(){
     presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";
     device.textContent=d.device||"";
     const imageStatus=document.querySelector("#image-status");
-    if(imageStatus)imageStatus.textContent=d.image_backend_connected?"Image model online":(d.image_workflow_configured?"Workflow exists · backend offline":"Backend not configured");
+    if(imageStatus)imageStatus.textContent=[
+      d.image_backend_connected?"Image generation online":(d.image_workflow_configured?"Image workflow · backend offline":"Image generation not configured"),
+      d.image_search_configured?"Web image search ready":"Image search key missing",
+      d.vision_configured?"Vision model configured":"Vision model not configured"
+    ].join(" · ");
     if(d.status!=="ready")bubble("orbit","The chat interface is running, but no trained checkpoint is loaded. "+(d.model_error||""));
   }catch{presence.textContent="Connection unavailable";}
 }
