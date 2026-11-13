@@ -65,7 +65,7 @@ class LocalAgent:
             result = self.registry.call("calculate", {"expression": expression})
             return f"{expression} = {result}"
 
-        match = re.match(r"^(?:search the web for|search web for|look up|research)\\s+(.+?)\\s*$", text, re.I)
+        match = re.match(r"^(?:search the web for|search web for|look up|research)\s+(.+?)\s*$", text, re.I)
         if match:
             query = match.group(1).strip()
             self.progress("I'll search the web and gather source links.")
