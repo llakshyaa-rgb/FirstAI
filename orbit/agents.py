@@ -64,6 +64,12 @@ class AgentTeam:
             if found:
                 return found
             return text[:200]
+        if name in {"debugger", "code_reviewer"}:
+            match = re.search(r"(?:error|bug|exception|crash|failure|review|refactor)\s+(?:in|at|around|of)\s+([A-Za-z0-9_./:-]+)", text, re.I)
+            if match:
+                return match.group(1)[:160]
+            topics = ("server", "runtime", "agent", "task", "memory", "vision", "media", "browser", "api", "model", "training", "ui")
+            return next((word for word in topics if word in text.casefold()), "def ")
         if name == "analyst":
             match = re.search(r"(?:calculate|compute|what is|what's|compare|estimate)\s+(.+)", text, re.I)
             return (match.group(1) if match else text).replace("^", "**")[:180]
