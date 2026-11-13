@@ -54,7 +54,7 @@ class AgentTeam:
             match = re.search(r"(?:research|search(?: the)? web for|search web for|look up|find sources for|fact check)\s+(.+)", text, re.I)
             return (match.group(1) if match else text)[:400]
         if name == "image_researcher":
-            match = re.search(r"(?:find images|find pictures|search images|search pictures|show me images|look for images)\s+(.+)", text, re.I)
+            match = re.search(r"(?:find images|find image|find pictures|find picture|find a photo|find photos|search images|search pictures|search for images|search for pictures|search for photos|show me images|show images|look for images|look up photos)\s+(.+)", text, re.I)
             return (match.group(1) if match else text)[:350]
         if name == "code_scout":
             topics = ("image", "vision", "agent", "gpu", "memory", "training", "video", "audio",
