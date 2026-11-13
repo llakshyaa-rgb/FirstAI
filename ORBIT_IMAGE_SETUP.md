@@ -64,7 +64,7 @@ export ORBIT_VISION_MODEL=your-vision-model
 export ORBIT_VISION_API_KEY=your-local-or-remote-key
 \`\`\`
 
-Restart Orbit after setting the variables. Upload an image, choose **Attach to next chat**, and ask what is in it, ask it to read visible text, compare details, or describe the scene. The direct **Ask Orbit to analyse** button is also available. The configured vision model receives the actual image bytes/pixels; Orbit passes its description into FirstGPT as context. If the vision endpoint is remote, the image is sent to that provider. Do not send private images to an endpoint you do not trust.
+Optional automatic failover: set ORBIT_VISION_FALLBACK_URL to a second endpoint and ORBIT_VISION_FALLBACK_MODEL to its model name. Orbit will report the primary failure and retry that endpoint. The fallback uses the same provider protocol as ORBIT_VISION_PROVIDER.\n\nRestart Orbit after setting the variables. Upload an image, choose **Attach to next chat**, and ask what is in it, ask it to read visible text, compare details, or describe the scene. The direct **Ask Orbit to analyse** button is also available. The configured vision model receives the actual image bytes/pixels; Orbit passes its description into FirstGPT as context. If the vision endpoint is remote, the image is sent to that provider. Do not send private images to an endpoint you do not trust.
 
 This is real image reading in the Orbit application, but it is not yet a vision capability learned by FirstGPT itself. A native FirstGPT vision encoder and image-text training stage remain future model research; merely adding an adapter does not train that capability into the language checkpoint.
 
