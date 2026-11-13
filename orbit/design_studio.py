@@ -2,13 +2,14 @@
 from __future__ import annotations
 import csv
 import html
+import json
 import re
 import uuid
 from pathlib import Path
 from xml.sax.saxutils import escape as xml_escape
 
 OUTPUT_DIR = Path(__file__).resolve().parent / "generated"
-SUPPORTED = {"pdf", "docx", "pptx", "xlsx", "csv", "html", "md", "txt", "svg"}
+SUPPORTED = {"pdf", "docx", "pptx", "xlsx", "csv", "json", "html", "md", "txt", "svg"}
 THEMES = {
     "midnight": ("#101820", "#192633", "#edf3f8", "#a9bac8", "#d7b77a"),
     "paper": ("#f7f3eb", "#ffffff", "#242a30", "#65717b", "#9a663b"),
@@ -257,6 +258,10 @@ def create_artifact(title, content, file_format, subtitle="", theme_name="midnig
     elif fmt == "pptx": _pptx(path,title,subtitle,blocks,theme)
     elif fmt == "xlsx": _xlsx(path,title,blocks)
     elif fmt == "csv": _csv(path,blocks)
+    elif fmt == "json":
+        payload = {"title": title, "subtitle": subtitle,
+                   "blocks": [{"type": kind, "content": value} for kind, value in blocks]}
+        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     elif fmt == "html": path.write_text(_html(title,subtitle,blocks,theme),encoding="utf-8")
     elif fmt == "md": path.write_text("# "+title+("\n\n"+subtitle if subtitle else "")+"\n\n"+content+"\n",encoding="utf-8")
     elif fmt == "txt": path.write_text(title+("\n"+subtitle if subtitle else "")+"\n\n"+re.sub(r"[*#]","",content)+"\n",encoding="utf-8")
