@@ -83,7 +83,7 @@ class WorkspaceTools:
             raise NotADirectoryError(relative)
         items = []
         for child in sorted(target.iterdir(), key=lambda p: (not p.is_dir(), p.name.lower())):
-            if child.name in _BLOCKED_PARTS or child.name.startswith(".env"):
+            if child.is_symlink() or child.name in _BLOCKED_PARTS or child.name.startswith(".env"):
                 continue
             items.append({
                 "name": child.name + ("/" if child.is_dir() else ""),
@@ -115,7 +115,7 @@ class WorkspaceTools:
         matches = []
         scanned = 0
         for path in base.rglob("*"):
-            if not path.is_file() or any(part in _BLOCKED_PARTS or part.startswith(".env") for part in path.relative_to(self.root).parts):
+            if path.is_symlink() or not path.is_file() or any(part in _BLOCKED_PARTS or part.startswith(".env") for part in path.relative_to(self.root).parts):
                 continue
             scanned += 1
             if scanned > 1500:
