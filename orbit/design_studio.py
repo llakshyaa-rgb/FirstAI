@@ -112,6 +112,8 @@ def _pdf(path, title, subtitle, blocks, theme):
     styles.add(ParagraphStyle(name="OrbitH", parent=styles["Heading2"], fontSize=16, leading=20, textColor=accent, spaceBefore=15, spaceAfter=7))
     styles.add(ParagraphStyle(name="OrbitBody", parent=styles["BodyText"], fontSize=10, leading=15, spaceAfter=8))
     styles.add(ParagraphStyle(name="OrbitCode", parent=styles["Code"], fontSize=8, leading=11))
+    styles.add(ParagraphStyle(name="OrbitQuote", parent=styles["BodyText"], fontSize=10, leading=15,
+                              leftIndent=14, textColor=accent, italic=True, spaceBefore=6, spaceAfter=10))
     story = [Paragraph(html.escape(title), styles["OrbitTitle"])]
     if subtitle: story.append(Paragraph(html.escape(subtitle), styles["OrbitSub"]))
     for kind, value in blocks:
@@ -124,7 +126,7 @@ def _pdf(path, title, subtitle, blocks, theme):
             t = Table(data, repeatRows=1)
             t.setStyle(TableStyle([("BACKGROUND",(0,0),(-1,0),colors.HexColor(theme[0])),("TEXTCOLOR",(0,0),(-1,0),accent),("GRID",(0,0),(-1,-1),.4,colors.HexColor(theme[3])),("VALIGN",(0,0),(-1,-1),"TOP"),("LEFTPADDING",(0,0),(-1,-1),7),("RIGHTPADDING",(0,0),(-1,-1),7),("TOPPADDING",(0,0),(-1,-1),6),("BOTTOMPADDING",(0,0),(-1,-1),6)]))
             story.extend([t, Spacer(1, 8)])
-        elif kind == "quote": story.append(Paragraph("“" + _inline(value) + "”", styles["Quote"]))
+        elif kind == "quote": story.append(Paragraph("“" + _inline(value) + "”", styles["OrbitQuote"]))
         elif kind == "code": story.append(Preformatted(value, styles["OrbitCode"]))
         elif kind == "rule": story.append(HRFlowable(width="100%", color=accent, thickness=.8, spaceBefore=8, spaceAfter=8))
     def footer(canvas, doc):
