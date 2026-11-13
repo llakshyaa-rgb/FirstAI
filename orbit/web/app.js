@@ -188,7 +188,7 @@ imageSearchForm?.addEventListener("submit",async e=>{
     const r=await fetch("/api/image-search?q="+encodeURIComponent(query)+"&safe="+(showMature?.checked?"off":"strict"));
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Search failed");
     imageSearchResults.textContent="";
-    if(d.may_include_mature){const warning=document.createElement("p");warning.className="media-note";warning.textContent="The provider warns these results may include mature or offensive material.";imageSearchResults.append(warning);}
+    if(d.may_include_mature){const warning=document.createElement("p");warning.className="media-note";warning.textContent="SafeSearch is off; results may include mature material.";imageSearchResults.append(warning);}
     const results=(d.results||[]);
     for(const item of results){
       const card=document.createElement("article");card.className="search-card";
