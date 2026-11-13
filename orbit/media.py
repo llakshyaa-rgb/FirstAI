@@ -142,6 +142,7 @@ def search_web_images(query: str, count: int = 12) -> list[dict]:
     with urllib.request.urlopen(request, timeout=20) as response:
         payload = json.loads(response.read(5_000_000).decode("utf-8"))
     results = []
+    may_include_mature = bool(payload.get("extra", {}).get("might_be_offensive", False))
     for item in payload.get("results", []):
         props = item.get("properties") or {}
         thumb = item.get("thumbnail") or {}
@@ -154,10 +155,10 @@ def search_web_images(query: str, count: int = 12) -> list[dict]:
             "title": str(item.get("title") or "Image result")[:240],
             "image_url": image_url,
             "thumbnail_url": thumb_url,
-            "page_url": item.get("url") or source.get("url") or image_url,
-            "source": source.get("hostname") or "",
-            "width": item.get("properties", {}).get("width"),
-            "height": item.get("properties", {}).get("height"),
-            "is_mature": bool(item.get("is_mature", False)),
+            "page_url": item.get("url") or image_url,
+            "source": item.get("source") or source.get("hostname") or "",
+            "width": props.get("width"),
+            "height": props.get("height"),
+            "may_include_mature": may_include_mature,
         })
     return results
