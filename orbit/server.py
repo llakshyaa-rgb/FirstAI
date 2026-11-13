@@ -62,7 +62,14 @@ class OrbitApplication:
                 raise RuntimeError("Image workflow is not configured. Set ORBIT_IMAGE_WORKFLOW to a ComfyUI API workflow JSON file.")
             self.store.update(task_id, "running")
             self.store.emit(task_id, "status", "The image backend is preparing the requested artwork.")
-            workflow = load_workflow_template(workflow_path, prompt, negative_prompt=negative_prompt, seed=seed)
+            workflow = load_workflow_template(
+                workflow_path, prompt, negative_prompt=negative_prompt, seed=seed,
+                checkpoint=os.environ.get("ORBIT_IMAGE_CHECKPOINT", "model.safetensors"),
+                width=int(os.environ.get("ORBIT_IMAGE_WIDTH", "768")),
+                height=int(os.environ.get("ORBIT_IMAGE_HEIGHT", "768")),
+                steps=int(os.environ.get("ORBIT_IMAGE_STEPS", "24")),
+                cfg=float(os.environ.get("ORBIT_IMAGE_CFG", "7.0")),
+            )
             backend = ComfyUIImageBackend(base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"))
             outputs = backend.generate(
                 workflow,
