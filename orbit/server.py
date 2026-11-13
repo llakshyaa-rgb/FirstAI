@@ -37,6 +37,8 @@ class OrbitApplication:
     def __init__(self, checkpoint, state_path):
         self.runtime = OrbitRuntime(checkpoint)
         self.browser = BrowserTools()
+        self._diffusion_backend = None
+        self._diffusion_backend_lock = threading.Lock()
         self.store = TaskStore(state_path)
         self.memory = MemoryStore(state_path)
         self._threads = set()
@@ -82,7 +84,10 @@ class OrbitApplication:
             )
             if backend_kind == "diffusers":
                 from .diffusion_backend import DiffusionImageBackend
-                backend = DiffusionImageBackend()
+                with self._diffusion_backend_lock:
+                    if self._diffusion_backend is None:
+                        self._diffusion_backend = DiffusionImageBackend()
+                    backend = self._diffusion_backend
                 with self.runtime.offload_for_external_gpu_work():
                     outputs = backend.generate(
                         prompt, negative_prompt=negative_prompt, seed=seed,
