@@ -218,3 +218,7 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Locally generated Orbit artwork and runtime state
+orbit/generated/
+orbit_state.sqlite3
