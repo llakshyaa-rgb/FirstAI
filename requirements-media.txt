@@ -2,3 +2,8 @@
 # Install only if you need scanned-PDF OCR, audio transcription or video frame analysis.
 pypdfium2>=4.30
 faster-whisper>=1.1
+
+# Optional image conversion for HEIC/HEIF and AVIF vision uploads.
+Pillow>=10.0
+pillow-heif>=0.18
+pillow-avif-plugin>=1.4
