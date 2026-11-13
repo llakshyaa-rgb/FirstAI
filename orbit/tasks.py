@@ -99,6 +99,25 @@ class TaskStore:
             history.append({"role": "assistant", "content": row["result"]})
         return history
 
+    def recent_images(self, limit=20):
+        """Return completed image artifacts for restoring the local conversation view."""
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT id, goal, updated_at FROM tasks WHERE status='completed' AND goal LIKE 'Generate image: %' ORDER BY updated_at DESC LIMIT ?",
+                (int(limit),)
+            ).fetchall()
+        images = []
+        for row in rows:
+            for event in self.events(row["id"]):
+                if event["kind"] == "image" and event["details"].get("url"):
+                    images.append({
+                        "task_id": row["id"],
+                        "prompt": row["goal"].removeprefix("Generate image: "),
+                        "url": event["details"]["url"],
+                        "timestamp": event["timestamp"],
+                    })
+        return images
+
     def recover_interrupted(self):
         """Mark queued/running tasks left by a dead process; the application may safely retry them."""
         with self._lock, self._connect() as db:
