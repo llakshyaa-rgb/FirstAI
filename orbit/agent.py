@@ -94,7 +94,15 @@ class LocalAgent:
                 result = self.registry.call("browser_open", {"url": match.group(1)}, confirmed=True)
                 return f"Website: {result['title']}\nURL: {result['url']}\nHTTP status: {result['status']}\n\n{result['text']}"
             except Exception as exc:
-                self.progress(f"Browser navigation failed ({type(exc).__name__}: {exc}).", kind="method_failed")
+                self.progress(f"Browser navigation failed ({type(exc).__name__}: {exc}). I'll try public web search as an alternate route.", kind="method_failed")
+                try:
+                    results = self.registry.call("web_search", {"query": match.group(1)})
+                    if results:
+                        return "The browser could not open that page, so I used public web search instead:\n" + "\n\n".join(
+                            f"- {item['title']}\n  {item['description']}\n  {item['url']}" for item in results
+                        )
+                except Exception as fallback_error:
+                    self.progress(f"Alternate web search also failed ({type(fallback_error).__name__}: {fallback_error}).", kind="method_failed")
                 return None
 
         if lower in {"read website", "read current website", "summarise website", "summarize website"}:
