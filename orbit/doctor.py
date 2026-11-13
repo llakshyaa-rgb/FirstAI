@@ -37,9 +37,15 @@ def diagnose(checkpoint=None):
         add(label, importlib.util.find_spec(package) is not None,
             "Installed" if importlib.util.find_spec(package) is not None else "Optional package not installed.")
 
+    comfy_url = os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/") + "/system_stats"
+    vision_endpoint = os.environ.get("ORBIT_VISION_URL", "http://127.0.0.1:11434/api/generate").rstrip("/")
+    if os.environ.get("ORBIT_VISION_PROVIDER", "ollama").strip().lower() == "ollama":
+        vision_url = vision_endpoint.removesuffix("/api/generate").rstrip("/") + "/api/tags"
+    else:
+        vision_url = vision_endpoint.removesuffix("/v1/chat/completions").rstrip("/") + "/v1/models"
     for name, url in (
-        ("ComfyUI service", os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/") + "/system_stats"),
-        ("Vision service", os.environ.get("ORBIT_VISION_URL", "http://127.0.0.1:11434/api/tags")),
+        ("ComfyUI service", comfy_url),
+        ("Vision service", vision_url),
     ):
         configured = bool(workflow) if name == "ComfyUI service" else bool(vision_model)
         if not configured:
