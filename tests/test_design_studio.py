@@ -40,6 +40,14 @@ class DesignStudioTests(unittest.TestCase):
         self.assertTrue(output.startswith("<svg "))
         self.assertIn("Main point", output)
 
+    def test_json_export_preserves_structured_content(self):
+        import json
+        with tempfile.TemporaryDirectory() as folder:
+            with patch("orbit.design_studio.OUTPUT_DIR", Path(folder)):
+                item = create_artifact("Data", "## Rows\n\n| Name | Score |\n|---|---|\n| Ada | 95 |", "json")
+                payload = json.loads((Path(folder) / item["name"]).read_text(encoding="utf-8"))
+        self.assertEqual(payload["title"], "Data")
+        self.assertEqual(payload["blocks"][-1]["content"][-1], ["Ada", "95"])
     def test_rejects_unsupported_formats_and_empty_content(self):
         with self.assertRaises(ValueError):
             create_artifact("Test", "Body", "exe")
