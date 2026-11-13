@@ -173,7 +173,7 @@ class OrbitApplication:
                 team = AgentTeam(agent.registry, progress=emit_progress)
                 specialist_results = team.run(message, attachments=attachments)
                 for item in specialist_results:
-                    if item.get("agent") != "media" or not item.get("ok"):
+                    if item.get("agent") != "media":
                         continue
                     for media_item in item.get("result", []):
                         if media_item.get("content"):
