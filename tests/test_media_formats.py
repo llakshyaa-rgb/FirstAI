@@ -1,4 +1,6 @@
 import tempfile
+import io
+import tarfile
 import unittest
 import zipfile
 from pathlib import Path
@@ -29,6 +31,18 @@ class CommonMediaFormatTests(unittest.TestCase):
                 archive.writestr("content.xml", '<document><p>OpenDocument text</p></document>')
             result = extract_text(path)
         self.assertIn("OpenDocument text", result)
+
+    def test_tar_archive_can_be_inspected_without_extracting(self):
+        with tempfile.TemporaryDirectory() as folder:
+            path = Path(folder) / "project.tar.gz"
+            payload = b"safe source file contents"
+            with tarfile.open(path, "w:gz") as archive:
+                info = tarfile.TarInfo("src/main.py")
+                info.size = len(payload)
+                archive.addfile(info, io.BytesIO(payload))
+            from orbit.media_processing import _process_tar
+            result = _process_tar(path)
+        self.assertIn("safe source file contents", result)
 
     def test_epub_extracts_chapter_text_without_script(self):
         with tempfile.TemporaryDirectory() as folder:
