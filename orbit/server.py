@@ -20,7 +20,7 @@ from .memory import MemoryStore
 from .images import ComfyUIImageBackend
 from .image_workflow import load_workflow_template
 from .agent import LocalAgent
-from .media import parse_multipart, save_upload, list_uploads, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
+from .media import parse_multipart, save_upload, list_uploads, get_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
 from .vision import describe_image
 
 ROOT = Path(__file__).resolve().parent
@@ -44,9 +44,12 @@ class OrbitApplication:
                 self.store.update(task_id, "queued")
                 self._launch_chat(task_id, task["goal"])
 
-    def start_chat(self, message):
+    def start_chat(self, message, attachments=None):
         task_id = self.store.create(message)
-        self._launch_chat(task_id, message)
+        thread = threading.Thread(target=self._chat_worker, args=(task_id, message, attachments or []), daemon=True)
+        with self._lock:
+            self._threads.add(thread)
+        thread.start()
         return task_id
 
     def start_image(self, prompt, negative_prompt="", seed=None):
@@ -115,15 +118,35 @@ class OrbitApplication:
                 self._threads = {t for t in self._threads if t.is_alive() and t is not threading.current_thread()}
 
     def _launch_chat(self, task_id, message):
-        thread = threading.Thread(target=self._chat_worker, args=(task_id, message), daemon=True)
+        thread = threading.Thread(target=self._chat_worker, args=(task_id, message, []), daemon=True)
         with self._lock:
             self._threads.add(thread)
         thread.start()
 
-    def _chat_worker(self, task_id, message):
+    def _chat_worker(self, task_id, message, attachments=None):
         try:
             self.store.update(task_id, "running")
             self.store.emit(task_id, "status", "Certainly. I'm considering your request.")
+            context_parts = []
+            for file_id in (attachments or [])[:5]:
+                try:
+                    item = get_upload(file_id)
+                    if item.get("category") == "image":
+                        self.store.emit(task_id, "status", "Inspecting image: " + item["name"])
+                        try:
+                            description = describe_image(file_id, "Describe visible contents, objects, text, layout and relevant details. Distinguish observations from guesses.")
+                            context_parts.append("Image " + item["name"] + " analysis:\n" + description)
+                        except Exception as vision_error:
+                            self.store.emit(task_id, "method_failed", "I received " + item["name"] + ", but image analysis failed (" + type(vision_error).__name__ + ": " + str(vision_error) + "). I'll continue with the rest of the request.")
+                            context_parts.append("Image " + item["name"] + " was received but its pixels could not be analysed.")
+                    elif item.get("text"):
+                        context_parts.append("File " + item["name"] + " extracted text:\n" + item["text"][:30000])
+                    else:
+                        context_parts.append("File " + item["name"] + " was attached, but no parser is configured for its contents.")
+                except Exception as attachment_error:
+                    self.store.emit(task_id, "method_failed", "I couldn't process one attachment: " + type(attachment_error).__name__ + ": " + str(attachment_error) + ". I'll continue.")
+            if context_parts:
+                message = message + "\n\nAttached material:\n" + "\n\n".join(context_parts)
             # Run only narrowly matched, deterministic local utility intents.
             # All other messages are passed to the language model.
             agent = LocalAgent(
@@ -196,7 +219,8 @@ def make_handler(app):
                     "image_backend_error": image_error,
                     "image_backend": os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"),
                     "image_search_configured": bool(os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()),
-                    "vision_configured": bool(os.environ.get("ORBIT_VISION_MODEL", "").strip())
+                    "vision_configured": bool(os.environ.get("ORBIT_VISION_MODEL", "").strip()),
+                    "vision_provider": os.environ.get("ORBIT_VISION_PROVIDER", "ollama")
                 })
             if parsed.path == "/api/memory":
                 return self._json(200, {"memories": app.memory.get_all()})
@@ -319,10 +343,13 @@ def make_handler(app):
                     task_id = app.start_image(prompt.strip(), negative_prompt, seed)
                     return self._json(202, {"task_id": task_id, "status": "queued"})
                 message = payload.get("message")
+                attachments = payload.get("attachments", [])
                 if not isinstance(message, str) or not message.strip():
                     return self._json(400, {"error": "message must be a non-empty string"})
+                if not isinstance(attachments, list) or len(attachments) > 5 or any(not isinstance(x, str) for x in attachments):
+                    return self._json(400, {"error": "attachments must be a list of up to five uploaded file IDs"})
                 # Deterministic local tools remain available even before a language checkpoint is trained.
-                task_id = app.start_chat(message.strip())
+                task_id = app.start_chat(message.strip(), attachments)
                 return self._json(202, {"task_id": task_id, "status": "queued"})
             except (UnicodeDecodeError, json.JSONDecodeError):
                 return self._json(400, {"error": "Invalid JSON"})
