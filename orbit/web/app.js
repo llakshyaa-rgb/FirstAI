@@ -34,7 +34,7 @@ async function health(){
     device.textContent=d.device||"";
     const imageStatus=document.querySelector("#image-status");
     if(imageStatus)imageStatus.textContent=[
-      d.image_backend_connected?"Image generation online":(d.image_workflow_configured?"Image workflow · backend offline":"Image generation not configured"),
+      d.image_backend==="diffusers"?(d.image_backend_connected?"Diffusers ready · "+(d.image_model||"image model"):"Diffusers unavailable"):(d.image_backend_connected?"ComfyUI online":(d.image_workflow_configured?"Image workflow · backend offline":"Image generation not configured")),
       d.image_search_configured?"Web image search ready":"Image search key missing",
       d.vision_configured?"Vision model configured":"Vision model not configured"
     ].join(" · ");
