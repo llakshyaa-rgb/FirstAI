@@ -7,7 +7,7 @@ The optional download_training_data.py script downloads these datasets directly 
 - Dataset: https://huggingface.co/datasets/Salesforce/wikitext
 - Default configuration: wikitext-2-raw-v1
 - Purpose: base next-token language-model pretraining.
-- Declared license: CC BY-SA 4.0 on the current dataset card; older metadata also lists CC BY-SA 3.0/GFDL. Review the current dataset card and source material terms before redistributing trained artifacts.
+- License metadata includes CC BY-SA 3.0 and GFDL; the dataset card's licensing paragraph also refers to CC BY-SA 4.0. Check the current card and upstream source terms before redistributing trained artifacts.
 - The WikiText dataset card describes over 100 million tokens across WikiText-103 and smaller WikiText-2 variants.
 
 ## Databricks Dolly 15K
