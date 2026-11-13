@@ -71,41 +71,56 @@ class OrbitApplication:
 
     def _image_worker(self, task_id, prompt, negative_prompt, seed):
         try:
-            workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
-            if not workflow_path or not Path(workflow_path).is_file():
-                raise RuntimeError("Image workflow is not configured. Set ORBIT_IMAGE_WORKFLOW to a ComfyUI API workflow JSON file.")
             self.store.update(task_id, "running")
             self.store.emit(task_id, "status", "The image backend is preparing the requested artwork.")
-            workflow = load_workflow_template(
-                workflow_path, prompt, negative_prompt=negative_prompt, seed=seed,
-                checkpoint=os.environ.get("ORBIT_IMAGE_CHECKPOINT", "model.safetensors"),
-                width=int(os.environ.get("ORBIT_IMAGE_WIDTH", "768")),
-                height=int(os.environ.get("ORBIT_IMAGE_HEIGHT", "768")),
-                steps=int(os.environ.get("ORBIT_IMAGE_STEPS", "24")),
-                cfg=float(os.environ.get("ORBIT_IMAGE_CFG", "7.0")),
-            )
-            backend = ComfyUIImageBackend(base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"))
+            backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
             progress = lambda event: self.store.emit(
                 task_id, event["kind"], event["message"],
                 **{key: value for key, value in event.items() if key not in ("kind", "message")}
             )
-            try:
-                outputs = backend.generate(workflow, on_progress=progress)
-            except Exception as primary_error:
-                fallback_url = os.environ.get("ORBIT_COMFYUI_FALLBACK_URL", "").strip()
-                if not fallback_url or fallback_url.rstrip("/") == backend.base_url:
-                    raise
-                self.store.emit(
-                    task_id, "method_failed",
-                    f"The primary image backend failed ({type(primary_error).__name__}: {primary_error}). I'm trying the configured fallback image backend."
+            if backend_kind == "diffusers":
+                from .diffusion_backend import DiffusionImageBackend
+                backend = DiffusionImageBackend()
+                outputs = backend.generate(
+                    prompt, negative_prompt=negative_prompt, seed=seed,
+                    width=int(os.environ.get("ORBIT_IMAGE_WIDTH", "512")),
+                    height=int(os.environ.get("ORBIT_IMAGE_HEIGHT", "512")),
+                    steps=int(os.environ.get("ORBIT_IMAGE_STEPS", "20")),
+                    guidance=float(os.environ.get("ORBIT_IMAGE_CFG", "7.0")),
+                    on_progress=progress,
                 )
-                fallback = ComfyUIImageBackend(base_url=fallback_url)
+            elif backend_kind == "comfyui":
+                workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
+                if not workflow_path or not Path(workflow_path).is_file():
+                    raise RuntimeError("ComfyUI workflow is not configured. Set ORBIT_IMAGE_WORKFLOW, or select ORBIT_IMAGE_BACKEND=diffusers and install requirements-image.txt.")
+                workflow = load_workflow_template(
+                    workflow_path, prompt, negative_prompt=negative_prompt, seed=seed,
+                    checkpoint=os.environ.get("ORBIT_IMAGE_CHECKPOINT", "model.safetensors"),
+                    width=int(os.environ.get("ORBIT_IMAGE_WIDTH", "768")),
+                    height=int(os.environ.get("ORBIT_IMAGE_HEIGHT", "768")),
+                    steps=int(os.environ.get("ORBIT_IMAGE_STEPS", "24")),
+                    cfg=float(os.environ.get("ORBIT_IMAGE_CFG", "7.0")),
+                )
+                backend = ComfyUIImageBackend(base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"))
                 try:
-                    outputs = fallback.generate(workflow, on_progress=progress)
-                except Exception as fallback_error:
-                    raise RuntimeError(
-                        f"Primary image backend failed: {primary_error}; fallback also failed: {fallback_error}"
-                    ) from fallback_error
+                    outputs = backend.generate(workflow, on_progress=progress)
+                except Exception as primary_error:
+                    fallback_url = os.environ.get("ORBIT_COMFYUI_FALLBACK_URL", "").strip()
+                    if not fallback_url or fallback_url.rstrip("/") == backend.base_url:
+                        raise
+                    self.store.emit(
+                        task_id, "method_failed",
+                        f"The primary image backend failed ({type(primary_error).__name__}: {primary_error}). I'm trying the configured fallback image backend."
+                    )
+                    fallback = ComfyUIImageBackend(base_url=fallback_url)
+                    try:
+                        outputs = fallback.generate(workflow, on_progress=progress)
+                    except Exception as fallback_error:
+                        raise RuntimeError(
+                            f"Primary image backend failed: {primary_error}; fallback also failed: {fallback_error}"
+                        ) from fallback_error
+            else:
+                raise ValueError("ORBIT_IMAGE_BACKEND must be comfyui or diffusers.")
             if not outputs:
                 raise RuntimeError("The image backend completed without returning images.")
             GENERATED.mkdir(parents=True, exist_ok=True)
