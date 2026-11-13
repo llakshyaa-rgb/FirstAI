@@ -28,6 +28,6 @@ def search_web(query: str, count: int = 8) -> list[dict]:
             "title": str(item.get("title") or "Search result")[:240],
             "url": url,
             "description": str(item.get("description") or "")[:1000],
-            "source": str(item.get("meta_url", {}).get("hostname") or ""),
+            "source": str((item.get("meta_url") or {}).get("hostname") or ""),
         })
     return results
