@@ -9,7 +9,7 @@ from dataclasses import dataclass
 import os
 import re
 from .media_processing import process_upload
-from .media import get_upload
+from .media import get_upload, search_web_images
 
 
 @dataclass(frozen=True)
@@ -23,6 +23,8 @@ class Specialist:
 SPECIALISTS = (
     Specialist("researcher", "Find current public information and source links",
                ("research", "search the web", "search web", "look up", "latest", "current", "sources", "fact check"), "web_search"),
+    Specialist("image_researcher", "Find existing image references and return source links",
+               ("image_search", "image", "picture", "photo"), "image_search"),
     Specialist("code_scout", "Map relevant source files, definitions, dependencies and call sites",
                ("project", "repository", "repo", "codebase", "workspace", "file", "code", "bug", "error",
                 "build", "implement", "create", "add", "fix", "debug", "modify", "refactor", "integrate"), "search_files"),
@@ -47,6 +49,9 @@ class AgentTeam:
         if name == "researcher":
             match = re.search(r"(?:research|search(?: the)? web for|search web for|look up|find sources for|fact check)s+(.+)", text, re.I)
             return (match.group(1) if match else text)[:400]
+        if name == "image_researcher":
+            match = re.search(r"(?:find images|find pictures|search images|search pictures|show me images|look for images)\\s+(.+)", text, re.I)
+            return (match.group(1) if match else text)[:350]
         if name == "code_scout":
             topics = ("image", "vision", "agent", "gpu", "memory", "training", "video", "audio",
                       "pdf", "browser", "tool", "server", "model", "chat", "ui", "task", "file",
@@ -84,6 +89,9 @@ class AgentTeam:
         query = self._query_for(specialist.name, message)
         if specialist.tool_name == "web_search":
             return self.registry.call("web_search", {"query": query, "count": 8})
+        if specialist.tool_name == "image_search":
+            explicit_mature = any(term in message.casefold() for term in ("mature", "adult", "nsfw", "18+"))
+            return search_web_images(query, count=8, safesearch="off" if explicit_mature else "strict")
         if specialist.tool_name == "search_files":
             files = self.registry.call("list_files", {"relative": "."})
             matches = self.registry.call("search_files", {"query": query})
@@ -108,6 +116,7 @@ class AgentTeam:
         for specialist in SPECIALISTS:
             choose = (
                 (specialist.name == "researcher" and ("research" in requested or any(x in lower for x in ("research", "search the web", "search web", "look up", "latest", "current", "fact check"))))
+                or (specialist.name == "image_researcher" and "image_search" in requested)
                 or (specialist.name == "code_scout" and ("coding" in requested or "code_scout" in requested))
                 or (specialist.name == "analyst" and ("analysis" in requested or any(x in lower for x in ("calculate", "compute", "equation", "percentage", "average", "total")) and any(ch.isdigit() for ch in text)))
                 or (specialist.name == "verifier" and ("verification" in requested or any(x in lower for x in ("verify project", "validate project", "run project tests", "test the project"))))
