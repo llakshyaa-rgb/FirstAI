@@ -83,9 +83,6 @@ class OrbitApplication:
     def start_chat(self, message, attachments=None):
         route = classify_request(message)
         # Artifacts and generated images are still submitted from the same chat box.
-        if route["kind"] == "artifact":
-            return self.start_design(route.get("title") or "Orbit deliverable", message,
-                                     route.get("format") or "pdf", "midnight")
         if route["kind"] == "image_generation":
             return self.start_image(message)
         task_id = self.store.create(message)
@@ -242,6 +239,14 @@ class OrbitApplication:
                 agent.registry, progress=emit_progress
             ).run(message, attachments=attachments, capabilities=route.get("capabilities", []))
             for item in specialist_results:
+                if item.get("agent") == "image_researcher" and item.get("ok"):
+                    image_results = item.get("result") or []
+                    self.store.emit(task_id, "image_results", "Found image references.", results=image_results)
+                    context_parts.append("Image-search results (titles and source links): " + json.dumps(
+                        [{"title": x.get("title"), "source": x.get("source"), "page_url": x.get("page_url")}
+                         for x in image_results], ensure_ascii=False
+                    )[:6000])
+                    continue
                 if item.get("agent") != "media":
                     continue
                 for media_item in item.get("result", []):
@@ -274,6 +279,39 @@ class OrbitApplication:
                 message += "\n\nSpecialist failures (do not claim these succeeded):\n" + json.dumps(
                     failed_agents, ensure_ascii=False, default=str
                 )[:4000]
+
+            if route.get("kind") == "artifact":
+                self.store.emit(task_id, "status", "The coordinator is preparing the requested deliverable.")
+                brief = message[:9000]
+                prompt = (
+                    "Create a complete, polished " + str(route.get("format") or "pdf").upper() +
+                    " deliverable. Request: " + brief + ". Return only finished Markdown content. "
+                    "Use clear hierarchy, useful sections, concrete details, tables or bullets where useful. "
+                    "For presentations, structure content as slide headings and concise slide-ready points. "
+                    "For spreadsheets, use tables with headers and rows. Do not invent facts or sources; "
+                    "label assumptions. Do not explain what you would do."
+                )
+                previous_limit = self.runtime.max_new_tokens
+                self.runtime.max_new_tokens = max(previous_limit, min(512, int(os.environ.get("ORBIT_DESIGN_MAX_TOKENS", "384"))))
+                try:
+                    draft = self.runtime.reply(
+                        prompt, history=self.store.recent_history(limit=4),
+                        owner_preferences=self.memory.prompt_context(),
+                        on_progress=lambda event: emit_progress(event["message"], kind=event["kind"],
+                            **{key: value for key, value in event.items() if key not in ("kind", "message")}),
+                    )
+                finally:
+                    self.runtime.max_new_tokens = previous_limit
+                if not draft or not draft.strip():
+                    raise RuntimeError("The model returned an empty deliverable draft.")
+                artifact = create_artifact(
+                    route.get("title") or "Orbit deliverable", draft,
+                    route.get("format") or "pdf", theme_name="midnight",
+                )
+                self.store.emit(task_id, "artifact", "Your deliverable is ready.", artifact=artifact)
+                self.store.update(task_id, "completed", result=json.dumps(artifact, ensure_ascii=False))
+                self.store.emit(task_id, "completed", "Created " + artifact["name"])
+                return
 
             answer = agent.try_execute(message)
             if answer is None and not specialist_results and self.runtime.ready and any(
