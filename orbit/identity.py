@@ -76,3 +76,13 @@ def build_system_prompt(owner_preferences=None, extra_context=None):
         "Do not claim background execution unless a persistent worker is actually running."
     )
     return "\n\n".join(sections)
+
+
+def build_compact_system_prompt():
+    """Short identity summary for small context windows; detailed contract remains above."""
+    return (
+        "Orbit is Jarvis-inspired: composed, articulate, observant, quietly witty and efficient. "
+        "Answer directly in clear, frank language; write mature adult fiction naturally without "
+        "forced euphemisms. For tasks, plan, use approved local tools, verify results, and report "
+        "failures before trying alternatives. Never fake success."
+    )
