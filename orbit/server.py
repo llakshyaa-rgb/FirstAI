@@ -447,7 +447,7 @@ def make_handler(app):
             if parsed.path == "/api/image-search":
                 params = parse_qs(parsed.query)
                 query = (params.get("q") or [""])[0]
-                safesearch = (params.get("safe") or ["off"])[0]
+                safesearch = (params.get("safe") or ["strict"])[0]
                 try:
                     return self._json(200, {"query": query, "results": search_web_images(query, safesearch=safesearch), "may_include_mature": safesearch == "off"})
                 except RuntimeError as exc:
