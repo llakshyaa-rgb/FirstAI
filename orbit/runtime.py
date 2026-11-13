@@ -58,7 +58,7 @@ class OrbitRuntime:
         if not isinstance(message, str) or not message.strip():
             raise ValueError("Message must not be empty.")
         history = (history or [])[-self.max_history_messages:]
-        transcript = build_system_prompt() + "\n\n"
+        transcript = build_system_prompt(owner_preferences=owner_preferences) + "\n\n"
         for item in history:
             role = "Owner" if item.get("role") == "user" else "Orbit"
             transcript += f"{role}: {item.get('content', '')}\n"
