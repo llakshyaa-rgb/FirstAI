@@ -24,14 +24,21 @@ class OrbitRuntime:
         self.checkpoint_path = Path(checkpoint)
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.max_history_messages = max_history_messages
-        self.max_new_tokens = max_new_tokens
+        self.max_new_tokens = max(16, min(512, int(os.environ.get("ORBIT_MAX_NEW_TOKENS", str(max_new_tokens)))))
+        self.cpu_threads = max(1, min(8, int(os.environ.get("ORBIT_CPU_THREADS", "4"))))
+        try:
+            torch.set_num_threads(self.cpu_threads)
+            torch.set_num_interop_threads(1)
+        except RuntimeError:
+            pass
         self.gpu_memory_fraction = min(0.90, max(0.50, float(os.environ.get("ORBIT_GPU_MEMORY_FRACTION", "0.86"))))
         self._amp_enabled = False
         self._amp_dtype = None
         self._lock = threading.Lock()
-        if self.device == "cuda" and torch.cuda.is_available():
+        if self.device.startswith("cuda") and torch.cuda.is_available():
             try:
                 torch.cuda.set_per_process_memory_fraction(self.gpu_memory_fraction, device=0)
+                torch.backends.cuda.matmul.allow_tf32 = True
             except (AttributeError, RuntimeError, ValueError):
                 pass
         self.model = None
@@ -51,7 +58,7 @@ class OrbitRuntime:
             model.load_state_dict(saved["model"])
             model.eval()
             self.model, self.tokenizer = model, tokenizer
-            if self.device == "cuda" and torch.cuda.is_available():
+            if self.device.startswith("cuda") and torch.cuda.is_available():
                 self._amp_enabled = True
                 self._amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
             self.load_error = None
@@ -175,7 +182,7 @@ class OrbitRuntime:
                 first_error = "The first decoding strategy returned an empty response."
             except Exception as exc:
                 first_error = f"{type(exc).__name__}: {exc}"
-                if self.device == "cuda" and isinstance(exc, torch.cuda.OutOfMemoryError):
+                if self.device.startswith("cuda") and isinstance(exc, torch.cuda.OutOfMemoryError):
                     try:
                         if on_progress:
                             on_progress({
