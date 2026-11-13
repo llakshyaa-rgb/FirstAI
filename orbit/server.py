@@ -28,6 +28,7 @@ from .vision import describe_image, unload_ollama_vision_model
 from .media_processing import process_upload
 from .planner import execute_tool_plan
 from .agents import AgentTeam
+from .intent import classify_request
 from .browser import BrowserTools
 from .design_studio import create_artifact, SUPPORTED, THEMES
 
@@ -80,6 +81,13 @@ class OrbitApplication:
             self._threads.discard(future)
 
     def start_chat(self, message, attachments=None):
+        route = classify_request(message)
+        # Artifacts and generated images are still submitted from the same chat box.
+        if route["kind"] == "artifact":
+            return self.start_design(route.get("title") or "Orbit deliverable", message,
+                                     route.get("format") or "pdf", "midnight")
+        if route["kind"] == "image_generation":
+            return self.start_image(message)
         task_id = self.store.create(message)
         if attachments:
             self.store.emit(task_id, "attachments", "File attachments linked to this task.", file_ids=list(attachments[:5]))
@@ -228,47 +236,46 @@ class OrbitApplication:
                 memory=self.memory,
                 browser=self.browser,
             )
-            # Attachments are delegated to a dedicated media specialist. Other
-            # relevant specialists can research or inspect the workspace in parallel.
-            if attachments:
-                team = AgentTeam(agent.registry, progress=emit_progress)
-                specialist_results = team.run(message, attachments=attachments)
-                for item in specialist_results:
-                    if item.get("agent") != "media":
-                        continue
-                    for media_item in item.get("result", []):
-                        if media_item.get("content"):
-                            context_parts.append(
-                                media_item.get("kind", "file").capitalize() + " " +
-                                media_item.get("name", "attachment") + " analysis:\n" +
-                                media_item["content"]
-                            )
-                        elif media_item.get("fallback_text"):
-                            context_parts.append(
-                                "Readable extracted text from attachment:\n" + media_item["fallback_text"]
-                            )
-                        elif not media_item.get("ok"):
-                            emit_progress(
-                                "An attachment could not be fully interpreted (" +
-                                media_item.get("error", "unknown error") +
-                                "). I'll continue with any readable fallback content.",
-                                kind="method_failed",
-                            )
-                if context_parts:
-                    message += "\n\nAttached material:\n" + "\n\n".join(context_parts)
-                findings = [item for item in specialist_results if item.get("agent") != "media"]
-                if findings:
-                    message += "\n\nOther specialist findings:\n" + json.dumps(findings, ensure_ascii=False, default=str)[:12000]
+            # One automatic capability router serves the single conversational interface.
+            route = classify_request(message)
+            specialist_results = AgentTeam(
+                agent.registry, progress=emit_progress
+            ).run(message, attachments=attachments, capabilities=route.get("capabilities", []))
+            for item in specialist_results:
+                if item.get("agent") != "media":
+                    continue
+                for media_item in item.get("result", []):
+                    if media_item.get("content"):
+                        context_parts.append(
+                            media_item.get("kind", "file").capitalize() + " " +
+                            media_item.get("name", "attachment") + " analysis:\n" +
+                            media_item["content"]
+                        )
+                    elif media_item.get("fallback_text"):
+                        context_parts.append(
+                            "Readable extracted text from attachment:\n" + media_item["fallback_text"]
+                        )
+                    elif not media_item.get("ok"):
+                        emit_progress(
+                            "An attachment could not be fully interpreted (" +
+                            media_item.get("error", "unknown error") +
+                            "). I'll continue with any readable fallback content.",
+                            kind="method_failed",
+                        )
+            if context_parts:
+                message += "\n\nAttached material:\n" + "\n\n".join(context_parts)
+            findings = [item for item in specialist_results if item.get("ok")]
+            if findings:
+                message += "\n\nSpecialist findings (tool output; evaluate relevance and verify claims):\n" + json.dumps(
+                    findings, ensure_ascii=False, default=str
+                )[:16000]
+            failed_agents = [item for item in specialist_results if not item.get("ok")]
+            if failed_agents:
+                message += "\n\nSpecialist failures (do not claim these succeeded):\n" + json.dumps(
+                    failed_agents, ensure_ascii=False, default=str
+                )[:4000]
 
             answer = agent.try_execute(message)
-            if answer is None and not specialist_results:
-                team = AgentTeam(
-                    agent.registry,
-                    progress=emit_progress,
-                )
-                specialist_results = team.run(message)
-                if specialist_results:
-                    message = message + "\n\nSpecialist-agent findings (tool results; verify before relying on them):\n" + json.dumps(specialist_results, ensure_ascii=False, default=str)[:16000]
             if answer is None and not specialist_results and self.runtime.ready and any(
                 word in message.casefold() for word in
                 ("search", "research", "look up", "calculate", "compute", "list files",
