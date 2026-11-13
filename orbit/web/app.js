@@ -190,11 +190,21 @@ uploadForm?.addEventListener("submit",async e=>{
         const details=document.createElement("details");const summary=document.createElement("summary");summary.textContent="Extracted text preview";
         const pre=document.createElement("pre");pre.textContent=item.text.slice(0,3000);details.append(summary,pre);card.append(details);
       }
-      const attach=document.createElement("button");attach.type="button";attach.textContent="Attach to next chat";
+      if(pendingAttachments.length<5 && !pendingAttachments.some(x=>x.id===item.id)){
+        pendingAttachments.push({id:item.id,name:item.name});renderAttachmentQueue();
+      }
+      const attach=document.createElement("button");attach.type="button";
+      const updateAttachLabel=()=>{attach.textContent=pendingAttachments.some(x=>x.id===item.id)?"Queued for next chat · Remove":"Attach to next chat";};
       attach.addEventListener("click",()=>{
-        if(pendingAttachments.length>=5){bubble("orbit","A maximum of five files can be attached to one message.","status");return;}
-        if(!pendingAttachments.some(x=>x.id===item.id)){pendingAttachments.push({id:item.id,name:item.name});renderAttachmentQueue();}
+        if(pendingAttachments.some(x=>x.id===item.id)){
+          pendingAttachments=pendingAttachments.filter(x=>x.id!==item.id);
+        }else{
+          if(pendingAttachments.length>=5){bubble("orbit","A maximum of five files can be attached to one message.","status");return;}
+          pendingAttachments.push({id:item.id,name:item.name});
+        }
+        renderAttachmentQueue();updateAttachLabel();
       });
+      updateAttachLabel();
       card.append(attach);
       uploadResults.prepend(card);bubble("user","Stored "+item.name+" ("+item.category+").");
     }
