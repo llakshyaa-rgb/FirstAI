@@ -4,6 +4,7 @@ Base vocabulary is all 256 byte values. Learned merges add IDs 256 onward.
 It can encode any UTF-8 text, including characters absent from training data.
 """
 from collections import Counter
+import heapq
 
 
 class BPETokenizer:
@@ -42,28 +43,53 @@ class BPETokenizer:
         return cls(merges)
 
     def encode(self, text):
+        """Apply learned merges with a priority queue instead of rescanning the full sequence."""
         tokens = list(text.encode("utf-8"))
-        while len(tokens) > 1:
-            best_rank = None
-            best_pair = None
-            for pair in zip(tokens, tokens[1:]):
-                rank = self.ranks.get(pair)
-                if rank is not None and (best_rank is None or rank < best_rank):
-                    best_rank, best_pair = rank, pair
-            if best_pair is None:
-                break
-            new_id = 256 + best_rank
-            merged = []
-            i = 0
-            while i < len(tokens):
-                if i + 1 < len(tokens) and (tokens[i], tokens[i + 1]) == best_pair:
-                    merged.append(new_id)
-                    i += 2
-                else:
-                    merged.append(tokens[i])
-                    i += 1
-            tokens = merged
-        return tokens
+        if len(tokens) < 2 or not self.merges:
+            return tokens
+
+        size = len(tokens)
+        previous = [i - 1 for i in range(size)]
+        following = [i + 1 if i + 1 < size else -1 for i in range(size)]
+        alive = [True] * size
+        heap = []
+
+        def push_pair(left):
+            if left < 0 or not alive[left]:
+                return
+            right = following[left]
+            if right < 0 or not alive[right]:
+                return
+            rank = self.ranks.get((tokens[left], tokens[right]))
+            if rank is not None:
+                heapq.heappush(heap, (rank, left, right))
+
+        for index in range(size - 1):
+            push_pair(index)
+
+        while heap:
+            rank, left, right = heapq.heappop(heap)
+            if not alive[left] or not alive[right] or following[left] != right:
+                continue
+            if self.ranks.get((tokens[left], tokens[right])) != rank:
+                continue
+
+            tokens[left] = 256 + rank
+            alive[right] = False
+            after = following[right]
+            following[left] = after
+            if after >= 0:
+                previous[after] = left
+
+            push_pair(previous[left])
+            push_pair(left)
+
+        result = []
+        index = next((i for i, is_alive in enumerate(alive) if is_alive and previous[i] == -1), -1)
+        while index >= 0:
+            result.append(tokens[index])
+            index = following[index]
+        return result
 
     def decode(self, ids):
         pieces = [bytes([i]) if i < 256 else self._expand(i) for i in ids]
