@@ -25,3 +25,11 @@ footer{text-align:center;padding:14px 0 0}
 .memory-row{display:flex;align-items:center;gap:8px;border-top:1px solid #26313b}
 .memory-row .memory-item{flex:1}
 .memory-row .memory-delete{padding:6px 9px;font-size:11px;background:#29333d;color:#d5dee7}
+
+.image-panel{margin:0 0 12px;padding:10px 12px;border:1px solid #293541;border-radius:12px;color:#c8d2dc}
+.image-panel summary{cursor:pointer;font-size:13px;color:#b8c8d7}
+#image-status{float:right;color:#8d9aa8;font-size:11px}
+#image-composer{display:flex;flex-direction:column;align-items:stretch;border:0;padding-top:8px}
+#image-composer textarea{width:100%;min-height:42px}
+#image-send{align-self:flex-end}
+.generated-image{display:block;max-width:min(100%,560px);max-height:70vh;object-fit:contain;margin-top:9px;border-radius:10px}
