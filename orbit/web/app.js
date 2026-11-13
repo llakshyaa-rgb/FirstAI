@@ -37,6 +37,10 @@ async function addUploadDelete(card,item){
   card.append(remove);
 }
 
+function safeHttpUrl(value){
+  try{const url=new URL(String(value),window.location.href);return url.protocol==="http:"||url.protocol==="https:"?url.href:"";}
+  catch{return "";}
+}
 function bubble(role,text,kind=""){
   const node=document.createElement("article");
   node.className="bubble "+role+(kind?" "+kind:"");
@@ -85,8 +89,9 @@ async function follow(taskId,afterStart=0){
         node.append(label);
         for(const item of (event.details.results||[])){
           const card=document.createElement("div");card.className="search-card";
-          const link=document.createElement("a");link.href=item.page_url;link.target="_blank";link.rel="noopener noreferrer";
-          const img=document.createElement("img");img.src=item.thumbnail_url;img.alt=item.title||"Image result";img.loading="lazy";link.append(img);
+          const link=document.createElement("a");link.href=safeHttpUrl(item.page_url);link.target="_blank";link.rel="noopener noreferrer";
+          const img=document.createElement("img");img.src=safeHttpUrl(item.thumbnail_url);img.alt=item.title||"Image result";img.loading="lazy";link.append(img);
+          if(!link.href||!img.src)continue;
           const title=document.createElement("p");title.textContent=item.title||"Image result";
           const source=document.createElement("small");source.textContent=item.source||"Open source page";
           card.append(link,title,source);node.append(card);
