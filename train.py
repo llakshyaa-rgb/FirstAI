@@ -78,7 +78,7 @@ def main():
         if "rng_state" in checkpoint:
             torch.set_rng_state(checkpoint["rng_state"].cpu())
         if device == "cuda" and checkpoint.get("cuda_rng_state"):
-            torch.cuda.set_rng_state_all(checkpoint["cuda_rng_state"])
+            torch.cuda.set_rng_state_all([state.cpu() for state in checkpoint["cuda_rng_state"]])
         print(f"Resuming at optimizer step {start_step}; restored model, tokenizer, optimizer and RNG state")
     else:
         tokenizer_text = text[:max(1, int(len(text) * 0.9))]
