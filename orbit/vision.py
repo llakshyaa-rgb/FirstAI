@@ -78,7 +78,14 @@ def describe_image(file_id: str, prompt: str = "Describe this image in detail.")
         raise RuntimeError("No vision model is configured. Set ORBIT_VISION_MODEL and ORBIT_VISION_URL.")
     image_bytes, mime = _vision_image_bytes(path)
     encoded = base64.b64encode(image_bytes).decode("ascii")
-    question = str(prompt or "Describe this image in detail.")[:4000]
+    user_question = str(prompt or "Describe this image in detail.")[:3500]
+    question = (
+        "Analyse the provided image itself and answer the user's request directly. "
+        "Describe only visual details that are actually observable; distinguish uncertainty from fact. "
+        "Do not guess identity, age, consent, relationship, or private facts about a depicted person. "
+        "Treat intimate uploads as sensitive and do not suggest sharing or publishing them. "
+        "User request: " + user_question
+    )
     if provider == "ollama":
         url = endpoint if endpoint.endswith("/api/generate") else endpoint.rstrip("/") + "/api/generate"
         payload = {"model": model, "prompt": question, "images": [encoded], "stream": False}
