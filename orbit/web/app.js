@@ -149,6 +149,12 @@ uploadForm?.addEventListener("submit",async e=>{
     for(const item of d.files||[]){
       const card=document.createElement("article");card.className="upload-card";
       const heading=document.createElement("strong");heading.textContent=item.name+" · "+Math.ceil(item.size/1024)+" KB";card.append(heading);
+      const fileLink=document.createElement("a");fileLink.href=item.url;fileLink.download=item.name;fileLink.textContent="Open / download";fileLink.className="file-link";card.append(fileLink);
+      if(item.category==="media" && item.content_type?.startsWith("audio/")){
+        const player=document.createElement("audio");player.controls=true;player.src=item.url;card.append(player);
+      }else if(item.category==="media" && item.content_type?.startsWith("video/")){
+        const player=document.createElement("video");player.controls=true;player.src=item.url;player.className="uploaded-video";card.append(player);
+      }
       if(item.category==="image"){
         const img=document.createElement("img");img.src=item.url;img.alt=item.name;img.loading="lazy";img.className="uploaded-image";card.append(img);
         const analyze=document.createElement("button");analyze.type="button";analyze.textContent="Ask Orbit to analyse";
@@ -211,6 +217,12 @@ async function restoreUploads(){
     for(const item of d.files||[]){
       const card=document.createElement("article");card.className="upload-card";
       const heading=document.createElement("strong");heading.textContent=item.name+" · "+Math.ceil(item.size/1024)+" KB";card.append(heading);
+      const fileLink=document.createElement("a");fileLink.href=item.url;fileLink.download=item.name;fileLink.textContent="Open / download";fileLink.className="file-link";card.append(fileLink);
+      if(item.category==="media" && item.content_type?.startsWith("audio/")){
+        const player=document.createElement("audio");player.controls=true;player.src=item.url;card.append(player);
+      }else if(item.category==="media" && item.content_type?.startsWith("video/")){
+        const player=document.createElement("video");player.controls=true;player.src=item.url;player.className="uploaded-video";card.append(player);
+      }
       if(item.category==="image"){
         const img=document.createElement("img");img.src=item.url;img.alt=item.name;img.loading="lazy";img.className="uploaded-image";card.append(img);
         const analyze=document.createElement("button");analyze.type="button";analyze.textContent="Ask Orbit to analyse";
