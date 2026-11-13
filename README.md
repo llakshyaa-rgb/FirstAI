@@ -177,7 +177,7 @@ pip install datasets
 python download_training_data.py
 ```
 
-By default it downloads up to 1 million characters from WikiText-2 for base language-model training and Databricks Dolly 15K instruction examples, then appends the Orbit-specific examples. See [data/SOURCES.md](data/SOURCES.md) for dataset sources and attribution. The current WikiText card describes the dataset as a collection of over 100 million tokens across its variants; the Dolly dataset contains roughly 15,000 human-written instruction/response records. <Cite> </Cite>
+By default it downloads up to 1 million characters from WikiText-2 for base language-model training and Databricks Dolly 15K instruction examples, then appends the Orbit-specific examples. See [data/SOURCES.md](data/SOURCES.md) for dataset sources and attribution. The WikiText dataset card describes over 100 million tokens across its variants; Dolly contains approximately 15,000 human-written instruction/response records. See the [WikiText card](https://huggingface.co/datasets/Salesforce/wikitext) and [Dolly card](https://huggingface.co/datasets/databricks/databricks-dolly-15k).
 
 Train a fresh base checkpoint and then instruction-tune it:
 
