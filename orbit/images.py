@@ -61,12 +61,23 @@ class ComfyUIImageBackend:
             raise ValueError("poll_interval and timeout must be positive")
         deadline = time.monotonic() + timeout
         quoted = urllib.parse.quote(str(prompt_id), safe="")
+        poll_count = 0
         while time.monotonic() < deadline:
             raw, _ = self._request("/history/" + quoted)
             history = json.loads(raw.decode("utf-8"))
             item = history.get(str(prompt_id))
-            if on_progress:
+            poll_count += 1
+            if on_progress and poll_count in (1, 6, 16, 36):
                 on_progress({"kind": "status", "message": "The image model is rendering the requested artwork."})
+            if item:
+                status = item.get("status", {})
+                messages = status.get("messages", [])
+                failures = [entry for entry in messages if isinstance(entry, list)
+                            and len(entry) > 1 and entry[1] == "execution_error"]
+                if status.get("status_str") == "error" or failures:
+                    raise ImageBackendError(f"ComfyUI reported a rendering error: {failures or status}")
+                if status.get("completed") and not item.get("outputs"):
+                    raise ImageBackendError("ComfyUI marked the job complete but returned no outputs.")
             if item and item.get("outputs"):
                 images = []
                 for node_id, output in item["outputs"].items():
