@@ -72,8 +72,8 @@ class LocalAgent:
             results = self.registry.call("web_search", {"query": query})
             if not results:
                 return "The web search returned no results."
-            return "Web research results:\\n" + "\\n\\n".join(
-                f"- {item['title']} ({item['source']})\\n  {item['description']}\\n  {item['url']}" for item in results
+            return "Web research results:\n" + "\n\n".join(
+                f"- {item['title']} ({item['source']})\n  {item['description']}\n  {item['url']}" for item in results
             )
 
         if lower in {"list files", "show files", "list project files", "show project files"}:
