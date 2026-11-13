@@ -96,6 +96,19 @@ class BrowserTools:
             if self._page is None or self._page.is_closed():
                 raise RuntimeError("No website is open.")
             before = self._page.url
+            target = self._page.locator(selector).first
+            details = target.evaluate("""el => ({
+                tag: (el.tagName || '').toLowerCase(),
+                type: (el.getAttribute('type') || '').toLowerCase(),
+                role: (el.getAttribute('role') || '').toLowerCase(),
+                text: (el.innerText || el.getAttribute('aria-label') || '').trim().slice(0, 200)
+            })""")
+            risky_words = ("buy", "purchase", "pay", "checkout", "delete", "remove",
+                           "submit", "send", "confirm", "place order", "transfer", "subscribe")
+            if details["type"] == "submit" or details["role"] == "submit" or any(
+                word in details["text"].casefold() for word in risky_words
+            ):
+                raise PermissionError("That control may submit a form or perform a consequential action. Orbit will not click it automatically.")
             self._page.locator(selector).first.click(timeout=self.timeout_ms)
             self._last_url = self._page.url
             return {"url": self._page.url, "previous_url": before,
