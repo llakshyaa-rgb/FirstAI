@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+from importlib.util import find_spec
 import os
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -270,7 +271,9 @@ def make_handler(app):
                 workflow_configured = bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file()
                 image_connected, image_error = False, None
                 if image_backend == "diffusers":
-                    image_connected = True
+                    image_connected = find_spec("diffusers") is not None
+                    if not image_connected:
+                        image_error = "Diffusers is not installed. Run pip install -r requirements-image.txt."
                 elif workflow_configured:
                     try:
                         ComfyUIImageBackend(
