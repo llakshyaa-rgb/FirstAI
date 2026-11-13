@@ -50,11 +50,15 @@ def parse_multipart(content_type: str, body: bytes):
     if not message.is_multipart():
         raise ValueError("Expected a multipart file upload.")
     found = []
+    total = 0
     for part in message.iter_parts():
         filename = part.get_filename()
         if not filename:
             continue
         data = part.get_payload(decode=True) or b""
+        total += len(data)
+        if total > MAX_UPLOAD_BYTES:
+            raise ValueError("The combined upload batch must not exceed 20 MB.")
         found.append((_safe_name(filename), data, part.get_content_type()))
     if not found:
         raise ValueError("No files were attached.")
@@ -102,6 +106,11 @@ def list_uploads(limit: int = 100) -> list[dict]:
             stored = UPLOAD_DIR / item.get("stored_name", "")
             if stored.is_file() and stored.parent.resolve() == UPLOAD_DIR.resolve():
                 item["url"] = "/uploads/" + stored.name
+                try:
+                    item["text"] = extract_text(stored, stored.suffix.lower())[:50000]
+                except Exception as exc:
+                    item["text"] = ""
+                    item["extraction_error"] = f"{type(exc).__name__}: {exc}"
                 items.append(item)
         except (OSError, ValueError, TypeError):
             continue
