@@ -228,6 +228,8 @@ def make_handler(app):
                 if length < 1 or length > 32768:
                     return self._json(413, {"error": "Request body must be between 1 and 32768 bytes"})
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                if not isinstance(payload, dict):
+                    return self._json(400, {"error": "Request body must be a JSON object"})
                 if route == "/api/memory":
                     key, value = payload.get("key"), payload.get("value")
                     app.memory.set(key, value)
@@ -241,8 +243,12 @@ def make_handler(app):
                     workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
                     if not workflow_path or not Path(workflow_path).is_file():
                         return self._json(503, {"error": "Image workflow is not configured. Set ORBIT_IMAGE_WORKFLOW to a ComfyUI API workflow JSON file."})
-                    if not isinstance(negative_prompt, str):
-                        return self._json(400, {"error": "negative_prompt must be text"})
+                    if len(prompt) > 5000:
+                        return self._json(400, {"error": "prompt must be no longer than 5000 characters"})
+                    if not isinstance(negative_prompt, str) or len(negative_prompt) > 2000:
+                        return self._json(400, {"error": "negative_prompt must be text up to 2000 characters"})
+                    if seed is not None and (type(seed) is not int or not 0 <= seed <= 2**64 - 1):
+                        return self._json(400, {"error": "seed must be an integer between 0 and 2^64-1"})
                     task_id = app.start_image(prompt.strip(), negative_prompt, seed)
                     return self._json(202, {"task_id": task_id, "status": "queued"})
                 message = payload.get("message")
