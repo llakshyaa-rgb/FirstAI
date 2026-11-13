@@ -23,7 +23,7 @@ from .images import ComfyUIImageBackend
 from .image_workflow import load_workflow_template
 from .agent import LocalAgent
 from .media import parse_multipart, save_upload, list_uploads, get_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
-from .vision import describe_image
+from .vision import describe_image, unload_ollama_vision_model
 from .media_processing import process_upload
 from .planner import execute_tool_plan
 from .agents import AgentTeam
@@ -88,6 +88,7 @@ class OrbitApplication:
                     if self._diffusion_backend is None:
                         self._diffusion_backend = DiffusionImageBackend()
                     backend = self._diffusion_backend
+                unload_ollama_vision_model()
                 with self.runtime.offload_for_external_gpu_work():
                     outputs = backend.generate(
                         prompt, negative_prompt=negative_prompt, seed=seed,
