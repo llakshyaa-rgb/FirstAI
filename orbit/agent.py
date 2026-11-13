@@ -69,9 +69,14 @@ class LocalAgent:
         if match:
             query = match.group(1).strip()
             self.progress("I'll search the web and gather source links.")
-            results = self.registry.call("web_search", {"query": query})
+            try:
+                results = self.registry.call("web_search", {"query": query})
+            except Exception as exc:
+                self.progress("Web search failed (" + type(exc).__name__ + ": " + str(exc) + "). I'll continue with the knowledge available locally.")
+                return None
             if not results:
-                return "The web search returned no results."
+                self.progress("The web search returned no results. I'll continue with the knowledge available locally.")
+                return None
             return "Web research results:\n" + "\n\n".join(
                 f"- {item['title']} ({item['source']})\n  {item['description']}\n  {item['url']}" for item in results
             )
