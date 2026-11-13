@@ -108,6 +108,7 @@ The repository now includes an initial Orbit runtime layer:
 - `orbit.identity`: builds a system prompt from that contract and optional owner/task context.
 - `orbit.tasks`: SQLite-backed task/event persistence and a strategy runner that reports a failed method, tries the next supplied strategy, and records completion or failure.
 - `orbit.planner`: strict JSON tool-plan validation; model-generated plans can only call registered read-only tools, never arbitrary shell or write operations.
+- `orbit.agents`: a coordinator and parallel researcher, workspace-inspector and calculation specialists. They share the existing runtime and execute independent read-only tools concurrently; they do not load duplicate LLM weights or make extra model calls.
 - `orbit.web_search`: read-only Brave web research with source links.
 - `orbit.images`: ComfyUI-compatible adapter for a separately hosted image-generation workflow.
 - `orbit.media`: private local uploads, format validation, text extraction, upload library, and Brave image search with a mature-results SafeSearch toggle.
@@ -140,6 +141,29 @@ runner = TaskRunner(store, progress_callback=lambda event: print(event.message))
 runner.run(task_id, [("primary workflow", primary)])
 ```
 
+### Orbit agent team and hardware budget
+
+Orbit uses a coordinator with three lightweight specialists:
+- **Researcher:** public web search and source gathering.
+- **Workspace inspector:** project/file search.
+- **Analyst:** restricted arithmetic and numerical checks.
+
+Independent specialist tools run concurrently (default maximum: 3 workers). The main language model is shared, so the agents do not each load another model onto the GPU. The model synthesizes the collected results once. This is deliberately a tool-specialist team, not three duplicate LLMs; separate model instances would consume more RAM/VRAM and often slow a phone down.
+
+Inference defaults are conservative and configurable:
+
+```bash
+export ORBIT_GPU_MEMORY_FRACTION=0.86
+export ORBIT_CPU_THREADS=4
+export ORBIT_AGENT_WORKERS=3
+export ORBIT_MAX_NEW_TOKENS=120
+python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
+```
+
+The GPU setting is a **per-process PyTorch CUDA allocator ceiling**, not a command to keep GPU utilisation at 86%. It limits how much of the selected CUDA GPU's memory this Orbit process may allocate. It does not reserve or guarantee that amount, and other GPU users (including separate vision/image services) have their own memory use. The ceiling is clamped between 50% and 90%; the default is 86%. Mixed-precision inference (BF16 when supported, otherwise FP16) and TF32 matmul are enabled on CUDA. One shared model lock prevents simultaneous chat generations from overloading the device; specialist I/O and file checks can still run in parallel.
+
+On a phone, system RAM is shared with Android and its graphics stack. The CUDA memory setting only applies when PyTorch actually detects a CUDA GPU; it does not make Android GPUs CUDA-compatible. Termux devices without CUDA run the model on CPU, where `ORBIT_CPU_THREADS` limits PyTorch's CPU thread count. A 4-thread default leaves more CPU capacity for Android and browser tasks, but speed still depends on the model size and phone hardware. For heavy video/vision work, use the remote Colab T4 backend rather than trying to keep large models resident on an 8 GB phone.
+
 ### Run the local Orbit interface
 
 After training and downloading a compatible checkpoint into the repository:
@@ -150,7 +174,7 @@ python -m orbit.server --checkpoint checkpoints/firstgpt.best.pt --port 8767
 
 Open `http://127.0.0.1:8767` on the same device (or use the optional Colab launch cell, which prints a proxied URL). The UI displays live task updates by polling the local event API, and owner preferences are stored in the same SQLite database as task state. Interrupted generation tasks are re-queued on server restart when a usable checkpoint is available. This is restart recovery, not an always-on service: the Python process must remain running.
 
-The allow-list registry is connected to Orbit's local calculator, workspace file tools, compiler check, test runner and optional Brave web search. A constrained tool-planning interface lets FirstGPT propose multi-step read-only tool calls; every proposed action is validated against the allow-list, and writes or code execution are excluded from model-generated plans. File creation/updates and test execution are only routed after an explicit owner command. No arbitrary shell or unrestricted code execution is exposed.
+The allow-list registry is connected to Orbit's local calculator, workspace file tools, compiler check, test runner and optional Brave web search. A lightweight agent team routes relevant requests to specialist tools concurrently, then passes their findings to the main assistant for one synthesis response. Specialist tool calls are bounded and read-only; they do not spawn separate copies of the language model. A constrained tool-planning interface lets FirstGPT propose multi-step read-only tool calls; every proposed action is validated against the allow-list, and writes or code execution are excluded from model-generated plans. File creation/updates and test execution are only routed after an explicit owner command. No arbitrary shell or unrestricted code execution is exposed.
 
 
 ### Orbit local tools and memory
