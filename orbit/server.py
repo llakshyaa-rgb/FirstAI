@@ -243,7 +243,12 @@ def make_handler(app):
                     "image_backend": os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"),
                     "image_search_configured": bool(os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()),
                     "vision_configured": bool(os.environ.get("ORBIT_VISION_MODEL", "").strip()),
-                    "vision_provider": os.environ.get("ORBIT_VISION_PROVIDER", "ollama")
+                    "vision_provider": os.environ.get("ORBIT_VISION_PROVIDER", "ollama"),
+                    "agent_workers": max(1, min(4, int(os.environ.get("ORBIT_AGENT_WORKERS", "3")))),
+                    "gpu_memory_fraction": app.runtime.gpu_memory_fraction,
+                    "cpu_threads": app.runtime.cpu_threads,
+                    "max_new_tokens": app.runtime.max_new_tokens,
+                    "gpu_memory_policy": "per-process PyTorch allocator ceiling; not a target utilization percentage"
                 })
             if parsed.path == "/api/memory":
                 return self._json(200, {"memories": app.memory.get_all()})
