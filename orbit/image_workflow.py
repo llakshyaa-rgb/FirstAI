@@ -25,7 +25,7 @@ def load_workflow_template(path, prompt, negative_prompt="", seed=None,
         raise ValueError("Seed must be an integer")
     if seed is not None and not 0 <= seed <= 2**64 - 1:
         raise ValueError("Seed must be between 0 and 2^64-1")
-    if type(width) is not int or type(height) is not int or not (64 <= width <= 2048 and 64 <= height <= 2048):
+    if type(width) is not int or type(height) is not int or not (64 <= width <= 2048 and 64 <= height <= 2048) or width % 8 or height % 8:
         raise ValueError("Image dimensions must be integers between 64 and 2048")
     if type(steps) is not int or not 1 <= steps <= 150:
         raise ValueError("Steps must be an integer between 1 and 150")
