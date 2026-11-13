@@ -22,8 +22,10 @@ def classify_request(message: str) -> dict:
     wants_image = any(re.search(r"\b" + re.escape(v) + r"\b", lower) for v in image_verbs) and any(
         re.search(r"\b" + re.escape(n) + r"\b", lower) for n in image_nouns
     )
-    search_image = _has(lower, ("find images", "find pictures", "search images", "search pictures",
-                                "show me images", "look for images", "image references", "photo references"))
+    search_image = _has(lower, ("find images", "find image", "find pictures", "find picture",
+                                "search images", "search pictures", "show me images", "show images",
+                                "show pictures", "look for images", "look up images",
+                                "image references", "photo references"))
     if wants_image and not search_image:
         route.update(kind="image_generation", prompt=text)
         route["capabilities"].append("image_generation")
