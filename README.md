@@ -97,9 +97,7 @@ and generation.
 ## Colab
 
 Open [FirstAI_Colab.ipynb](https://colab.research.google.com/github/llakshyaa-rgb/FirstAI/blob/main/FirstAI_Colab.ipynb).
-The notebook uses the PyTorch installation already provided by Colab, runs unit tests and an end-to-end synthetic-data smoke test, and
-automatically falls back to CPU if CUDA is unavailable. A free GPU is not
-guaranteed. Download checkpoints before the temporary runtime disconnects.
+The notebook checks the active PyTorch/CUDA build and reports the attached GPU before GPU tests. Test 2 deliberately stops if CUDA is unavailable; it does not silently claim a CPU run is a T4 test. Google Drive is optional: if Drive authentication fails, the notebook initializes a temporary local workspace so uploads and training can still proceed during that runtime. Local files are lost when the runtime disconnects, so persistent checkpoints require a successful Drive mount or manual download. A free GPU is not guaranteed.
 
 ## Scope and limitations
 
