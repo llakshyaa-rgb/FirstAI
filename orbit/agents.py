@@ -24,10 +24,13 @@ class Specialist:
 SPECIALISTS = (
     Specialist("researcher", "Find current public information and source links",
                ("research", "search the web", "search web", "look up", "latest", "current", "sources", "website"), "web_search"),
-    Specialist("workspace", "Inspect project files and local technical context",
-               ("project", "repository", "repo", "codebase", "workspace", "file", "code", "bug", "error"), "search_files"),
+    Specialist("workspace", "Scout existing project files and implementation patterns",
+               ("project", "repository", "repo", "codebase", "workspace", "file", "code", "bug", "error",
+                "build", "implement", "create", "add", "fix", "debug", "modify", "refactor", "integrate"), "search_files"),
     Specialist("analyst", "Handle explicit calculations and numerical checks",
                ("calculate", "compute", "equation", "percentage", "average", "total"), "calculate"),
+    Specialist("verifier", "Run requested project checks after implementation",
+               ("verify project", "validate project", "run project tests", "test the project"), "compile_project"),
 )
 
 
@@ -48,7 +51,12 @@ class AgentTeam:
             return (match.group(1) if match else text)[:300]
         if name == "workspace":
             match = re.search(r"(?:search (?:the )?(?:project|workspace|repo(?:sitory)?) for|find in (?:the )?(?:project|repo(?:sitory)?)|search files for)\s+(.+)", text, re.I)
-            return (match.group(1) if match else text)[:200]
+            if match:
+                return match.group(1)[:200]
+            topics = ("image", "vision", "agent", "gpu", "memory", "training", "video", "audio",
+                      "pdf", "browser", "tool", "server", "model", "chat", "ui", "task", "file")
+            found = next((word for word in topics if word in text.casefold()), None)
+            return found or "orbit"
         if name == "analyst":
             match = re.search(r"(?:calculate|compute|what is|what's)\s+(.+)", text, re.I)
             return (match.group(1) if match else text).replace("^", "**")[:160]
@@ -59,7 +67,15 @@ class AgentTeam:
         if specialist.tool_name == "web_search":
             return self.registry.call("web_search", {"query": query, "count": 6})
         if specialist.tool_name == "search_files":
-            return self.registry.call("search_files", {"query": query})
+            files = self.registry.call("list_files", {"relative": "."})
+            matches = self.registry.call("search_files", {"query": query})
+            return {"project_files": files[:100], "matching_lines": matches[:50], "search_term": query}
+        if specialist.tool_name == "compile_project":
+            compiled = self.registry.call("compile_project", confirmed=True)
+            if not compiled.get("passed"):
+                return {"compile": compiled, "tests": "not run because compilation failed"}
+            tests = self.registry.call("run_tests", confirmed=True)
+            return {"compile": compiled, "tests": tests}
         if specialist.tool_name == "calculate":
             return self.registry.call("calculate", {"expression": query})
         raise ValueError("Specialist has no executable tool")
@@ -75,7 +91,13 @@ class AgentTeam:
                 ):
                     continue
                 if specialist.tool_name == "search_files" and not any(
-                    phrase in lower for phrase in ("search", "find", "inspect", "check", "bug", "error")
+                    phrase in lower for phrase in ("search", "find", "inspect", "check", "bug", "error",
+                                                   "build", "implement", "create", "add", "fix", "debug",
+                                                   "modify", "refactor", "integrate")
+                ):
+                    continue
+                if specialist.tool_name == "compile_project" and not any(
+                    phrase in lower for phrase in ("verify project", "validate project", "run project tests", "test the project")
                 ):
                     continue
                 if specialist.tool_name == "calculate" and not any(ch.isdigit() for ch in text):
