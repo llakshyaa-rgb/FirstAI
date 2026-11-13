@@ -14,7 +14,7 @@ import sys
 import tempfile
 from datetime import datetime, timezone
 
-_BLOCKED_PARTS = {".git", ".venv", "venv", "__pycache__", ".env", ".secrets"}
+_BLOCKED_PARTS = {".git", ".venv", "venv", "__pycache__", ".env", ".secrets", ".orbit_backups"}
 _MAX_TEXT_BYTES = 256_000
 _MAX_WRITE_BYTES = 1_000_000
 _BINOPS = {
