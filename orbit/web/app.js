@@ -147,7 +147,16 @@ uploadForm?.addEventListener("submit",async e=>{
       const heading=document.createElement("strong");heading.textContent=item.name+" · "+Math.ceil(item.size/1024)+" KB";card.append(heading);
       if(item.category==="image"){
         const img=document.createElement("img");img.src=item.url;img.alt=item.name;img.loading="lazy";img.className="uploaded-image";card.append(img);
-        const note=document.createElement("p");note.textContent="Received and stored. A vision model must be connected before Orbit can interpret the pixels.";card.append(note);
+        const analyze=document.createElement("button");analyze.type="button";analyze.textContent="Ask Orbit to analyse";
+        analyze.addEventListener("click",async()=>{
+          analyze.disabled=true;analyze.textContent="Analysing…";
+          try{
+            const response=await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file_id:item.id})});
+            const result=await response.json();if(!response.ok)throw new Error(result.error||"Vision analysis failed");
+            bubble("orbit",result.description);
+          }catch(err){bubble("orbit","Image analysis isn't available: "+err.message,"status");}
+          finally{analyze.disabled=false;analyze.textContent="Ask Orbit to analyse";}
+        });card.append(analyze);
       }else{
         const meta=document.createElement("p");meta.textContent=item.category+" · "+item.content_type;card.append(meta);
       }
@@ -172,7 +181,8 @@ imageSearchForm?.addEventListener("submit",async e=>{
     const r=await fetch("/api/image-search?q="+encodeURIComponent(query));
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Search failed");
     imageSearchResults.textContent="";
-    const results=(d.results||[]).filter(item=>showMature?.checked||!item.is_mature);
+    if(d.may_include_mature){const warning=document.createElement("p");warning.className="media-note";warning.textContent="The provider warns these results may include mature or offensive material.";imageSearchResults.append(warning);}
+    const results=(d.results||[]);
     for(const item of results){
       const card=document.createElement("article");card.className="search-card";
       const link=document.createElement("a");link.href=item.page_url;link.target="_blank";link.rel="noopener noreferrer";
@@ -180,7 +190,7 @@ imageSearchForm?.addEventListener("submit",async e=>{
       const title=document.createElement("p");title.textContent=item.title;
       const source=document.createElement("small");source.textContent=item.source||"Open source page";
       card.append(link,title,source);
-      if(item.is_mature){const tag=document.createElement("span");tag.className="mature-label";tag.textContent="Mature category";card.append(tag);}
+
       imageSearchResults.append(card);
     }
     if(!results.length)imageSearchResults.textContent="No results returned for this search.";
