@@ -55,6 +55,7 @@ async function follow(taskId){
 form.addEventListener("submit",async e=>{
   e.preventDefault();if(busy)return;
   const message=input.value.trim();if(!message)return;
+  livePartial=null;
   bubble("user",message);input.value="";busy=true;send.disabled=true;presence.textContent="Personal AI · Working";
   try{
     const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message})});
@@ -118,6 +119,7 @@ const imageNegative=document.querySelector("#image-negative");
 const imageSend=document.querySelector("#image-send");
 imageForm?.addEventListener("submit",async e=>{
   e.preventDefault();const prompt=imagePrompt.value.trim();if(!prompt||busy)return;
+  livePartial=null;
   busy=true;imageSend.disabled=true;presence.textContent="Personal AI · Creating image";
   bubble("user","Create image: "+prompt);
   try{
