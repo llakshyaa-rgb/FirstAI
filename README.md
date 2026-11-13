@@ -204,7 +204,12 @@ The local UI includes an Image Studio panel. To enable it, run a ComfyUI server 
 
 ```bash
 export ORBIT_COMFYUI_URL=http://127.0.0.1:8188
-export ORBIT_IMAGE_WORKFLOW=/absolute/path/to/orbit_api_workflow.json
+export ORBIT_IMAGE_WORKFLOW=$PWD/workflows/comfyui_checkpoint_template.json
+export ORBIT_IMAGE_CHECKPOINT=your-installed-model.safetensors
+export ORBIT_IMAGE_WIDTH=768
+export ORBIT_IMAGE_HEIGHT=768
+export ORBIT_IMAGE_STEPS=24
+export ORBIT_IMAGE_CFG=7.0
 python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
 ```
 
