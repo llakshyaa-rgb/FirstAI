@@ -150,7 +150,7 @@ class WorkspaceTools:
             rel_parts = path.relative_to(self.root).parts
             if any(part in ignored or part.startswith(".env") for part in rel_parts):
                 continue
-            if path.suffix.lower() not in {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".cjs"}:
+            if path.suffix.lower() not in {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".cjs", ".json", ".toml", ".yaml", ".yml"}:
                 continue
             candidates.append(path)
             if len(candidates) >= max(1, min(int(max_files), 100)):
@@ -158,20 +158,28 @@ class WorkspaceTools:
         for path in candidates:
             rel = path.relative_to(self.root).as_posix()
             files.append({"path": rel, "bytes": path.stat().st_size})
-            if path.suffix.lower() != ".py" or path.stat().st_size > 160_000:
+            if path.stat().st_size > 160_000:
                 continue
             try:
                 source = path.read_text(encoding="utf-8")
-                tree = ast.parse(source, filename=rel)
                 imports, definitions = [], []
-                for node in ast.walk(tree):
-                    if isinstance(node, (ast.Import, ast.ImportFrom)):
-                        imports.append(ast.get_source_segment(source, node) or "")
-                    elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
-                        definitions.append({
-                            "kind": "class" if isinstance(node, ast.ClassDef) else "function",
-                            "name": node.name, "line": node.lineno,
-                        })
+                if path.suffix.lower() == ".py":
+                    tree = ast.parse(source, filename=rel)
+                    for node in ast.walk(tree):
+                        if isinstance(node, (ast.Import, ast.ImportFrom)):
+                            imports.append(ast.get_source_segment(source, node) or "")
+                        elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                            definitions.append({
+                                "kind": "class" if isinstance(node, ast.ClassDef) else "function",
+                                "name": node.name, "line": node.lineno,
+                            })
+                else:
+                    for line_no, line in enumerate(source.splitlines(), 1):
+                        if re.match(r"\s*(?:import |from |const .*require\(|const .*from |export .*from )", line):
+                            imports.append(line.strip()[:240])
+                        match = re.match(r"\s*(?:export\s+)?(?:async\s+)?(?:function|class|const|let|var)\s+([A-Za-z_$][\w$]*)", line)
+                        if match:
+                            definitions.append({"kind": "symbol", "name": match.group(1), "line": line_no})
                 source_map.append({
                     "path": rel, "imports": imports[:30], "definitions": definitions[:80],
                 })
