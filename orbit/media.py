@@ -197,3 +197,18 @@ def search_web_images(query: str, count: int = 12, safesearch: str = "off") -> l
             "may_include_mature": may_include_mature,
         })
     return results
+
+
+def get_upload(file_id: str) -> dict:
+    if not isinstance(file_id, str) or len(file_id) != 32 or not all(c in "0123456789abcdef" for c in file_id.lower()):
+        raise ValueError("Invalid upload identifier.")
+    sidecar = UPLOAD_DIR / (file_id + ".json")
+    if not sidecar.is_file() or sidecar.resolve().parent != UPLOAD_DIR.resolve():
+        raise FileNotFoundError("Uploaded file not found.")
+    item = json.loads(sidecar.read_text(encoding="utf-8"))
+    target = (UPLOAD_DIR / item.get("stored_name", "")).resolve()
+    if UPLOAD_DIR.resolve() not in target.parents or not target.is_file():
+        raise FileNotFoundError("Uploaded file data is missing.")
+    item["url"] = "/uploads/" + target.name
+    item["text"] = extract_text(target, target.suffix.lower())[:50000]
+    return item
