@@ -143,7 +143,7 @@ After training and downloading a compatible checkpoint into the repository:
 python -m orbit.server --checkpoint checkpoints/firstgpt.best.pt --port 8767
 ```
 
-Open `http://127.0.0.1:8767` on the same device. The UI streams task events by polling the local event API, and owner preferences are stored in the same SQLite database as task state. Interrupted generation tasks are re-queued on server restart when a usable checkpoint is available. This is restart recovery, not an always-on service: the Python process must remain running.
+Open `http://127.0.0.1:8767` on the same device (or use the optional Colab launch cell, which prints a proxied URL). The UI displays live task updates by polling the local event API, and owner preferences are stored in the same SQLite database as task state. Interrupted generation tasks are re-queued on server restart when a usable checkpoint is available. This is restart recovery, not an always-on service: the Python process must remain running.
 
 The tool registry is an allow-list foundation. No arbitrary shell or code execution is exposed, and tools requiring confirmation are blocked until the application supplies explicit confirmation. No external tools are registered by default.
 
