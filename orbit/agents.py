@@ -132,7 +132,7 @@ class AgentTeam:
                 (specialist.name == "researcher" and ("research" in requested or any(x in lower for x in ("research", "search the web", "search web", "look up", "latest", "current", "fact check"))))
                 or (specialist.name == "image_researcher" and "image_search" in requested)
                 or (specialist.name == "code_scout" and ("coding" in requested or "code_scout" in requested))
-                or (specialist.name == "debugger" and any(x in lower for x in ("bug", "error", "debug", "crash", "fails", "failure", "exception")))
+                or (specialist.name == "debugger" and "coding" in requested and any(x in lower for x in ("bug", "error", "debug", "crash", "fails", "failure", "exception")))
                 or (specialist.name == "code_reviewer" and ("coding" in requested and any(x in lower for x in ("review", "refactor", "security", "performance", "architecture"))))
                 or (specialist.name == "analyst" and ("analysis" in requested or any(x in lower for x in ("calculate", "compute", "equation", "percentage", "average", "total")) and any(ch.isdigit() for ch in text)))
                 or (specialist.name == "verifier" and ("verification" in requested or any(x in lower for x in ("verify project", "validate project", "run project tests", "test the project"))))
