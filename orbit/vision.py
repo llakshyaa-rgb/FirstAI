@@ -23,6 +23,29 @@ def _image_path(file_id: str) -> Path:
         raise ValueError("Image path is outside the upload library.")
     return path
 
+def _vision_image_bytes(path: Path):
+    suffix = path.suffix.lower()
+    if suffix in {".jpg", ".jpeg", ".png"}:
+        return path.read_bytes(), mimetypes.guess_type(path.name)[0] or "image/jpeg"
+    try:
+        if suffix in {".heic", ".heif"}:
+            import pillow_heif
+            pillow_heif.register_heif_opener()
+        from PIL import Image
+    except ImportError as exc:
+        raise RuntimeError("This image format needs Pillow conversion support. Install requirements-media.txt for HEIC/HEIF/AVIF and other image conversion.") from exc
+    try:
+        with Image.open(path) as image:
+            image.seek(0)
+            converted = image.convert("RGB")
+            import io
+            output = io.BytesIO()
+            converted.save(output, format="PNG")
+            return output.getvalue(), "image/png"
+    except Exception as exc:
+        raise RuntimeError("Could not convert " + (suffix or "image") + " for the configured vision model: " + str(exc)) from exc
+
+
 def describe_image(file_id: str, prompt: str = "Describe this image in detail.") -> str:
     path = _image_path(file_id)
     provider = os.environ.get("ORBIT_VISION_PROVIDER", "ollama").strip().lower()
@@ -30,8 +53,8 @@ def describe_image(file_id: str, prompt: str = "Describe this image in detail.")
     model = os.environ.get("ORBIT_VISION_MODEL", "").strip()
     if not model:
         raise RuntimeError("No vision model is configured. Set ORBIT_VISION_MODEL and ORBIT_VISION_URL.")
-    mime = mimetypes.guess_type(path.name)[0] or "image/jpeg"
-    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    image_bytes, mime = _vision_image_bytes(path)
+    encoded = base64.b64encode(image_bytes).decode("ascii")
     question = str(prompt or "Describe this image in detail.")[:4000]
     if provider == "ollama":
         url = endpoint if endpoint.endswith("/api/generate") else endpoint.rstrip("/") + "/api/generate"
