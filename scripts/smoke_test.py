@@ -77,6 +77,12 @@ def main():
             raise RuntimeError(f"Resume expected step 4, found {latest.get('step')}")
 
         run([
+            sys.executable, "evaluate.py",
+            "--checkpoint", str(best), "--data", str(corpus),
+            "--batches", "2", "--batch-size", "2",
+        ], root)
+
+        run([
             sys.executable, "generate.py",
             "--checkpoint", str(best),
             "--prompt", "A machine", "--tokens", "12",
