@@ -147,6 +147,7 @@ Orbit uses a coordinator with four lightweight specialists:
 - **Researcher:** public web search and source gathering.
 - **Workspace inspector:** project/file search.
 - **Analyst:** restricted arithmetic and numerical checks.
+- **Media specialist:** processes uploaded documents, images, archives, audio and video, using safe text fallbacks when a parser or vision backend is unavailable.
 - **Verifier:** runs compilation and tests when explicitly asked to verify the project.
 
 Independent specialist tools run concurrently (default maximum: 3 workers). The main language model is shared, so the agents do not each load another model onto the GPU. The model synthesizes the collected results once. This is deliberately a tool-specialist team, not three duplicate LLMs; separate model instances would consume more RAM/VRAM and often slow a phone down.
@@ -185,7 +186,7 @@ python -m orbit.server --checkpoint checkpoints/firstgpt.best.pt --port 8767
 
 Open `http://127.0.0.1:8767` on the same device (or use the optional Colab launch cell, which prints a proxied URL). The UI displays live task updates by polling the local event API, and owner preferences are stored in the same SQLite database as task state. Interrupted generation tasks are re-queued on server restart when a usable checkpoint is available. This is restart recovery, not an always-on service: the Python process must remain running.
 
-The allow-list registry is connected to Orbit's local calculator, workspace file tools, compiler check, test runner and optional Brave web search. A lightweight agent team routes relevant requests to specialist tools concurrently, then passes their findings to the main assistant for one synthesis response. Specialist tool calls are bounded and read-only; they do not spawn separate copies of the language model. A constrained tool-planning interface lets FirstGPT propose multi-step read-only tool calls; every proposed action is validated against the allow-list, and writes or code execution are excluded from model-generated plans. File creation/updates and test execution are only routed after an explicit owner command. No arbitrary shell or unrestricted code execution is exposed.
+The allow-list registry is connected to Orbit's local calculator, workspace file tools, compiler check, test runner and optional Brave web search. A coordinator assigns relevant researcher, workspace, analyst, verifier and media specialists. Independent tasks run concurrently within a bounded worker pool; the media specialist handles owner attachments while research and workspace inspection can proceed in parallel. Results and failures are passed to the main assistant for synthesis. Agents share the same language runtime rather than loading duplicate models. This is a tool-using multi-agent coordinator, not yet a fully autonomous team of independent code-writing LLMs. Specialist tool calls are bounded and read-only; they do not spawn separate copies of the language model. A constrained tool-planning interface lets FirstGPT propose multi-step read-only tool calls; every proposed action is validated against the allow-list, and writes or code execution are excluded from model-generated plans. File creation/updates and test execution are only routed after an explicit owner command. No arbitrary shell or unrestricted code execution is exposed.
 
 
 ### Orbit local tools and memory
@@ -240,30 +241,43 @@ JSONL examples use `prompt` and `response` fields. The trainer masks prompt toke
 
 ### Image studio
 
-The local UI includes an Image Studio panel. To enable it, run a ComfyUI server with an image model installed and export a ComfyUI API workflow JSON. Configure prompt placeholders `{{PROMPT}}`, `{{NEGATIVE_PROMPT}}`, and `{{SEED}}`, then set these environment variables before starting Orbit:
+Orbit now has two image-generation backends:
 
-```bash
-export ORBIT_COMFYUI_URL=http://127.0.0.1:8188
-export ORBIT_IMAGE_WORKFLOW=$PWD/workflows/comfyui_checkpoint_template.json
-export ORBIT_IMAGE_CHECKPOINT=your-installed-model.safetensors
-export ORBIT_IMAGE_WIDTH=768
-export ORBIT_IMAGE_HEIGHT=768
-export ORBIT_IMAGE_STEPS=24
-export ORBIT_IMAGE_CFG=7.0
+- **Diffusers (direct GPU backend):** no ComfyUI server or workflow JSON is required. Install requirements-image.txt, set ORBIT_IMAGE_BACKEND=diffusers, and choose a public Diffusers model with ORBIT_IMAGE_MODEL. The first generation downloads model weights automatically.
+- **ComfyUI:** retain the existing workflow adapter for custom graphs and externally hosted image models by setting ORBIT_IMAGE_BACKEND=comfyui, ORBIT_COMFYUI_URL, and ORBIT_IMAGE_WORKFLOW.
+
+The Colab notebook includes an optional T4 setup cell for Diffusers using Lykon/dreamshaper-8. It downloads the model on first use. During Diffusers generation, Orbit temporarily moves FirstGPT to CPU, clears its CUDA allocations, renders with Diffusers CPU offload, and restores FirstGPT to its original device. This reduces GPU-memory overlap; it does not make image generation instantaneous or guarantee compatibility with every GPU. The UI submits image jobs asynchronously and displays saved results in the conversation.
+
+For a local Diffusers setup:
+
+~~~bash
+pip install -r requirements-image.txt
+export ORBIT_IMAGE_BACKEND=diffusers
+export ORBIT_IMAGE_MODEL=Lykon/dreamshaper-8
+export ORBIT_IMAGE_DEVICE=auto
 python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
-```
+~~~
 
-The UI submits image tasks asynchronously, records progress, saves returned images under `orbit/generated/`, and displays them in the conversation. The image backend is external and is not bundled or automatically downloaded. Its model and workflow determine which visual requests it can fulfill; this code does not bypass model restrictions or guarantee nude/explicit output. This implementation is designed for private local use. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
+Use ORBIT_IMAGE_WIDTH, ORBIT_IMAGE_HEIGHT, ORBIT_IMAGE_STEPS, and ORBIT_IMAGE_CFG to tune generation. The direct backend defaults to 512×512 and 20 steps. FirstGPT remains a text model; pixels are generated by the separate diffusion model. Model licences and model-specific output restrictions still apply.
 
 ### Images, files and image search
 
-The local UI accepts JPG/JPEG, PNG, WEBP, GIF, BMP, TIFF, AVIF and HEIC/HEIF images, any file format up to 20 MB per upload batch; common text/code files, PDF, DOCX, XLSX and PPTX also receive text extraction, and supported images preview. It previews image uploads and extracts text from supported document formats. Other formats are safely stored as opaque files unless a dedicated parser is implemented. PDF extraction uses the optional `pypdf` dependency.
+Uploads are limited to 20 MB per batch. Orbit previews common images (JPG/JPEG, PNG, WEBP, GIF, BMP, TIFF, AVIF and HEIC/HEIF) and can pass their actual pixels to a configured vision model. FirstGPT itself has not been trained with a vision encoder.
 
-Internet image search uses the Brave Search API. Set `BRAVE_SEARCH_API_KEY`; the mature-results toggle selects SafeSearch off or strict. The same key enables Orbit's read-only web research command, such as `search web for ...`. Search returns thumbnails and original source-page links. Availability of mature results depends on the provider. Respect source-site access controls and image licences.
+Common readable formats include:
+- Text, Markdown, CSV, JSON, XML, HTML, RTF and source-code files.
+- PDF, DOCX, XLSX, PPTX and OpenDocument files (ODT, ODS, ODP).
+- EPUB books.
+- ZIP, TAR and TGZ archives. Orbit inspects supported text entries without extracting or executing archive contents.
+- Audio formats such as MP3, WAV, M4A, OGG and FLAC; video formats such as MP4, MOV, WEBM and MKV.
 
-FirstGPT's current checkpoint remains text-only, but Orbit can now read image pixels through a configured Ollama or OpenAI-compatible vision model. Uploaded images and documents can be attached to the normal chat composer; Orbit analyses them first and passes the results into FirstGPT's context. The optional media pipeline also supports scanned-PDF OCR, ZIP text inspection, faster-whisper audio transcription and ffmpeg-sampled video-frame analysis. These require the optional dependencies and configured vision endpoint described in [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md). The [Colab notebook](https://colab.research.google.com/github/llakshyaa-rgb/FirstAI/blob/main/FirstAI_Colab.ipynb) now includes an optional T4 cell that downloads and starts LLaVA through Ollama for image reading. Vision is currently a connected modality, not a capability learned by FirstGPT itself.
+PDF text extraction uses pypdf; scanned-page OCR uses optional PDFium plus the configured vision model. Audio transcription uses optional faster-whisper. Video analysis samples up to six frames and, when ffmpeg and faster-whisper are available, transcribes up to five minutes of its audio track. This is sampled media understanding, not frame-by-frame temporal comprehension. Optional media dependencies are in requirements-media.txt; ffmpeg is installed separately.
 
-Image generation remains separate: configure ComfyUI and an image checkpoint as described in [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
+Other file formats can still be safely stored and downloaded, but Orbit does not claim to understand a format without a parser. Legacy binary Office formats (DOC/XLS/PPT) and proprietary formats are not currently parsed.
+
+Internet image search uses the Brave Search API. Set BRAVE_SEARCH_API_KEY; the mature-results toggle selects SafeSearch off or strict. Search returns thumbnails and original source-page links. Availability of mature results depends on the provider. Respect source-site access controls and image licences.
+
+The optional Colab vision cell installs Ollama and downloads LLaVA 7B for image reading. The image and vision backends are separate models; they are not learned capabilities of FirstGPT. Do not send private images to a remote endpoint you do not trust.
 
 ### Public website browser
 
