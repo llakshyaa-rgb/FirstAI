@@ -27,9 +27,17 @@ def diagnose(checkpoint=None):
     add("Language checkpoint", target.is_file(), str(target))
     add("Brave image/web search", bool(os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()),
         "API key configured" if os.environ.get("BRAVE_SEARCH_API_KEY", "").strip() else "BRAVE_SEARCH_API_KEY is not set.")
-    workflow = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
-    add("Image generation workflow", bool(workflow and Path(workflow).is_file()),
-        workflow or "ORBIT_IMAGE_WORKFLOW is not set.")
+    image_backend = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
+    if image_backend == "diffusers":
+        installed = importlib.util.find_spec("diffusers") is not None
+        add("Image generation backend", installed,
+            "Diffusers selected: " + os.environ.get("ORBIT_IMAGE_MODEL", "Lykon/dreamshaper-8") if installed
+            else "Diffusers selected but not installed; run pip install -r requirements-image.txt.")
+        workflow = ""
+    else:
+        workflow = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
+        add("Image generation backend", bool(workflow and Path(workflow).is_file()),
+            workflow or "ComfyUI selected but ORBIT_IMAGE_WORKFLOW is not set.")
     vision_model = os.environ.get("ORBIT_VISION_MODEL", "").strip()
     add("Vision model", bool(vision_model), vision_model or "ORBIT_VISION_MODEL is not set.")
     for package, label in (("playwright", "Playwright browser"), ("pypdfium2", "Scanned PDF renderer"),
