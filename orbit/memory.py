@@ -7,11 +7,14 @@ class MemoryStore:
     def __init__(self, path="orbit_state.sqlite3"):
         self.path=str(path)
         with self._connect() as db:
+            db.execute("PRAGMA journal_mode=WAL")
+            db.execute("PRAGMA synchronous=NORMAL")
             db.execute("""CREATE TABLE IF NOT EXISTS memories(
                 key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at TEXT NOT NULL
             )""")
     def _connect(self):
         db=sqlite3.connect(self.path,timeout=30)
+        db.execute("PRAGMA busy_timeout=30000")
         db.row_factory=sqlite3.Row
         return db
     def set(self,key,value):
