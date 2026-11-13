@@ -31,7 +31,7 @@ async function follow(taskId){
     const d=await r.json();
     for(const event of d.events){
       after=Math.max(after,event.seq);
-      if(event.kind==="message"){livePartial=null;bubble("orbit",event.message);}
+      if(event.kind==="message"){if(livePartial){livePartial.textContent=event.message;livePartial=null;}else bubble("orbit",event.message);}
       else if(event.kind==="partial"){
         if(!livePartial)livePartial=bubble("orbit",event.message,"partial");
         else livePartial.textContent=event.message;
