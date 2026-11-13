@@ -1,11 +1,11 @@
 # Training dataset sources and attribution
 
-The optional download_training_data.py script downloads these datasets directly into the workspace. No user upload or Google Drive mount is required.
+The optional download_training_data.py script downloads these datasets directly into the workspace. The notebook uses WikiText-103 and caps the local training text at five million characters by default to provide more signal than the earlier WikiText-2 one-million-character starter. No user upload or Google Drive mount is required.
 
 ## WikiText
 
 - Dataset: https://huggingface.co/datasets/Salesforce/wikitext
-- Default configuration: wikitext-2-raw-v1
+- Default configuration: wikitext-103-raw-v1
 - Purpose: base next-token language-model pretraining.
 - License metadata includes CC BY-SA 3.0 and GFDL; the dataset card's licensing paragraph also refers to CC BY-SA 4.0. Check the current card and upstream source terms before redistributing trained artifacts.
 - The WikiText dataset card describes over 100 million tokens across WikiText-103 and smaller WikiText-2 variants.
