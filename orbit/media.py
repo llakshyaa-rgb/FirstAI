@@ -64,8 +64,6 @@ def save_upload(filename: str, data: bytes, content_type: str = "application/oct
         raise ValueError("Each file must be 20 MB or smaller.")
     clean = _safe_name(filename)
     ext = Path(clean).suffix.lower()
-    if ext not in ALLOWED_EXTENSIONS:
-        raise ValueError(f"Unsupported file type: {ext or '(no extension)'}.")
     if ext in IMAGE_EXTENSIONS and not _image_signature(data, ext):
         raise ValueError("The file extension does not match a supported image format.")
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -78,10 +76,27 @@ def save_upload(filename: str, data: bytes, content_type: str = "application/oct
         "id": file_id, "name": clean, "stored_name": stored_name,
         "url": "/uploads/" + stored_name, "size": len(data),
         "content_type": mimetypes.guess_type(clean)[0] or content_type,
-        "category": ("image" if ext in IMAGE_EXTENSIONS else "document" if ext in DOCUMENT_EXTENSIONS or ext in TEXT_EXTENSIONS else "media" if ext in MEDIA_EXTENSIONS else "archive"),
+        "category": ("image" if ext in IMAGE_EXTENSIONS else "document" if ext in DOCUMENT_EXTENSIONS or ext in TEXT_EXTENSIONS else "media" if ext in MEDIA_EXTENSIONS else "archive" if ext == ".zip" else "file"),
         "text": extracted[:50000],
         "sha256": hashlib.sha256(data).hexdigest(),
     }
+    metadata = {key: value for key, value in item.items() if key != "text"}
+    (UPLOAD_DIR / (file_id + ".json")).write_text(json.dumps(metadata, ensure_ascii=False), encoding="utf-8")
+    return item
+
+def list_uploads(limit: int = 100) -> list[dict]:
+    UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    items = []
+    for sidecar in sorted(UPLOAD_DIR.glob("*.json"), key=lambda p: p.stat().st_mtime, reverse=True)[:max(1, min(int(limit), 200))]:
+        try:
+            item = json.loads(sidecar.read_text(encoding="utf-8"))
+            stored = UPLOAD_DIR / item.get("stored_name", "")
+            if stored.is_file() and stored.parent.resolve() == UPLOAD_DIR.resolve():
+                item["url"] = "/uploads/" + stored.name
+                items.append(item)
+        except (OSError, ValueError, TypeError):
+            continue
+    return items
 
 def extract_text(path: Path, ext: str | None = None) -> str:
     ext = ext or path.suffix.lower()
