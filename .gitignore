@@ -232,3 +232,6 @@ data/raw/
 data/input.txt
 data/wikitext_train.txt
 data/orbit_instructions_full.jsonl
+
+# Private user-uploaded media
+orbit/uploads/
