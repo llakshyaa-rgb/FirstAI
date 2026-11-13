@@ -10,6 +10,9 @@ class OrbitIdentityTests(unittest.TestCase):
         self.assertIn("Jarvis-inspired", prompt)
         self.assertIn("continue", prompt.lower())
         self.assertIn("method fails", prompt.lower())
+        self.assertIn("mature topics", prompt.lower())
+        self.assertIn("Do not force euphemisms", prompt)
+        self.assertIn("visual creation", prompt.lower())
         self.assertEqual(ORBIT_IDENTITY["name"], "Orbit")
 
 class OrbitTaskTests(unittest.TestCase):
