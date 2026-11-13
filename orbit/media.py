@@ -272,12 +272,16 @@ def get_upload(file_id: str) -> dict:
 
 def delete_upload(file_id: str) -> bool:
     """Permanently remove one uploaded file and its metadata sidecar."""
-    item = get_upload(file_id)
-    stored = (UPLOAD_DIR / item["stored_name"]).resolve()
-    sidecar = (UPLOAD_DIR / (file_id + ".json")).resolve()
+    if not isinstance(file_id, str) or len(file_id) != 32 or not all(c in "0123456789abcdef" for c in file_id.lower()):
+        raise ValueError("Invalid upload identifier.")
     root = UPLOAD_DIR.resolve()
-    if root not in stored.parents or root not in sidecar.parents:
-        raise ValueError("Upload path escaped the private media directory.")
+    sidecar = (UPLOAD_DIR / (file_id + ".json")).resolve()
+    if root not in sidecar.parents or not sidecar.is_file():
+        raise FileNotFoundError("Uploaded file not found.")
+    item = json.loads(sidecar.read_text(encoding="utf-8"))
+    stored = (UPLOAD_DIR / str(item.get("stored_name", ""))).resolve()
+    if root not in stored.parents:
+        raise ValueError("Upload path escaped the media directory.")
     stored.unlink(missing_ok=True)
     sidecar.unlink(missing_ok=True)
     return True
