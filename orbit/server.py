@@ -151,6 +151,15 @@ def make_handler(app):
             except Exception as exc:
                 return self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
 
+        def do_DELETE(self):
+            parsed = urlparse(self.path)
+            if parsed.path != "/api/memory":
+                return self._json(404, {"error": "Not found"})
+            key = (parse_qs(parsed.query).get("key") or [""])[0]
+            if not key:
+                return self._json(400, {"error": "key query parameter is required"})
+            return self._json(200, {"deleted": app.memory.delete(key), "memories": app.memory.get_all()})
+
     return Handler
 
 def main():
