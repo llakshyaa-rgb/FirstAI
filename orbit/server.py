@@ -20,6 +20,7 @@ from .memory import MemoryStore
 from .images import ComfyUIImageBackend
 from .image_workflow import load_workflow_template
 from .agent import LocalAgent
+from .media import parse_multipart, save_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -196,6 +197,29 @@ def make_handler(app):
                 })
             if parsed.path == "/api/memory":
                 return self._json(200, {"memories": app.memory.get_all()})
+            if parsed.path == "/api/image-search":
+                query = (parse_qs(parsed.query).get("q") or [""])[0]
+                try:
+                    return self._json(200, {"query": query, "results": search_web_images(query)})
+                except RuntimeError as exc:
+                    return self._json(503, {"error": str(exc)})
+                except Exception as exc:
+                    return self._json(502, {"error": f"Image search failed: {type(exc).__name__}: {exc}"})
+            if parsed.path.startswith("/uploads/"):
+                name = parsed.path.removeprefix("/uploads/")
+                target = (UPLOAD_DIR / name).resolve()
+                if UPLOAD_DIR.resolve() not in target.parents or not target.is_file():
+                    return self._json(404, {"error": "Not found"})
+                content = target.read_bytes()
+                ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Cache-Control", "private, max-age=3600")
+                self.end_headers()
+                self.wfile.write(content)
+                return
             if parsed.path == "/api/history":
                 return self._json(200, {
                     "history": app.store.recent_history(limit=40),
@@ -245,10 +269,16 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route not in ("/api/chat", "/api/memory", "/api/image"):
+            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
+                if route == "/api/upload":
+                    if length < 1 or length > MAX_UPLOAD_BYTES + 1024 * 1024:
+                        return self._json(413, {"error": "Upload request must be 1 byte to 21 MB."})
+                    files = parse_multipart(self.headers.get("Content-Type", ""), self.rfile.read(length))
+                    saved = [save_upload(name, data, content_type) for name, data, content_type in files]
+                    return self._json(201, {"files": saved})
                 if length < 1 or length > 32768:
                     return self._json(413, {"error": "Request body must be between 1 and 32768 bytes"})
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
