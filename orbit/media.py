@@ -216,7 +216,7 @@ def extract_text(path: Path, ext: str | None = None) -> str:
     return ""
 
 
-def search_web_images(query: str, count: int = 12, safesearch: str = "off") -> list[dict]:
+def search_web_images(query: str, count: int = 12, safesearch: str = "strict") -> list[dict]:
     query = str(query or "").strip()
     if not query or len(query) > 400:
         raise ValueError("Enter an image-search query up to 400 characters.")
