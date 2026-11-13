@@ -262,7 +262,7 @@ Use ORBIT_IMAGE_WIDTH, ORBIT_IMAGE_HEIGHT, ORBIT_IMAGE_STEPS, and ORBIT_IMAGE_CF
 
 ### Creative Studio — create real deliverable files
 
-Orbit includes an AI-assisted design workflow and a multi-format export engine. Open **Creative Studio** in the local interface, enter a title and brief, choose a format and visual theme, then submit. Orbit asks the trained FirstGPT checkpoint to draft the content, formats it and saves a downloadable artifact under orbit/generated/.
+Orbit includes an AI-assisted design workflow and a multi-format export engine. Open **Creative Studio** in the local interface, enter a title and brief, choose a format and visual theme, then submit. Orbit asks the trained FirstGPT checkpoint to draft the content, formats it and saves a downloadable artifact under orbit/generated/. You can also start from the main chat with explicit requests such as `create a PDF about ...`, `make a presentation about ...`, `build a website for ...`, or `design a poster about ...`.
 
 Supported output formats:
 - **PDF** — paginated A4 documents with headings, tables, lists, quotes, code blocks, page numbers and a restrained footer.
