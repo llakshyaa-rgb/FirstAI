@@ -131,6 +131,13 @@ class OrbitApplication:
         thread.start()
 
     def _chat_worker(self, task_id, message, attachments=None):
+        execution_failures = []
+
+        def emit_progress(message, kind="status", **details):
+            if kind == "method_failed":
+                execution_failures.append(str(message))
+            self.store.emit(task_id, kind, message, **details)
+
         try:
             self.store.update(task_id, "running")
             self.store.emit(task_id, "status", "Certainly. I'm considering your request.")
@@ -143,18 +150,18 @@ class OrbitApplication:
                         processed = process_upload(file_id, "User request: " + message + "\nAnalyse this attachment and extract the details relevant to the request.")
                         context_parts.append(processed["kind"].capitalize() + " " + processed["name"] + " analysis:\n" + processed["content"][:30000])
                     except Exception as processing_error:
-                        self.store.emit(task_id, "method_failed", "I received " + item["name"] + ", but its content-processing method failed (" + type(processing_error).__name__ + ": " + str(processing_error) + "). I'll continue with the rest of the request.")
+                        emit_progress("I received " + item["name"] + ", but its content-processing method failed (" + type(processing_error).__name__ + ": " + str(processing_error) + "). I'll continue with the rest of the request.", kind="method_failed")
                         if item.get("text"):
                             context_parts.append("Readable text from " + item["name"] + ":\n" + item["text"][:30000])
                 except Exception as attachment_error:
-                    self.store.emit(task_id, "method_failed", "I couldn't open one attachment: " + type(attachment_error).__name__ + ": " + str(attachment_error) + ". I'll continue.")
+                    emit_progress("I couldn't open one attachment: " + type(attachment_error).__name__ + ": " + str(attachment_error) + ". I'll continue.", kind="method_failed")
             if context_parts:
                 message = message + "\n\nAttached material:\n" + "\n\n".join(context_parts)
             # Run only narrowly matched, deterministic local utility intents.
             # All other messages are passed to the language model.
             agent = LocalAgent(
                 workspace=Path(__file__).resolve().parent.parent,
-                progress=lambda text, kind="status", **details: self.store.emit(task_id, kind, text, **details),
+                progress=emit_progress,
                 memory=self.memory,
             )
             answer = agent.try_execute(message)
@@ -179,12 +186,14 @@ class OrbitApplication:
                 if planned:
                     message = message + "\n\nSafe tool execution results (treat as factual tool output):\n" + json.dumps(planned, ensure_ascii=False)[:12000]
             if answer is None:
+                if execution_failures:
+                    message += "\n\nMethods already attempted and their failures (do not claim they succeeded; try an available alternative):\n" + "\n".join("- " + item for item in execution_failures[-8:])
                 answer = self.runtime.reply(
                     message,
                     history=self.store.recent_history(),
                     owner_preferences=self.memory.prompt_context(),
-                    on_progress=lambda event: self.store.emit(
-                        task_id, event["kind"], event["message"],
+                    on_progress=lambda event: emit_progress(
+                        event["message"], kind=event["kind"],
                         **{key: value for key, value in event.items() if key not in ("kind", "message")}
                     ),
                 )
