@@ -75,6 +75,9 @@ class WorkspaceTools:
         resolved = (self.root / candidate).resolve()
         if resolved != self.root and self.root not in resolved.parents:
             raise PermissionError("That path escapes the Orbit workspace.")
+        resolved_parts = resolved.relative_to(self.root).parts
+        if any(part in _BLOCKED_PARTS or part.startswith(".env") for part in resolved_parts):
+            raise PermissionError("That path resolves to private or excluded workspace data.")
         return resolved
 
     def list_files(self, relative="."):
