@@ -479,7 +479,7 @@ def make_handler(app):
                     if not title.strip():
                         return self._json(400, {"error": "A design title is required."})
                     if not app.runtime.ready:
-                        return self._json(503, {"error": "The design studio needs a trained FirstGPT checkpoint. Export finished Markdown using the design engine."})
+                        return self._json(503, {"error": "The design studio needs a trained FirstGPT checkpoint. Load one before requesting AI-written deliverables."})
                     task_id = app.start_design(title, brief, file_format, theme)
                     return self._json(202, {"task_id": task_id, "status": "queued"})
                 if route == "/api/vision":
