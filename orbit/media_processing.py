@@ -76,17 +76,26 @@ def _transcribe_audio(path: Path) -> str:
 def _process_video(path: Path) -> str:
     ffmpeg = os.environ.get("ORBIT_FFMPEG", "ffmpeg")
     with tempfile.TemporaryDirectory(prefix="orbit-video-") as folder:
-        pattern = str(Path(folder) / "frame-%02d.png")
+        root = Path(folder)
+        pattern = str(root / "frame-%02d.png")
         command = [ffmpeg, "-v", "error", "-i", str(path), "-vf", "fps=1/8,scale='min(1024,iw)':-2", "-frames:v", "6", pattern]
         result = subprocess.run(command, capture_output=True, text=True, timeout=90, check=False)
         if result.returncode:
             raise RuntimeError("Video frame extraction failed: " + (result.stderr or "ffmpeg returned an error")[-1200:])
-        frames = sorted(Path(folder).glob("frame-*.png"))
+        frames = sorted(root.glob("frame-*.png"))
         if not frames:
             raise RuntimeError("No video frames could be extracted.")
         descriptions = []
         for index, frame in enumerate(frames, 1):
             descriptions.append("Frame " + str(index) + ":\n" + _vision_temp(frame.read_bytes(), "Describe the visible scene, people, objects, actions and any readable text."))
+        audio_path = root / "audio.wav"
+        audio_command = [ffmpeg, "-v", "error", "-i", str(path), "-vn", "-ac", "1", "-ar", "16000", "-t", "300", str(audio_path), "-y"]
+        audio_result = subprocess.run(audio_command, capture_output=True, text=True, timeout=90, check=False)
+        if audio_result.returncode == 0 and audio_path.is_file() and audio_path.stat().st_size > 1000:
+            try:
+                descriptions.append("Audio transcription (first five minutes):\n" + _transcribe_audio(audio_path))
+            except Exception as exc:
+                descriptions.append("Audio track was present but transcription failed: " + type(exc).__name__ + ": " + str(exc))
         return "\n\n".join(descriptions)
 
 def process_upload(file_id: str, prompt: str = "Describe or analyse this attachment.") -> dict:
