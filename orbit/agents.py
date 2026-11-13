@@ -1,14 +1,15 @@
-"""Lightweight specialist-agent team for Orbit.
+"""Bounded specialist-agent team coordinated around one shared Orbit runtime.
 
-Specialists share one model runtime; they do not load duplicate LLM weights.
-Independent read-only tools run concurrently, then one synthesis call produces
-the user-facing answer. This avoids extra model calls and GPU-memory duplication.
+The coordinator delegates independent read-only work concurrently. The media
+specialist handles owner-supplied attachments without loading another LLM.
 """
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 import os
 import re
+from .media_processing import process_upload
+from .media import get_upload
 
 
 @dataclass(frozen=True)
@@ -33,7 +34,7 @@ SPECIALISTS = (
 
 
 class AgentTeam:
-    """Routes relevant specialist tools concurrently, with bounded overhead."""
+    """Coordinator assigns only the specialists relevant to the owner's request."""
     def __init__(self, registry, progress=None, max_workers=None):
         self.registry = registry
         self.progress = progress or (lambda message, **details: None)
@@ -59,7 +60,33 @@ class AgentTeam:
             return (match.group(1) if match else text).replace("^", "**")[:160]
         return text
 
-    def _run_specialist(self, specialist, message):
+    def _run_specialist(self, specialist, message, attachments=None):
+        if specialist.name == "media":
+            results = []
+            for file_id in (attachments or [])[:5]:
+                try:
+                    item = process_upload(
+                        file_id,
+                        "User request: " + message + "\nAnalyse this attachment and extract the details relevant to the request."
+                    )
+                    results.append({
+                        "name": item["name"], "kind": item["kind"],
+                        "ok": True, "content": item["content"][:30000],
+                    })
+                except Exception as exc:
+                    fallback = {}
+                    try:
+                        stored = get_upload(file_id)
+                        if stored.get("text"):
+                            fallback = {"fallback_text": stored["text"][:30000]}
+                    except Exception:
+                        pass
+                    results.append({
+                        "file_id": file_id, "ok": False,
+                        "error": f"{type(exc).__name__}: {exc}", **fallback,
+                    })
+            return results
+
         query = self._query_for(specialist.name, message)
         if specialist.tool_name == "web_search":
             return self.registry.call("web_search", {"query": query, "count": 6})
@@ -77,7 +104,7 @@ class AgentTeam:
             return self.registry.call("calculate", {"expression": query})
         raise ValueError("Specialist has no executable tool")
 
-    def run(self, message):
+    def run(self, message, attachments=None):
         text = str(message or "")
         lower = text.casefold()
         selected = []
@@ -101,17 +128,19 @@ class AgentTeam:
                     continue
                 selected.append(specialist)
 
+        if attachments:
+            selected.append(Specialist("media", "Read and interpret owner-supplied files", (), None))
         if not selected:
             return []
 
         self.progress(
             "Coordinator assigned " + ", ".join(item.name for item in selected) +
-            " specialist agent(s). Independent checks are running in parallel."
+            " specialist agent(s). Independent work is running in parallel."
         )
         results = []
         with ThreadPoolExecutor(max_workers=min(self.max_workers, len(selected)),
                                 thread_name_prefix="orbit-agent") as pool:
-            futures = {pool.submit(self._run_specialist, item, text): item for item in selected}
+            futures = {pool.submit(self._run_specialist, item, text, attachments): item for item in selected}
             for future in as_completed(futures):
                 specialist = futures[future]
                 try:
