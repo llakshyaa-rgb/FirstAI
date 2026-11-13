@@ -21,7 +21,7 @@ from xml.etree import ElementTree
 ROOT = Path(__file__).resolve().parent
 UPLOAD_DIR = ROOT / "uploads"
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
-IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif"}
+IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".avif"}
 TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".jsonl", ".xml", ".html", ".htm", ".py", ".js", ".ts", ".tsx", ".jsx", ".css", ".sql", ".yaml", ".yml", ".toml", ".ini", ".log"}
 DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx"}
 MEDIA_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".mp4", ".mov", ".webm", ".mkv"}
@@ -37,6 +37,9 @@ def _image_signature(data: bytes, ext: str) -> bool:
     if ext == ".png": return data.startswith(b"\x89PNG\r\n\x1a\n")
     if ext == ".gif": return data.startswith((b"GIF87a", b"GIF89a"))
     if ext == ".webp": return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
+    if ext == ".bmp": return data.startswith(b"BM")
+    if ext in {".tif", ".tiff"}: return data.startswith((b"II*\\x00", b"MM\\x00*"))
+    if ext == ".avif": return len(data) >= 12 and data[4:8] == b"ftyp" and b"avif" in data[8:16]
     return True
 
 def parse_multipart(content_type: str, body: bytes):
@@ -71,13 +74,19 @@ def save_upload(filename: str, data: bytes, content_type: str = "application/oct
     stored_name = file_id + ext
     target = UPLOAD_DIR / stored_name
     target.write_bytes(data)
-    extracted = extract_text(target, ext)
+    extraction_error = None
+    try:
+        extracted = extract_text(target, ext)
+    except Exception as exc:
+        extracted = ""
+        extraction_error = f"{type(exc).__name__}: {exc}"
     item = {
         "id": file_id, "name": clean, "stored_name": stored_name,
         "url": "/uploads/" + stored_name, "size": len(data),
         "content_type": mimetypes.guess_type(clean)[0] or content_type,
         "category": ("image" if ext in IMAGE_EXTENSIONS else "document" if ext in DOCUMENT_EXTENSIONS or ext in TEXT_EXTENSIONS else "media" if ext in MEDIA_EXTENSIONS else "archive" if ext == ".zip" else "file"),
         "text": extracted[:50000],
+        "extraction_error": extraction_error,
         "sha256": hashlib.sha256(data).hexdigest(),
     }
     metadata = {key: value for key, value in item.items() if key != "text"}
