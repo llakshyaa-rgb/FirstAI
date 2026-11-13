@@ -268,3 +268,16 @@ def get_upload(file_id: str) -> dict:
     item["url"] = "/uploads/" + target.name
     item["text"] = extract_text(target, target.suffix.lower())[:50000]
     return item
+
+
+def delete_upload(file_id: str) -> bool:
+    """Permanently remove one uploaded file and its metadata sidecar."""
+    item = get_upload(file_id)
+    stored = (UPLOAD_DIR / item["stored_name"]).resolve()
+    sidecar = (UPLOAD_DIR / (file_id + ".json")).resolve()
+    root = UPLOAD_DIR.resolve()
+    if root not in stored.parents or root not in sidecar.parents:
+        raise ValueError("Upload path escaped the private media directory.")
+    stored.unlink(missing_ok=True)
+    sidecar.unlink(missing_ok=True)
+    return True
