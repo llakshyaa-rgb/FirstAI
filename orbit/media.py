@@ -5,6 +5,7 @@ No uploaded file is executed. Image search uses Brave Search when a key is confi
 from __future__ import annotations
 import base64
 import hashlib
+from html.parser import HTMLParser
 import json
 import mimetypes
 import os
@@ -22,8 +23,8 @@ ROOT = Path(__file__).resolve().parent
 UPLOAD_DIR = ROOT / "uploads"
 MAX_UPLOAD_BYTES = 20 * 1024 * 1024
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".avif", ".heic", ".heif"}
-TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".jsonl", ".xml", ".html", ".htm", ".py", ".js", ".ts", ".tsx", ".jsx", ".css", ".sql", ".yaml", ".yml", ".toml", ".ini", ".log"}
-DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx"}
+TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".jsonl", ".xml", ".html", ".htm", ".rtf", ".py", ".js", ".ts", ".tsx", ".jsx", ".css", ".sql", ".yaml", ".yml", ".toml", ".ini", ".log"}
+DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx", ".odt", ".ods", ".odp", ".epub", ".rtf"}
 MEDIA_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".aiff", ".aif", ".opus", ".amr", ".wma", ".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".3gp", ".mpeg", ".mpg", ".wmv", ".flv", ".ts"}
 ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS | TEXT_EXTENSIONS | DOCUMENT_EXTENSIONS | MEDIA_EXTENSIONS | {".zip"}
 
@@ -117,14 +118,62 @@ def list_uploads(limit: int = 100) -> list[dict]:
             continue
     return items
 
+class _VisibleHTML(HTMLParser):
+    def __init__(self):
+        super().__init__()
+        self.parts = []
+        self.hidden = 0
+    def handle_starttag(self, tag, attrs):
+        if tag.lower() in {"script", "style", "noscript", "svg"}:
+            self.hidden += 1
+    def handle_endtag(self, tag):
+        if tag.lower() in {"script", "style", "noscript", "svg"} and self.hidden:
+            self.hidden -= 1
+    def handle_data(self, data):
+        if not self.hidden and data.strip():
+            self.parts.append(data.strip())
+
+
+def _xml_text(data: bytes) -> str:
+    root = ElementTree.fromstring(data)
+    return "\n".join(t.text or "" for t in root.iter() if t.text and t.text.strip())
+
+
+def _extract_office_zip(path: Path, ext: str) -> str:
+    with zipfile.ZipFile(path) as z:
+        names = set(z.namelist())
+        output = []
+        if ext == ".odt" and "content.xml" in names:
+            output.append(_xml_text(z.read("content.xml")))
+        elif ext == ".odp":
+            slides = sorted(n for n in names if re.fullmatch(r"content.xml", n))
+            output.extend(_xml_text(z.read(name)) for name in slides)
+        elif ext == ".ods" and "content.xml" in names:
+            output.append(_xml_text(z.read("content.xml")))
+        elif ext == ".epub":
+            chapters = sorted(n for n in names if n.lower().endswith((".xhtml", ".html", ".htm")))
+            for name in chapters[:200]:
+                parser = _VisibleHTML()
+                parser.feed(z.read(name).decode("utf-8", errors="replace"))
+                output.append("\n".join(parser.parts))
+        return "\n\n".join(part for part in output if part)[:50000]
+
+
 def extract_text(path: Path, ext: str | None = None) -> str:
     ext = ext or path.suffix.lower()
     if ext in TEXT_EXTENSIONS:
-        return path.read_text(encoding="utf-8", errors="replace")[:50000]
+        raw = path.read_text(encoding="utf-8", errors="replace")[:50000]
+        if ext in {".html", ".htm"}:
+            parser = _VisibleHTML()
+            parser.feed(raw)
+            return "\n".join(parser.parts)[:50000]
+        if ext == ".rtf":
+            return re.sub(r"\\'[0-9a-fA-F]{2}|\\[a-zA-Z]+-?\d* ?|[{}]", " ", raw)[:50000]
+        return raw
     if ext == ".docx":
         with zipfile.ZipFile(path) as z:
             root = ElementTree.fromstring(z.read("word/document.xml"))
-        return "\n".join(t.text or "" for t in root.iter() if t.tag.endswith("}t"))
+        return "\n".join(t.text or "" for t in root.iter() if t.tag.endswith("}t"))[:50000]
     if ext == ".xlsx":
         with zipfile.ZipFile(path) as z:
             strings = []
@@ -142,9 +191,11 @@ def extract_text(path: Path, ext: str | None = None) -> str:
                                 value = next((v.text for v in cell if v.tag.endswith("}v")), "")
                                 if cell.attrib.get("t") == "s" and value:
                                     value = strings[int(value)]
+                                elif cell.attrib.get("t") == "inlineStr":
+                                    value = "".join(t.text or "" for t in cell.iter() if t.tag.endswith("}t"))
                                 values.append(value or "")
                         rows.append("\t".join(values))
-            return "\n".join(rows)
+            return "\n".join(rows)[:50000]
     if ext == ".pptx":
         with zipfile.ZipFile(path) as z:
             slides = sorted((n for n in z.namelist() if re.fullmatch(r"ppt/slides/slide\d+\.xml", n)), key=lambda n: int(re.search(r"slide(\d+)", n).group(1)))
@@ -152,14 +203,17 @@ def extract_text(path: Path, ext: str | None = None) -> str:
             for name in slides:
                 root = ElementTree.fromstring(z.read(name))
                 output.append(" ".join(t.text or "" for t in root.iter() if t.tag.endswith("}t")))
-            return "\n\n".join(output)
+            return "\n\n".join(output)[:50000]
+    if ext in {".odt", ".ods", ".odp", ".epub"}:
+        return _extract_office_zip(path, ext)
     if ext == ".pdf":
         try:
             from pypdf import PdfReader
             return "\n".join(page.extract_text() or "" for page in PdfReader(str(path)).pages)[:50000]
         except ImportError:
-            return "[PDF stored. Install pypdf to extract searchable text.]"
+            return "[PDF stored. Install requirements-media.txt to extract searchable text.]"
     return ""
+
 
 def search_web_images(query: str, count: int = 12, safesearch: str = "off") -> list[dict]:
     query = str(query or "").strip()
