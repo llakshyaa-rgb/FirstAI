@@ -250,9 +250,12 @@ def make_handler(app):
         def do_GET(self):
             parsed = urlparse(self.path)
             if parsed.path == "/api/health":
+                image_backend = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
                 workflow_configured = bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file()
                 image_connected, image_error = False, None
-                if workflow_configured:
+                if image_backend == "diffusers":
+                    image_connected = True
+                elif workflow_configured:
                     try:
                         ComfyUIImageBackend(
                             base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"),
@@ -268,7 +271,8 @@ def make_handler(app):
                     "image_workflow_configured": workflow_configured,
                     "image_backend_connected": image_connected,
                     "image_backend_error": image_error,
-                    "image_backend": os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"),
+                    "image_backend": image_backend,
+                    "image_model": os.environ.get("ORBIT_IMAGE_MODEL", "Lykon/dreamshaper-8"),
                     "image_search_configured": bool(os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()),
                     "vision_configured": bool(os.environ.get("ORBIT_VISION_MODEL", "").strip()),
                     "vision_provider": os.environ.get("ORBIT_VISION_PROVIDER", "ollama"),
