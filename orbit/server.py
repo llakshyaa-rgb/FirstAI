@@ -8,7 +8,6 @@ import argparse
 import json
 import mimetypes
 import os
-import uuid
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -35,7 +34,10 @@ class OrbitApplication:
         # Resume interrupted chat-generation tasks after the checkpoint is loaded.
         for task_id in self.store.recover_interrupted():
             task = self.store.get(task_id)
-            if task and self.runtime.ready:
+            if task and task["goal"].startswith("Generate image: "):
+                self.store.update(task_id, "needs_input", error="Image generation was interrupted by a server restart. Resubmit the image request.")
+                self.store.emit(task_id, "method_failed", "The image job was interrupted by a restart. Its prompt is preserved; please resubmit it.")
+            elif task and self.runtime.ready:
                 self.store.update(task_id, "queued")
                 self._launch_chat(task_id, task["goal"])
 
@@ -136,7 +138,7 @@ def make_handler(app):
                     "name": "Orbit", "status": "ready" if app.runtime.ready else "model_missing",
                     "device": app.runtime.device, "checkpoint": str(app.runtime.checkpoint_path),
                     "model_error": app.runtime.load_error,
-                    "image_ready": bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file(),
+                    "image_workflow_configured": bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file(),
                     "image_backend": os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188")
                 })
             if parsed.path == "/api/memory":
