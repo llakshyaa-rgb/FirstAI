@@ -199,9 +199,11 @@ def make_handler(app):
             if parsed.path == "/api/memory":
                 return self._json(200, {"memories": app.memory.get_all()})
             if parsed.path == "/api/image-search":
-                query = (parse_qs(parsed.query).get("q") or [""])[0]
+                params = parse_qs(parsed.query)
+                query = (params.get("q") or [""])[0]
+                safesearch = (params.get("safe") or ["off"])[0]
                 try:
-                    return self._json(200, {"query": query, "results": search_web_images(query)})
+                    return self._json(200, {"query": query, "results": search_web_images(query, safesearch=safesearch), "may_include_mature": safesearch == "off"})
                 except RuntimeError as exc:
                     return self._json(503, {"error": str(exc)})
                 except Exception as exc:
