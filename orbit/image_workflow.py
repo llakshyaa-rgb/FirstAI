@@ -11,8 +11,14 @@ def load_workflow_template(path, prompt, negative_prompt="", seed=None):
     String placeholders:
       {{PROMPT}}          positive prompt
       {{NEGATIVE_PROMPT}} negative prompt
-      {{SEED}}            integer seed rendered as text
+      {{SEED}}            integer sampler seed
     """
+    if not isinstance(prompt, str) or not prompt.strip():
+        raise ValueError("Image prompt must be non-empty text")
+    if not isinstance(negative_prompt, str):
+        raise ValueError("Negative prompt must be text")
+    if seed is not None and (type(seed) is not int or not 0 <= seed <= 2**64 - 1):
+        raise ValueError("Seed must be an integer between 0 and 2^64-1")
     workflow = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(workflow, dict) or not workflow:
         raise ValueError("Workflow template must be a non-empty ComfyUI API workflow object")
