@@ -106,6 +106,7 @@ class OrbitApplication:
             agent = LocalAgent(
                 workspace=Path(__file__).resolve().parent.parent,
                 progress=lambda text, **details: self.store.emit(task_id, "status", text, **details),
+                memory=self.memory,
             )
             answer = agent.try_execute(message)
             if answer is None:
