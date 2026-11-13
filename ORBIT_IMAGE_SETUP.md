@@ -1,8 +1,9 @@
 # Orbit image-generation setup
 
-Orbit's FirstGPT language checkpoint does not generate pixels. Image creation is delegated to a separately installed ComfyUI server and an image model/workflow that you choose and have permission to use.
+Orbit's FirstGPT language checkpoint does not generate pixels. Orbit can delegate image creation to a Diffusers model downloaded on first use, or to a separately installed ComfyUI server and API workflow.
 
 ## What is implemented
+- `orbit.diffusion_backend.DiffusionImageBackend` loads a Diffusers image model lazily and generates images directly in the Orbit process.
 - `orbit.images.ComfyUIImageBackend` submits ComfyUI API workflows, polls job history, and retrieves generated image bytes.
 - `orbit.image_workflow.load_workflow_template` loads a ComfyUI API-format workflow JSON and replaces prompt, negative prompt, checkpoint, seed, dimensions, steps and CFG placeholders with validated typed values.
 - The backend can run locally or on a separately managed machine reachable from the Orbit host.
