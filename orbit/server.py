@@ -258,7 +258,7 @@ def make_handler(app):
                 content = target.read_bytes()
                 ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
                 self.send_response(200)
-                safe_inline = target.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".avif", ".mp3", ".wav", ".m4a", ".ogg", ".flac", ".mp4", ".mov", ".webm", ".mkv"}
+                safe_inline = target.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".tiff", ".avif", ".heic", ".heif", ".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".aiff", ".aif", ".opus", ".amr", ".wma", ".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".3gp", ".mpeg", ".mpg", ".wmv", ".flv", ".ts"}
                 self.send_header("Content-Type", ctype if safe_inline else "application/octet-stream")
                 self.send_header("Content-Disposition", "inline" if safe_inline else "attachment; filename=\"download\"")
                 self.send_header("Content-Length", str(len(content)))
