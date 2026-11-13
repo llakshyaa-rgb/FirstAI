@@ -39,6 +39,12 @@ class WorkspaceTests(unittest.TestCase):
                 tools.read_file(".env")
             with self.assertRaises(PermissionError):
                 tools.read_file(".git/config")
+            secret = Path(tmp) / ".env"
+            secret.write_text("PRIVATE=1", encoding="utf-8")
+            alias = Path(tmp) / "visible-name.txt"
+            alias.symlink_to(secret)
+            with self.assertRaises(PermissionError):
+                tools.read_file("visible-name.txt")
 
     def test_search_and_listing(self):
         with tempfile.TemporaryDirectory() as tmp:
