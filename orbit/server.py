@@ -501,6 +501,8 @@ def main():
     finally:
         server.server_close()
         app.browser.close()
+        if app._diffusion_backend is not None:
+            app._diffusion_backend.unload()
 
 if __name__ == "__main__":
     main()
