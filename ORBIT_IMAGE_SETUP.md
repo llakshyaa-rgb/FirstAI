@@ -39,32 +39,58 @@ The workflow must be exported in API format and its node inputs must match the i
 ## Mature artwork
 The prompt can describe adult fictional characters, styling, pose, composition, and artistic anatomy. The actual image model and its configured restrictions determine what it will render. Do not assume that a model supports every degree of nudity or explicit sexual content. Never use the system for sexual imagery of minors or non-consensual intimate imagery.
 
-## Uploads, image search and vision
+## Uploads, image search and multimodal understanding
 
-Orbit's local browser UI also accepts uploads independently of image generation:
-- JPG/JPEG, PNG, WEBP and GIF images (including mature images) are stored locally and previewed in the private local interface.
-- PDF text extraction uses `pypdf`; DOCX, XLSX and PPTX text is extracted from their Open XML package; common text, code, JSON and CSV files are read as UTF-8.
-- Any file extension can be uploaded and stored as an opaque file, but formats without a parser are not automatically decoded. ZIP, audio and video files are stored but not unpacked or transcribed.
-- Files are size-limited to 20 MB each. Uploads are data, never executable code.
+Orbit accepts image uploads (including mature subject matter), previews them, and can attach up to five uploaded files to an ordinary chat message. Use **Attach to next chat** on an upload, then ask a question in the normal chat composer. Orbit processes the attached material before generating its answer.
+
+### Image understanding
+
+FirstGPT's current decoder-only checkpoint is text-only; image reading is provided by a vision-capable model through an adapter. The adapter supports Ollama and OpenAI-compatible vision servers (including compatible local servers such as llama.cpp builds with multimodal support).
+
+Ollama example:
+
+\`\`\`bash
+export ORBIT_VISION_PROVIDER=ollama
+export ORBIT_VISION_URL=http://127.0.0.1:11434/api/generate
+export ORBIT_VISION_MODEL=llava
+\`\`\`
+
+OpenAI-compatible server example:
+
+\`\`\`bash
+export ORBIT_VISION_PROVIDER=openai-compatible
+export ORBIT_VISION_URL=http://127.0.0.1:8080
+export ORBIT_VISION_MODEL=your-vision-model
+export ORBIT_VISION_API_KEY=your-local-or-remote-key
+\`\`\`
+
+Restart Orbit after setting the variables. Upload an image, choose **Attach to next chat**, and ask what is in it, ask it to read visible text, compare details, or describe the scene. The direct **Ask Orbit to analyse** button is also available. The configured vision model receives the actual image bytes/pixels; Orbit passes its description into FirstGPT as context. If the vision endpoint is remote, the image is sent to that provider. Do not send private images to an endpoint you do not trust.
+
+This is real image reading in the Orbit application, but it is not yet a vision capability learned by FirstGPT itself. A native FirstGPT vision encoder and image-text training stage remain future model research; merely adding an adapter does not train that capability into the language checkpoint.
+
+### Other file and media processing
+
+- Text, CSV, JSON, code and common office documents are extracted and can be attached to chat.
+- PDF text is extracted with pypdf. For scanned/image-only PDFs, optional PDFium rendering plus the configured vision model provides OCR on up to 12 pages.
+- ZIP archives are inspected without extracting files to disk; supported text files inside are read with limits.
+- Audio transcription uses optional faster-whisper with a small model by default. It can run on CPU, but performance and memory depend on the device/model.
+- Video processing uses ffmpeg to sample up to six frames and sends those frames to the configured vision model. This analyses sampled frames, not every frame or the full audio track.
+- Unsupported formats are safely stored as opaque files and are not falsely described as understood.
+
+Install optional media dependencies only when needed:
+
+\`\`\`bash
+pip install -r requirements-media.txt
+\`\`\`
+
+Video processing also requires ffmpeg installed and available on PATH. Optional audio settings: ORBIT_WHISPER_MODEL=tiny, ORBIT_WHISPER_DEVICE=cpu, and ORBIT_WHISPER_COMPUTE_TYPE=int8. Large models can be slow or unsuitable on a phone.
 
 ### Internet image search
 
-Set a Brave Search API token in the environment before starting Orbit:
+Set a Brave Search API token before starting Orbit:
 
-```bash
+\`\`\`bash
 export BRAVE_SEARCH_API_KEY=your_brave_search_api_token
-python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
-```
+\`\`\`
 
-The Image Search panel uses Brave's image index. Its mature-results toggle switches between `safesearch=off` and `safesearch=strict`. The provider may return mature results when filtering is off, but results are not guaranteed, and the provider may still block illegal material. Orbit shows thumbnails and links to the original source page; it does not claim ownership or bypass a source site's access controls. Check the source's licence and terms before reusing images. The search API requires its own key and account; it is not bundled and may have usage limits or cost.
-
-### Image understanding (optional)
-
-FirstGPT itself is currently text-only. To let Orbit inspect an uploaded image, configure an Ollama-compatible vision endpoint and a vision-capable model:
-
-```bash
-export ORBIT_VISION_URL=http://127.0.0.1:11434/api/generate
-export ORBIT_VISION_MODEL=llava
-```
-
-Restart Orbit, upload an image, and choose **Ask Orbit to analyse**. The endpoint/model must support image input. The vision adapter sends the image to that configured endpoint; if the endpoint is remote, the image leaves the device and is handled by that provider. Do not send private images to an endpoint you do not trust. A separate vision model is not FirstGPT's own learned vision ability, and mature-image interpretation depends on that model's own capabilities and restrictions.
+The Image Search panel uses Brave's image index. Its mature-results toggle switches between safesearch=off and safesearch=strict. The provider may return mature results when filtering is off, but results are not guaranteed and provider restrictions still apply. Orbit shows thumbnails and links to source pages; it does not bypass source-site access controls. Check licensing and reuse terms before reposting an image. Brave API access may have account requirements, rate limits or costs.
