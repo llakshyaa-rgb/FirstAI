@@ -165,6 +165,16 @@ The GPU setting is a **per-process PyTorch CUDA allocator ceiling**, not a comma
 
 On a phone, system RAM is shared with Android and its graphics stack. The CUDA memory setting only applies when PyTorch actually detects a CUDA GPU; it does not make Android GPUs CUDA-compatible. Termux devices without CUDA run the model on CPU, where `ORBIT_CPU_THREADS` limits PyTorch's CPU thread count. A 4-thread default leaves more CPU capacity for Android and browser tasks, but speed still depends on the model size and phone hardware. For heavy video/vision work, use the remote Colab T4 backend rather than trying to keep large models resident on an 8 GB phone.
 
+### Diagnose the local setup
+
+Before launching Orbit, run:
+
+```bash
+python -m orbit.doctor --checkpoint checkpoints/orbit-instruct.pt
+```
+
+The report checks the language checkpoint, CUDA availability, optional browser/document/audio packages, and configured image/vision services. It never prints API-key values. Missing optional services do not block text-only Orbit.
+
 ### Run the local Orbit interface
 
 After training and downloading a compatible checkpoint into the repository:
