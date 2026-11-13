@@ -190,7 +190,7 @@ class WorkspaceTools:
 
     def compile_project(self, timeout=120):
         command = [sys.executable, "-m", "compileall", "-q", "firstai", "orbit", "train.py",
-                   "generate.py", "evaluate.py", "finetune_instructions.py"]
+                   "generate.py", "evaluate.py", "finetune_instructions.py", "download_training_data.py"]
         try:
             result = subprocess.run(command, cwd=self.root, capture_output=True,
                                     text=True, timeout=timeout, check=False)
