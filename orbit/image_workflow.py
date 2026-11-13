@@ -3,6 +3,7 @@ from __future__ import annotations
 import copy
 import json
 import math
+import secrets
 from pathlib import Path
 
 
@@ -34,11 +35,12 @@ def load_workflow_template(path, prompt, negative_prompt="", seed=None,
     workflow = json.loads(Path(path).read_text(encoding="utf-8"))
     if not isinstance(workflow, dict) or not workflow:
         raise ValueError("Workflow template must be a non-empty ComfyUI API workflow object")
+    resolved_seed = seed if seed is not None else secrets.randbits(64)
     replacements = {
         "{{PROMPT}}": prompt,
         "{{NEGATIVE_PROMPT}}": negative_prompt,
         "{{CHECKPOINT}}": checkpoint,
-        "{{SEED}}": int(seed if seed is not None else 0),
+        "{{SEED}}": int(resolved_seed),
         "{{WIDTH}}": width,
         "{{HEIGHT}}": height,
         "{{STEPS}}": steps,
