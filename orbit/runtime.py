@@ -83,7 +83,7 @@ class OrbitRuntime:
                         "tokens_generated": index + 1,
                         "strategy": mode,
                     })
-        return self.tokenizer.decode(generated).split("\\n", 1)[0].strip()
+        return self.tokenizer.decode(generated).split("\n", 1)[0].strip()
 
     def _build_prompt_ids(self, message, history=None, owner_preferences=None):
         """Budget context deliberately: current owner request always has priority."""
