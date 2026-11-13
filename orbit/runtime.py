@@ -10,6 +10,7 @@ from pathlib import Path
 import torch
 from firstai.model import FirstGPT, GPTConfig
 from firstai.bpe import BPETokenizer
+from .identity import build_compact_system_prompt
 
 
 class ModelNotReady(RuntimeError):
@@ -87,12 +88,8 @@ class OrbitRuntime:
     def _build_prompt_ids(self, message, history=None, owner_preferences=None):
         """Budget context deliberately: current owner request always has priority."""
         limit = self.model.config.block_size
-        system = self.tokenizer.encode(
-            "You are Orbit: composed, articulate, capable, candid and helpful. "
-            "Answer directly. Make sensible choices. If a method fails, explain "
-            "and try a safe alternative. Never fake success.\n"
-        )
-        system = system[:min(20, max(8, limit // 5))]
+        system = self.tokenizer.encode(build_compact_system_prompt() + "\n")
+        system = system[:min(48, max(12, limit // 5))]
         prefs = []
         if owner_preferences:
             prefs = self.tokenizer.encode("Preferences: " + str(owner_preferences)[:300] + "\n")
