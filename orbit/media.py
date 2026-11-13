@@ -72,7 +72,7 @@ def save_upload(filename: str, data: bytes, content_type: str = "application/oct
     target = UPLOAD_DIR / stored_name
     target.write_bytes(data)
     extracted = extract_text(target, ext)
-    return {
+    item = {
         "id": file_id, "name": clean, "stored_name": stored_name,
         "url": "/uploads/" + stored_name, "size": len(data),
         "content_type": mimetypes.guess_type(clean)[0] or content_type,
