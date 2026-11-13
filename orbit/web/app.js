@@ -19,6 +19,24 @@ function renderAttachmentQueue(){
     chip.append(remove);attachmentQueue.append(chip);
   }
 }
+
+async function addUploadDelete(card,item){
+  const remove=document.createElement("button");remove.type="button";remove.className="upload-delete";
+  remove.textContent="Delete uploaded file";
+  remove.addEventListener("click",async()=>{
+    if(!confirm("Permanently delete "+item.name+" from Orbit's local upload storage?"))return;
+    remove.disabled=true;
+    try{
+      const r=await fetch("/api/uploads?id="+encodeURIComponent(item.id),{method:"DELETE"});
+      const d=await r.json();if(!r.ok)throw new Error(d.error||"Delete failed");
+      card.remove();
+      pendingAttachments=pendingAttachments.filter(x=>x.id!==item.id);renderAttachmentQueue();
+      bubble("orbit","Deleted "+item.name+" from local upload storage.","status");
+    }catch(err){bubble("orbit","I couldn't delete that upload: "+err.message,"status");remove.disabled=false;}
+  });
+  card.append(remove);
+}
+
 function bubble(role,text,kind=""){
   const node=document.createElement("article");
   node.className="bubble "+role+(kind?" "+kind:"");
@@ -214,7 +232,7 @@ uploadForm?.addEventListener("submit",async e=>{
       });
       updateAttachLabel();
       card.append(attach);
-      uploadResults.prepend(card);bubble("user","Stored "+item.name+" ("+item.category+").");
+      await addUploadDelete(card,item);uploadResults.prepend(card);bubble("user","Stored "+item.name+" ("+item.category+").");
     }
     fileInput.value="";
   }catch(err){bubble("orbit","I couldn't attach those files: "+err.message,"status");}
