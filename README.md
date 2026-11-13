@@ -143,7 +143,7 @@ runner.run(task_id, [("primary workflow", primary)])
 
 ### Orbit agent team and hardware budget
 
-Orbit uses a coordinator with four lightweight specialists:
+Orbit uses a coordinator with five lightweight specialists:
 - **Researcher:** public web search and source gathering.
 - **Workspace inspector:** project/file search.
 - **Analyst:** restricted arithmetic and numerical checks.
@@ -297,7 +297,7 @@ Explicit browser commands in Orbit's local chat:
 
 The browser is optional and starts only when used. It restricts navigation and page requests to public HTTP(S) addresses and blocks localhost/private-network destinations. It does not bypass logins, CAPTCHAs, paywalls, website restrictions, or account permissions. Form submission, purchases, and other consequential website actions are not automated.
 
-The Colab notebook includes an optional browser installation cell. When the separate Ollama vision model is enabled, the Orbit PyTorch CUDA allocator ceiling is lowered to 60% to leave more VRAM headroom; otherwise it remains 86%. This is a memory-allocation ceiling, not a GPU-utilisation target.
+The Colab notebook includes optional browser, vision and direct Diffusers image-generation setup cells. When the separate Ollama vision model or Diffusers image backend is enabled, the Orbit PyTorch CUDA allocator ceiling is lowered to 60% to leave more VRAM headroom; otherwise it remains 86%. This is a memory-allocation ceiling, not a GPU-utilisation target.
 
 ### Capability and safety note
 
