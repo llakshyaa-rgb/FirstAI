@@ -14,6 +14,7 @@ from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 import threading
+from concurrent.futures import ThreadPoolExecutor
 import uuid
 
 from .runtime import OrbitRuntime, ModelNotReady
@@ -22,7 +23,7 @@ from .memory import MemoryStore
 from .images import ComfyUIImageBackend
 from .image_workflow import load_workflow_template
 from .agent import LocalAgent
-from .media import parse_multipart, save_upload, list_uploads, get_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
+from .media import parse_multipart, save_upload, list_uploads, get_upload, delete_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
 from .vision import describe_image, unload_ollama_vision_model
 from .media_processing import process_upload
 from .planner import execute_tool_plan
@@ -44,6 +45,8 @@ class OrbitApplication:
         self.memory = MemoryStore(state_path)
         self._threads = set()
         self._lock = threading.Lock()
+        worker_count = max(1, min(4, int(os.environ.get('ORBIT_TASK_WORKERS', '3'))))
+        self._executor = ThreadPoolExecutor(max_workers=worker_count, thread_name_prefix='orbit-task')
         # Resume interrupted chat-generation tasks after the checkpoint is loaded.
         for task_id in self.store.recover_interrupted():
             task = self.store.get(task_id)
@@ -64,14 +67,23 @@ class OrbitApplication:
                 attachments = attachment_events[-1]["details"].get("file_ids", []) if attachment_events else []
                 self._launch_chat(task_id, task["goal"], attachments)
 
+    def _submit(self, worker, *args):
+        """Queue durable tasks on a bounded pool instead of spawning unbounded threads."""
+        future = self._executor.submit(worker, *args)
+        with self._lock:
+            self._threads.add(future)
+        future.add_done_callback(lambda done: self._discard_future(done))
+        return future
+
+    def _discard_future(self, future):
+        with self._lock:
+            self._threads.discard(future)
+
     def start_chat(self, message, attachments=None):
         task_id = self.store.create(message)
         if attachments:
             self.store.emit(task_id, "attachments", "File attachments linked to this task.", file_ids=list(attachments[:5]))
-        thread = threading.Thread(target=self._chat_worker, args=(task_id, message, attachments or []), daemon=True)
-        with self._lock:
-            self._threads.add(thread)
-        thread.start()
+        self._submit(self._chat_worker, task_id, message, attachments or [])
         return task_id
 
     def start_design(self, title, brief, file_format="pdf", theme="midnight"):
@@ -82,10 +94,7 @@ class OrbitApplication:
         return task_id
 
     def _launch_design(self, task_id, title, brief, file_format, theme):
-        thread = threading.Thread(target=self._design_worker, args=(task_id, title, brief, file_format, theme), daemon=True)
-        with self._lock:
-            self._threads.add(thread)
-        thread.start()
+        self._submit(self._design_worker, task_id, title, brief, file_format, theme)
     def _design_worker(self, task_id, title, brief, file_format, theme):
         try:
             self.store.update(task_id, "running")
@@ -121,13 +130,10 @@ class OrbitApplication:
             self.store.emit(task_id, "method_failed", "Design creation failed: " + type(exc).__name__ + ": " + str(exc))
         finally:
             with self._lock:
-                self._threads = {t for t in self._threads if t.is_alive() and t is not threading.current_thread()}
+                self._threads = {future for future in self._threads if not future.done()}
     def start_image(self, prompt, negative_prompt="", seed=None):
         task_id = self.store.create("Generate image: " + prompt)
-        thread = threading.Thread(target=self._image_worker, args=(task_id, prompt, negative_prompt, seed), daemon=True)
-        with self._lock:
-            self._threads.add(thread)
-        thread.start()
+        self._submit(self._image_worker, task_id, prompt, negative_prompt, seed)
         return task_id
 
     def _image_worker(self, task_id, prompt, negative_prompt, seed):
@@ -393,7 +399,7 @@ def make_handler(app):
                 self.send_header("Content-Length", str(len(content)))
                 self.send_header("X-Content-Type-Options", "nosniff")
                 self.send_header("Content-Security-Policy", "default-src 'none'; sandbox")
-                self.send_header("Cache-Control", "private, max-age=3600")
+                self.send_header("Cache-Control", "private, no-store")
                 self.end_headers()
                 self.wfile.write(content)
                 return
@@ -574,6 +580,15 @@ def make_handler(app):
 
         def do_DELETE(self):
             parsed = urlparse(self.path)
+            if parsed.path == "/api/uploads":
+                file_id = (parse_qs(parsed.query).get("id") or [""])[0]
+                if not file_id:
+                    return self._json(400, {"error": "id query parameter is required"})
+                try:
+                    delete_upload(file_id)
+                    return self._json(200, {"deleted": True, "files": list_uploads()})
+                except FileNotFoundError:
+                    return self._json(404, {"error": "Uploaded file not found"})
             if parsed.path != "/api/memory":
                 return self._json(404, {"error": "Not found"})
             key = (parse_qs(parsed.query).get("key") or [""])[0]
