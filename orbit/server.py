@@ -98,7 +98,10 @@ class OrbitApplication:
                 message,
                 history=self.store.recent_history(),
                 owner_preferences=self.memory.prompt_context(),
-                on_progress=lambda event: self.store.emit(task_id, event["kind"], event["message"], **event)
+                on_progress=lambda event: self.store.emit(
+                    task_id, event["kind"], event["message"],
+                    **{key: value for key, value in event.items() if key not in ("kind", "message")}
+                )
             )
             self.store.update(task_id, "completed", result=answer)
             self.store.emit(task_id, "message", answer)
