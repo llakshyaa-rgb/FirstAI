@@ -108,6 +108,8 @@ The repository now includes an initial Orbit runtime layer:
 - `orbit.identity`: builds a system prompt from that contract and optional owner/task context.
 - `orbit.tasks`: SQLite-backed task/event persistence and a strategy runner that reports a failed method, tries the next supplied strategy, and records completion or failure.
 - `orbit.images`: ComfyUI-compatible adapter for a separately hosted image-generation workflow.
+- `orbit.media`: private local file uploads, safe file-type validation, text extraction for common formats, and Brave image search with a mature-results SafeSearch toggle.
+- `orbit.vision`: optional Ollama-compatible image-understanding adapter for uploaded images.
 - `orbit.memory`: explicit SQLite-backed owner preferences, editable through the local UI/API.
 - `orbit.tools`: allow-list tool registry with confirmation gates for consequential actions.
 - `orbit.runtime` and `orbit.server`: local chat runtime, HTTP API, browser UI, task progress polling, and restart recovery for interrupted generation tasks.
@@ -215,9 +217,15 @@ python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
 
 The UI submits image tasks asynchronously, records progress, saves returned images under `orbit/generated/`, and displays them in the conversation. The image backend is external and is not bundled or automatically downloaded. Its model and workflow determine which visual requests it can fulfill; this code does not bypass model restrictions or guarantee nude/explicit output. This implementation is designed for private local use. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
 
-### Image generation
+### Images, files and image search
 
-FirstGPT is still a text-only model. To generate images, install and run a compatible ComfyUI server, load an image model and workflow, then pass the workflow dictionary to `ComfyUIImageBackend`. The adapter does not download models, host ComfyUI, or create an image model on its own.
+The local UI accepts JPG/JPEG, PNG, WEBP and GIF images, common text/code files, PDF, DOCX, XLSX and PPTX, ZIP, audio and video files (20 MB per file). It previews image uploads and extracts text from supported document formats. ZIP/audio/video are stored but are not unpacked or transcribed in this release. PDF extraction uses the optional `pypdf` dependency.
+
+Internet image search uses the Brave Search API. Set `BRAVE_SEARCH_API_KEY`; the mature-results toggle selects SafeSearch off or strict. Search returns thumbnails and original source-page links. Availability of mature results depends on the provider. Respect source-site access controls and image licences.
+
+FirstGPT is still a text-only model and cannot directly interpret image pixels. For image analysis, configure an Ollama-compatible vision endpoint and model using `ORBIT_VISION_URL` and `ORBIT_VISION_MODEL`; then use **Ask Orbit to analyse** on an uploaded image. This sends the image to that configured endpoint. It is a separate vision model, not an ability learned by FirstGPT. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md) for configuration and privacy details.
+
+Image generation remains separate: configure ComfyUI and an image checkpoint as described in [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
 
 ### Capability and safety note
 
@@ -225,4 +233,4 @@ The identity blueprint supports natural, nonjudgmental discussion of mature topi
 
 ## Scope and limitations
 
-The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. The instruction-tuning pipeline and image-studio adapter/UI are implemented, but the included tuning examples are only a tiny demo. The optional open-corpus and Dolly instruction-data pipeline is implemented but must still be run on a GPU. Local deterministic tools are available, but general model-driven tool planning/execution, vision understanding, robust tool recovery, and extensive end-to-end testing remain future engineering work. Orbit is currently a local prototype, not an always-on service.
+The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. The instruction-tuning pipeline and image-studio adapter/UI are implemented, but the included tuning examples are only a tiny demo. The optional open-corpus and Dolly instruction-data pipeline is implemented but must still be run on a GPU. Local deterministic tools are available, but general model-driven tool planning/execution, integrated multimodal chat context, audio/video transcription, robust tool recovery, and extensive end-to-end testing remain future engineering work. Image understanding currently requires the optional external vision endpoint. Orbit is currently a local prototype, not an always-on service.
