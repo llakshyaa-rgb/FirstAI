@@ -13,11 +13,11 @@ from .browser import BrowserTools
 
 
 class LocalAgent:
-    def __init__(self, workspace=None, progress=None, memory=None):
+    def __init__(self, workspace=None, progress=None, memory=None, browser=None):
         self.workspace = WorkspaceTools(workspace)
         self.progress = progress or (lambda message, **details: None)
         self.memory = memory
-        self.browser = BrowserTools()
+        self.browser = browser or BrowserTools()
         self.registry = ToolRegistry()
         self.registry.register("calculate", "Evaluate restricted arithmetic", safe_calculate, requires_confirmation=False)
         self.registry.register("web_search", "Search the public web and return source links", search_web, requires_confirmation=False)
