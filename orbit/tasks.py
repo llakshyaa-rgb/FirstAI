@@ -4,7 +4,7 @@ TaskRunner is an execution primitive. An application must supply real callable
 strategies (tools) to perform useful work; this module does not invent tools.
 """
 from __future__ import annotations
-from dataclasses import dataclass, asdict
+from dataclasses import dataclass
 from datetime import datetime, timezone
 import json
 import sqlite3
