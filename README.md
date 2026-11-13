@@ -107,6 +107,8 @@ The repository now includes an initial Orbit runtime layer:
 - `ORBIT_IDENTITY.md`: canonical identity and Jarvis-inspired communication contract.
 - `orbit.identity`: builds a system prompt from that contract and optional owner/task context.
 - `orbit.tasks`: SQLite-backed task/event persistence and a strategy runner that reports a failed method, tries the next supplied strategy, and records completion or failure.
+- `orbit.planner`: strict JSON tool-plan validation; model-generated plans can only call registered read-only tools, never arbitrary shell or write operations.
+- `orbit.web_search`: read-only Brave web research with source links.
 - `orbit.images`: ComfyUI-compatible adapter for a separately hosted image-generation workflow.
 - `orbit.media`: private local uploads, format validation, text extraction, upload library, and Brave image search with a mature-results SafeSearch toggle.
 - `orbit.vision`: Ollama and OpenAI-compatible vision adapters for actual image-pixel analysis.
@@ -148,7 +150,7 @@ python -m orbit.server --checkpoint checkpoints/firstgpt.best.pt --port 8767
 
 Open `http://127.0.0.1:8767` on the same device (or use the optional Colab launch cell, which prints a proxied URL). The UI displays live task updates by polling the local event API, and owner preferences are stored in the same SQLite database as task state. Interrupted generation tasks are re-queued on server restart when a usable checkpoint is available. This is restart recovery, not an always-on service: the Python process must remain running.
 
-The allow-list registry is connected to Orbit's local calculator, workspace file tools, compiler check and test runner. File creation/updates and test execution are only routed after an explicit owner command. No arbitrary shell or unrestricted code execution is exposed.
+The allow-list registry is connected to Orbit's local calculator, workspace file tools, compiler check, test runner and optional Brave web search. A constrained tool-planning interface lets FirstGPT propose multi-step read-only tool calls; every proposed action is validated against the allow-list, and writes or code execution are excluded from model-generated plans. File creation/updates and test execution are only routed after an explicit owner command. No arbitrary shell or unrestricted code execution is exposed.
 
 
 ### Orbit local tools and memory
@@ -222,7 +224,7 @@ The UI submits image tasks asynchronously, records progress, saves returned imag
 
 The local UI accepts JPG/JPEG, PNG, WEBP and GIF images, any file format up to 20 MB per upload batch; common text/code files, PDF, DOCX, XLSX and PPTX also receive text extraction, and supported images preview. It previews image uploads and extracts text from supported document formats. Other formats are safely stored as opaque files unless a dedicated parser is implemented. PDF extraction uses the optional `pypdf` dependency.
 
-Internet image search uses the Brave Search API. Set `BRAVE_SEARCH_API_KEY`; the mature-results toggle selects SafeSearch off or strict. Search returns thumbnails and original source-page links. Availability of mature results depends on the provider. Respect source-site access controls and image licences.
+Internet image search uses the Brave Search API. Set `BRAVE_SEARCH_API_KEY`; the mature-results toggle selects SafeSearch off or strict. The same key enables Orbit's read-only web research command, such as `search web for ...`. Search returns thumbnails and original source-page links. Availability of mature results depends on the provider. Respect source-site access controls and image licences.
 
 FirstGPT's current checkpoint remains text-only, but Orbit can now read image pixels through a configured Ollama or OpenAI-compatible vision model. Uploaded images and documents can be attached to the normal chat composer; Orbit analyses them first and passes the results into FirstGPT's context. The optional media pipeline also supports scanned-PDF OCR, ZIP text inspection, faster-whisper audio transcription and ffmpeg-sampled video-frame analysis. These require the optional dependencies and configured vision endpoint described in [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md). Vision is currently a connected modality, not a capability learned by FirstGPT itself.
 
