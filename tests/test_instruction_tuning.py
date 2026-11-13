@@ -12,6 +12,12 @@ class InstructionDataTests(unittest.TestCase):
         examples = load_examples(path)
         self.assertGreaterEqual(len(examples), 40)
 
+    def test_orbit_speaker_prefix_is_not_duplicated(self):
+        tokenizer = BPETokenizer()
+        with_prefix = encode_examples([("Owner: hi", "Orbit: Hello.") , ("Owner: bye", "Orbit: Goodbye.")], tokenizer, 96)
+        without_prefix = encode_examples([("Owner: hi", "Hello.") , ("Owner: bye", "Goodbye.")], tokenizer, 96)
+        self.assertEqual(with_prefix, without_prefix)
+
     def test_loss_mask_excludes_prompt_and_keeps_response(self):
         tokenizer = BPETokenizer()
         rows = encode_examples([
