@@ -52,7 +52,7 @@ class OrbitRuntime:
     def ready(self):
         return self.model is not None and self.tokenizer is not None
 
-    def reply(self, message, history=None, on_progress=None):
+    def reply(self, message, history=None, owner_preferences=None, on_progress=None):
         if not self.ready:
             raise ModelNotReady(self.load_error or "No trained checkpoint is loaded.")
         if not isinstance(message, str) or not message.strip():
