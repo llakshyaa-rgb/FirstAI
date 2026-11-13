@@ -72,10 +72,10 @@ class LocalAgent:
             try:
                 results = self.registry.call("web_search", {"query": query})
             except Exception as exc:
-                self.progress("Web search failed (" + type(exc).__name__ + ": " + str(exc) + "). I'll continue with the knowledge available locally.")
+                self.progress("Web search failed (" + type(exc).__name__ + ": " + str(exc) + "). I'll continue with the knowledge available locally.", kind="method_failed")
                 return None
             if not results:
-                self.progress("The web search returned no results. I'll continue with the knowledge available locally.")
+                self.progress("The web search returned no results. I'll continue with the knowledge available locally.", kind="method_failed")
                 return None
             return "Web research results:\n" + "\n\n".join(
                 f"- {item['title']} ({item['source']})\n  {item['description']}\n  {item['url']}" for item in results
