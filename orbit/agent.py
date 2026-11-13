@@ -37,7 +37,7 @@ class LocalAgent:
             self.memory.set(key, note)
             return "I'll remember that preference or note on this device."
 
-        if self.memory and (lower.startswith("i prefer ") or lower.startswith("i don't like ")):
+        if self.memory and lower.startswith(("i prefer ", "i like ", "i love ", "i enjoy ", "i don't like ", "i dislike ")):
             key = "preference_" + hashlib.sha256(lower.encode("utf-8")).hexdigest()[:12]
             self.memory.set(key, text)
             return "Noted. I'll use that preference in future conversations on this device."
