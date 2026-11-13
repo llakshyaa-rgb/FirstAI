@@ -21,6 +21,10 @@ class MemoryTests(unittest.TestCase):
             with self.assertRaises(ValueError):store.set("x", "a"*4001)
 
 class AgentFallbackTests(unittest.TestCase):
+    def test_open_ended_research_is_delegated_to_agent_team(self):
+        agent = LocalAgent()
+        self.assertIsNone(agent.try_execute("Research the latest open-source vision models"))
+
     def test_web_search_failure_falls_back_without_ending_task(self):
         events = []
         with patch("orbit.agent.search_web", side_effect=RuntimeError("missing key")):
