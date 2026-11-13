@@ -127,14 +127,16 @@ def extract_text(path: Path, ext: str | None = None) -> str:
             return "[PDF stored. Install pypdf to extract searchable text.]"
     return ""
 
-def search_web_images(query: str, count: int = 12) -> list[dict]:
+def search_web_images(query: str, count: int = 12, safesearch: str = "off") -> list[dict]:
     query = str(query or "").strip()
     if not query or len(query) > 400:
         raise ValueError("Enter an image-search query up to 400 characters.")
+    if safesearch not in {"off", "strict"}:
+        raise ValueError("safesearch must be 'off' or 'strict'.")
     token = os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()
     if not token:
         raise RuntimeError("Internet image search is not configured. Set BRAVE_SEARCH_API_KEY to enable Brave image search.")
-    params = urllib.parse.urlencode({"q": query, "count": max(1, min(int(count), 20)), "safesearch": "off"})
+    params = urllib.parse.urlencode({"q": query, "count": max(1, min(int(count), 20)), "safesearch": safesearch})
     request = urllib.request.Request(
         "https://api.search.brave.com/res/v1/images/search?" + params,
         headers={"Accept": "application/json", "X-Subscription-Token": token, "User-Agent": "OrbitLocal/0.2"},
