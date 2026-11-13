@@ -81,8 +81,23 @@ class TaskStore:
                               (task_id, int(after))).fetchall()
         return [dict(row) | {"details": json.loads(row["details"])} for row in rows]
 
+    def recent_history(self, limit=8):
+        """Return completed chat turns in chronological order for conversational context."""
+        if limit < 1:
+            return []
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT goal, result FROM tasks WHERE status='completed' AND result IS NOT NULL ORDER BY created_at DESC LIMIT ?",
+                (int(limit),)
+            ).fetchall()
+        history = []
+        for row in reversed(rows):
+            history.append({"role": "user", "content": row["goal"]})
+            history.append({"role": "assistant", "content": row["result"]})
+        return history
+
     def recover_interrupted(self):
-        """Mark tasks left running by a dead process as interrupted, never fake-resume them."""
+        """Mark tasks left running by a dead process; the application may safely retry them."""
         with self._lock, self._connect() as db:
             rows = db.execute("SELECT id FROM tasks WHERE status='running'").fetchall()
             ids = [r["id"] for r in rows]
