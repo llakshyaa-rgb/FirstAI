@@ -28,6 +28,7 @@ from .media_processing import process_upload
 from .planner import execute_tool_plan
 from .agents import AgentTeam
 from .browser import BrowserTools
+from .design_studio import create_artifact
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -65,6 +66,50 @@ class OrbitApplication:
         thread.start()
         return task_id
 
+    def start_design(self, title, brief, file_format="pdf", theme="midnight"):
+        task_id = self.store.create("Design " + file_format.upper() + ": " + title)
+        thread = threading.Thread(target=self._design_worker, args=(task_id, title, brief, file_format, theme), daemon=True)
+        with self._lock:
+            self._threads.add(thread)
+        thread.start()
+        return task_id
+
+    def _design_worker(self, task_id, title, brief, file_format, theme):
+        try:
+            self.store.update(task_id, "running")
+            self.store.emit(task_id, "status", "Orbit is planning the structure and writing the content.")
+            history = self.store.recent_history(limit=4)
+            preferences = self.memory.get_all()
+            preference_text = "; ".join(str(item.get("key", "")) + ": " + str(item.get("value", "")) for item in preferences[:8])
+            prompt = (
+                "Create the complete content for a polished " + file_format.upper() + " deliverable. "
+                "Title: " + title[:200] + ". Design brief: " + brief[:6000] + ". "
+                "Return only finished document content in clean Markdown. Use a strong title hierarchy, useful sections, specific details, and tables or bullets where useful. "
+                "Do not describe what you would do. Do not include an AI introduction. Do not invent sources, statistics or citations; label assumptions clearly. "
+                "For presentations, use slide headings and concise slide-ready points. For spreadsheets, use tables with headers and rows."
+            )
+            self.store.emit(task_id, "status", "Drafting the deliverable with the language model.")
+            previous_limit = self.runtime.max_new_tokens
+            self.runtime.max_new_tokens = max(previous_limit, min(512, int(os.environ.get("ORBIT_DESIGN_MAX_TOKENS", "384"))))
+            try:
+                content = self.runtime.reply(prompt, history=history, owner_preferences=preference_text,
+                    on_progress=lambda event: self.store.emit(task_id, event.get("kind", "status"), event.get("message", ""),
+                        **{key: value for key, value in event.items() if key not in ("kind", "message")}))
+            finally:
+                self.runtime.max_new_tokens = previous_limit
+            if not content or not content.strip():
+                raise RuntimeError("The language model returned an empty design draft.")
+            self.store.emit(task_id, "status", "Formatting and exporting the finished file.")
+            artifact = create_artifact(title, content, file_format, theme_name=theme)
+            self.store.emit(task_id, "artifact", "Your design is ready.", artifact=artifact)
+            self.store.update(task_id, "completed", result=json.dumps(artifact, ensure_ascii=False))
+            self.store.emit(task_id, "completed", "Created " + artifact["name"])
+        except Exception as exc:
+            self.store.update(task_id, "failed", error=type(exc).__name__ + ": " + str(exc))
+            self.store.emit(task_id, "method_failed", "Design creation failed: " + type(exc).__name__ + ": " + str(exc))
+        finally:
+            with self._lock:
+                self._threads = {t for t in self._threads if t.is_alive() and t is not threading.current_thread()}
     def start_image(self, prompt, negative_prompt="", seed=None):
         task_id = self.store.create("Generate image: " + prompt)
         thread = threading.Thread(target=self._image_worker, args=(task_id, prompt, negative_prompt, seed), daemon=True)
@@ -389,7 +434,7 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision"):
+            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -404,6 +449,19 @@ def make_handler(app):
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
                 if not isinstance(payload, dict):
                     return self._json(400, {"error": "Request body must be a JSON object"})
+                if route == "/api/design":
+                    title = payload.get("title", "Orbit design")
+                    brief = payload.get("brief", "")
+                    file_format = payload.get("format", "pdf")
+                    theme = payload.get("theme", "midnight")
+                    if not all(isinstance(value, str) for value in (title, brief, file_format, theme)):
+                        return self._json(400, {"error": "title, brief, format and theme must be text"})
+                    if not brief.strip() or len(brief) > 6000:
+                        return self._json(400, {"error": "Describe what to design in 1-6000 characters."})
+                    if not app.runtime.ready:
+                        return self._json(503, {"error": "The design studio needs a trained FirstGPT checkpoint. Export finished Markdown using the design engine."})
+                    task_id = app.start_design(title, brief, file_format, theme)
+                    return self._json(202, {"task_id": task_id, "status": "queued"})
                 if route == "/api/vision":
                     file_id = payload.get("file_id")
                     prompt = payload.get("prompt", "Describe this image in detail.")
