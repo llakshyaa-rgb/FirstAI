@@ -38,7 +38,10 @@ def encode_examples(examples, tokenizer, block_size):
     rows = []
     for prompt, response in examples:
         prefix = tokenizer.encode(prompt + "\nOrbit:")
-        answer = tokenizer.encode(" " + response + "\n")
+        answer_text = response.strip()
+        if answer_text.startswith("Orbit:"):
+            answer_text = answer_text[len("Orbit:"):].lstrip()
+        answer = tokenizer.encode(" " + answer_text + "\n")
         if len(answer) >= block_size:
             answer = answer[-(block_size - 1):]
             prefix = []
