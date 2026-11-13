@@ -87,7 +87,7 @@ class TaskStore:
             return []
         with self._connect() as db:
             rows = db.execute(
-                "SELECT goal, result FROM tasks WHERE status='completed' AND result IS NOT NULL ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                "SELECT goal, result FROM tasks WHERE status='completed' AND result IS NOT NULL AND goal NOT LIKE 'Generate image: %' ORDER BY created_at DESC, rowid DESC LIMIT ?",
                 (int(limit),)
             ).fetchall()
         history = []
