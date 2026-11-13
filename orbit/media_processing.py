@@ -5,6 +5,7 @@ import subprocess
 import tempfile
 import uuid
 import zipfile
+import tarfile
 from pathlib import Path
 from .media import get_upload, UPLOAD_DIR
 from .vision import describe_image
@@ -60,6 +61,27 @@ def _process_zip(path: Path) -> str:
             output.append("FILE: " + item.filename + "\n" + data.decode("utf-8", errors="replace")[:20000])
     return "\n\n".join(output)[:50000] or "Archive stored. No supported text files were found inside it."
 
+def _process_tar(path: Path) -> str:
+    output = []
+    total = 0
+    with tarfile.open(path, "r:*") as archive:
+        entries = archive.getmembers()
+        if len(entries) > 200:
+            raise ValueError("Archive contains too many files (limit 200).")
+        for item in entries:
+            if not item.isfile() or Path(item.name).suffix.lower() not in _TEXT_SUFFIXES:
+                continue
+            if item.size > 1_000_000 or total + item.size > 5_000_000:
+                continue
+            stream = archive.extractfile(item)
+            if stream is None:
+                continue
+            data = stream.read(1_000_001)
+            total += len(data)
+            output.append("FILE: " + item.name + "\n" + data.decode("utf-8", errors="replace")[:20000])
+    return "\n\n".join(output)[:50000] or "Archive stored. No supported text files were found inside it."
+
+
 def _transcribe_audio(path: Path) -> str:
     try:
         from faster_whisper import WhisperModel
@@ -108,6 +130,8 @@ def process_upload(file_id: str, prompt: str = "Describe or analyse this attachm
         return {"name": item["name"], "kind": "document", "content": _process_pdf(path, item.get("text", ""))}
     if ext == ".zip":
         return {"name": item["name"], "kind": "archive", "content": _process_zip(path)}
+    if ext in {".tar", ".tgz"}:
+        return {"name": item["name"], "kind": "archive", "content": _process_tar(path)}
     if ext in {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".aiff", ".aif", ".opus", ".amr", ".wma"}:
         return {"name": item["name"], "kind": "audio", "content": _transcribe_audio(path)}
     if ext in {".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".3gp", ".mpeg", ".mpg", ".wmv", ".flv", ".ts"}:
