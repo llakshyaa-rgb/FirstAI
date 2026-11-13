@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from orbit.local_tools import WorkspaceTools, safe_calculate
 from orbit.agent import LocalAgent
+from orbit.memory import MemoryStore
 
 
 class CalculatorTests(unittest.TestCase):
@@ -61,6 +62,20 @@ class AgentTests(unittest.TestCase):
             updated = agent.try_execute("update file: notes/story.txt\nA revised draft.")
             self.assertIn("Backup:", updated)
             self.assertEqual((Path(tmp) / "notes/story.txt").read_text(), "A revised draft.")
+
+    def test_explicit_preferences_are_remembered_and_retrievable(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            memory = MemoryStore(Path(tmp) / "memory.db")
+            agent = LocalAgent(tmp, memory=memory)
+            answer = agent.try_execute("I prefer concise explanations.")
+            self.assertIn("Noted", answer)
+            saved = memory.get_all()
+            self.assertEqual(len(saved), 1)
+            recalled = agent.try_execute("what do you remember about me")
+            self.assertIn("concise explanations", recalled)
+            forgotten = agent.try_execute("forget: " + saved[0]["key"])
+            self.assertEqual(forgotten, "Memory removed.")
+            self.assertEqual(memory.get_all(), [])
 
     def test_unknown_request_is_left_for_language_model(self):
         with tempfile.TemporaryDirectory() as tmp:
