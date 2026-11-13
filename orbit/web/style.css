@@ -13,3 +13,11 @@ textarea{flex:1;resize:vertical;min-height:52px;max-height:180px;padding:13px;bo
 textarea:focus{border-color:#7893a9}button{border:0;border-radius:10px;background:#d6e1eb;color:#111820;padding:14px 19px;font-weight:650}button:disabled{opacity:.5}
 footer{text-align:center;padding:14px 0 0}
 @media(max-width:520px){.shell{padding:14px 12px}.bubble{max-width:96%}.device{font-size:10px}}
+
+.memory-panel{margin:0 0 12px;padding:10px 12px;border:1px solid #293541;border-radius:12px;color:#c8d2dc}
+.memory-panel summary{cursor:pointer;font-size:13px;color:#b8c8d7}
+.memory-panel>p{font-size:12px;color:#8d9aa8}
+.memory-form{display:flex;gap:8px;flex-wrap:wrap}
+.memory-form input{min-width:0;flex:1;padding:10px;border-radius:8px;border:1px solid #34404c;background:#121922;color:#eef3f8}
+.memory-form button{padding:10px 14px}
+.memory-item{font-size:12px;color:#aebdca;overflow-wrap:anywhere}
