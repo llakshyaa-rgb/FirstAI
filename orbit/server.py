@@ -503,6 +503,28 @@ def make_handler(app):
                     return self._json(400, {"error": "message must be a non-empty string"})
                 if not isinstance(attachments, list) or len(attachments) > 5 or any(not isinstance(x, str) for x in attachments):
                     return self._json(400, {"error": "attachments must be a list of up to five uploaded file IDs"})
+                # Explicit document/design requests from the main composer become real artifact jobs.
+                design_match = re.match(
+                    r"^(?:create|make|design|build)\s+(?:me\s+)?(?:a\s+)?"
+                    r"(pdf|docx|word document|presentation|powerpoint|pptx|spreadsheet|excel|xlsx|csv|web page|website|html|poster|svg|markdown document|md)"
+                    r"\b\s*(?:(?:about|on|for)\s+|:\s*)?(.*)$",
+                    message.strip(), re.I | re.S,
+                )
+                if design_match and not attachments:
+                    format_map = {
+                        "word document": "docx", "presentation": "pptx", "powerpoint": "pptx",
+                        "spreadsheet": "xlsx", "excel": "xlsx", "web page": "html",
+                        "website": "html", "poster": "svg", "markdown document": "md",
+                    }
+                    requested_format = format_map.get(design_match.group(1).lower(), design_match.group(1).lower())
+                    brief = design_match.group(2).strip()
+                    if not brief:
+                        return self._json(400, {"error": "Tell Orbit what the " + requested_format.upper() + " should contain."})
+                    if not app.runtime.ready:
+                        return self._json(503, {"error": "The design studio needs a trained FirstGPT checkpoint. Open Creative Studio after loading one."})
+                    title = brief[:70].strip(" .:-") or "Orbit design"
+                    task_id = app.start_design(title, brief, requested_format, "midnight")
+                    return self._json(202, {"task_id": task_id, "status": "queued"})
                 # Image requests can be issued naturally from the main chat composer.
                 image_match = re.match(r"^(?:create|generate|make) image\s*:\s*(.+)$", message.strip(), re.I | re.S)
                 if image_match and not attachments:
