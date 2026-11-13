@@ -131,14 +131,14 @@ def _process_video(path: Path) -> str:
 def process_upload(file_id: str, prompt: str = "Describe or analyse this attachment.") -> dict:
     item = get_upload(file_id)
     path = UPLOAD_DIR / item["stored_name"]
-    ext = path.suffix.lower()
+    ext = ".tar.gz" if path.name.lower().endswith(".tar.gz") else path.suffix.lower()
     if item["category"] == "image":
         return {"name": item["name"], "kind": "image", "content": describe_image(file_id, prompt)}
     if ext == ".pdf":
         return {"name": item["name"], "kind": "document", "content": _process_pdf(path, item.get("text", ""))}
     if ext == ".zip":
         return {"name": item["name"], "kind": "archive", "content": _process_zip(path)}
-    if ext in {".tar", ".tgz"}:
+    if ext in {".tar", ".tgz", ".tar.gz"}:
         return {"name": item["name"], "kind": "archive", "content": _process_tar(path)}
     if ext in {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".aiff", ".aif", ".opus", ".amr", ".wma"}:
         return {"name": item["name"], "kind": "audio", "content": _transcribe_audio(path)}
