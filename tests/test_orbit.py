@@ -1,10 +1,17 @@
 import tempfile
 import unittest
 from pathlib import Path
-from orbit.identity import ORBIT_IDENTITY, build_system_prompt
+from orbit.identity import ORBIT_IDENTITY, build_system_prompt, build_compact_system_prompt
 from orbit.tasks import TaskStore, TaskRunner
 
 class OrbitIdentityTests(unittest.TestCase):
+    def test_compact_identity_keeps_mature_writing_and_tool_recovery(self):
+        prompt = build_compact_system_prompt().lower()
+        self.assertIn("jarvis-inspired", prompt)
+        self.assertIn("mature adult fiction", prompt)
+        self.assertIn("approved local tools", prompt)
+        self.assertIn("never fake success", prompt)
+
     def test_identity_contains_jarvis_style_and_recovery(self):
         prompt = build_system_prompt()
         self.assertIn("Jarvis-inspired", prompt)
