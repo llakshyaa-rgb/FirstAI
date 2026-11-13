@@ -36,6 +36,24 @@ for index, item in enumerate(images):
 
 The workflow must be exported in API format and its node inputs must match the installed ComfyUI graph. Orbit cannot infer a compatible graph from a prompt alone.
 
+## Direct Diffusers backend (no ComfyUI workflow)
+
+Orbit can generate images directly through Hugging Face Diffusers. This is the simplest path on Colab:
+
+~~~bash
+pip install -r requirements-image.txt
+export ORBIT_IMAGE_BACKEND=diffusers
+export ORBIT_IMAGE_MODEL=Lykon/dreamshaper-8
+export ORBIT_IMAGE_DEVICE=auto
+python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
+~~~
+
+The first image request downloads the selected public model automatically. The Colab notebook has an optional setup cell that installs the dependencies and selects this model on the T4. Default output is 512×512 at 20 inference steps; adjust ORBIT_IMAGE_WIDTH, ORBIT_IMAGE_HEIGHT, ORBIT_IMAGE_STEPS and ORBIT_IMAGE_CFG.
+
+When the Diffusers backend is selected, Orbit acquires the language runtime lock, temporarily moves FirstGPT to CPU, clears its CUDA cache, runs the diffusion pipeline with Accelerate CPU offload, then restores FirstGPT to its original device. This prevents both models from holding their full weights in VRAM simultaneously. The image pipeline remains cached in CPU memory for later requests. Generation can still take time and requires sufficient system RAM, GPU memory and disk space for model downloads. It is intended for a Colab T4 or suitable GPU host, not an 8 GB Android phone.
+
+The existing ComfyUI backend remains available for custom API workflows. Set ORBIT_IMAGE_BACKEND=comfyui (the default), ORBIT_COMFYUI_URL and ORBIT_IMAGE_WORKFLOW as described above.
+
 ## Mature artwork
 The prompt can describe adult fictional characters, styling, pose, composition, and artistic anatomy. The actual image model and its configured restrictions determine what it will render. Do not assume that a model supports every degree of nudity or explicit sexual content. Never use the system for sexual imagery of minors or non-consensual intimate imagery.
 
