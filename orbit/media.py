@@ -14,6 +14,7 @@ import secrets
 import urllib.parse
 import urllib.request
 import zipfile
+import tarfile
 from email import policy
 from email.parser import BytesParser
 from pathlib import Path
@@ -26,7 +27,7 @@ IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".gif", ".bmp", ".tif", ".
 TEXT_EXTENSIONS = {".txt", ".md", ".csv", ".json", ".jsonl", ".xml", ".html", ".htm", ".rtf", ".py", ".js", ".ts", ".tsx", ".jsx", ".css", ".sql", ".yaml", ".yml", ".toml", ".ini", ".log"}
 DOCUMENT_EXTENSIONS = {".pdf", ".docx", ".xlsx", ".pptx", ".odt", ".ods", ".odp", ".epub", ".rtf"}
 MEDIA_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".aiff", ".aif", ".opus", ".amr", ".wma", ".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".3gp", ".mpeg", ".mpg", ".wmv", ".flv", ".ts"}
-ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS | TEXT_EXTENSIONS | DOCUMENT_EXTENSIONS | MEDIA_EXTENSIONS | {".zip"}
+ALLOWED_EXTENSIONS = IMAGE_EXTENSIONS | TEXT_EXTENSIONS | DOCUMENT_EXTENSIONS | MEDIA_EXTENSIONS | {".zip", ".tar", ".tgz"}
 
 def _safe_name(name: str) -> str:
     name = Path(str(name or "upload")).name
@@ -90,7 +91,7 @@ def save_upload(filename: str, data: bytes, content_type: str = "application/oct
         "id": file_id, "name": clean, "stored_name": stored_name,
         "url": "/uploads/" + stored_name, "size": len(data),
         "content_type": mimetypes.guess_type(clean)[0] or content_type,
-        "category": ("image" if ext in IMAGE_EXTENSIONS else "document" if ext in DOCUMENT_EXTENSIONS or ext in TEXT_EXTENSIONS else "media" if ext in MEDIA_EXTENSIONS else "archive" if ext == ".zip" else "file"),
+        "category": ("image" if ext in IMAGE_EXTENSIONS else "document" if ext in DOCUMENT_EXTENSIONS or ext in TEXT_EXTENSIONS else "media" if ext in MEDIA_EXTENSIONS else "archive" if ext in {".zip", ".tar", ".tgz"} else "file"),
         "text": extracted[:50000],
         "extraction_error": extraction_error,
         "sha256": hashlib.sha256(data).hexdigest(),
