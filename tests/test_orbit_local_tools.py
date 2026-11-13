@@ -53,6 +53,15 @@ class AgentTests(unittest.TestCase):
             agent = LocalAgent(tmp)
             self.assertEqual(agent.try_execute("calculate 6 * (7 + 1)"), "6 * (7 + 1) = 48")
 
+    def test_create_and_update_file_commands(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            agent = LocalAgent(tmp)
+            created = agent.try_execute("create file: notes/story.txt\nA first draft.")
+            self.assertIn("Created notes/story.txt", created)
+            updated = agent.try_execute("update file: notes/story.txt\nA revised draft.")
+            self.assertIn("Backup:", updated)
+            self.assertEqual((Path(tmp) / "notes/story.txt").read_text(), "A revised draft.")
+
     def test_unknown_request_is_left_for_language_model(self):
         with tempfile.TemporaryDirectory() as tmp:
             agent = LocalAgent(tmp)
