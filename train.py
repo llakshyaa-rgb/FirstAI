@@ -95,7 +95,7 @@ def main():
     use_amp = args.amp and device == "cuda"
     amp_dtype = torch.bfloat16 if use_amp and torch.cuda.is_bf16_supported() else torch.float16
     use_scaler = use_amp and amp_dtype == torch.float16
-    scaler = torch.cuda.amp.GradScaler(enabled=use_scaler)
+    scaler = torch.amp.GradScaler("cuda", enabled=use_scaler)
     print(f"Device: {device}" + (f" | GPU: {torch.cuda.get_device_name(0)}" if device == "cuda" else ""))
     if args.amp and not use_amp:
         print("AMP requested but CUDA is unavailable; continuing in full precision.")
