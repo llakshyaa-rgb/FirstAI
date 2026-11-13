@@ -254,8 +254,7 @@ def make_handler(app):
                 message = payload.get("message")
                 if not isinstance(message, str) or not message.strip():
                     return self._json(400, {"error": "message must be a non-empty string"})
-                if not app.runtime.ready:
-                    return self._json(503, {"error": app.runtime.load_error, "hint": "Train a checkpoint and restart the server."})
+                # Deterministic local tools remain available even before a language checkpoint is trained.
                 task_id = app.start_chat(message.strip())
                 return self._json(202, {"task_id": task_id, "status": "queued"})
             except (UnicodeDecodeError, json.JSONDecodeError):
