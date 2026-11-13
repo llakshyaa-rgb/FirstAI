@@ -213,7 +213,7 @@ export ORBIT_IMAGE_CFG=7.0
 python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
 ```
 
-The UI submits image tasks asynchronously, records progress, saves returned images under `orbit/generated/`, and displays them in the conversation. The image backend is external and is not bundled or automatically downloaded. Its model and workflow determine which visual requests it can fulfill; this code does not bypass model restrictions or guarantee nude/explicit output. This implementation is being developed as a private local assistant; public-service features are intentionally out of scope. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
+The UI submits image tasks asynchronously, records progress, saves returned images under `orbit/generated/`, and displays them in the conversation. The image backend is external and is not bundled or automatically downloaded. Its model and workflow determine which visual requests it can fulfill; this code does not bypass model restrictions or guarantee nude/explicit output. This implementation is designed for private local use. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
 
 ### Image generation
 
@@ -221,7 +221,7 @@ FirstGPT is still a text-only model. To generate images, install and run a compa
 
 ### Capability and safety note
 
-The identity blueprint supports natural, nonjudgmental discussion of mature topics. It is not a content-filter bypass or a guarantee of unrestricted output. Any deployment that serves adult audiences needs age controls, consent and privacy safeguards, and appropriate content restrictions. The current local image adapter does not bundle an image model; its output depends on the separately configured ComfyUI model and workflow.
+The identity blueprint supports natural, nonjudgmental discussion of mature topics within applicable boundaries. The local image adapter does not bundle an image model; its output depends on the separately configured ComfyUI model and workflow.
 
 ## Scope and limitations
 
