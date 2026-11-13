@@ -143,10 +143,11 @@ runner.run(task_id, [("primary workflow", primary)])
 
 ### Orbit agent team and hardware budget
 
-Orbit uses a coordinator with three lightweight specialists:
+Orbit uses a coordinator with four lightweight specialists:
 - **Researcher:** public web search and source gathering.
 - **Workspace inspector:** project/file search.
 - **Analyst:** restricted arithmetic and numerical checks.
+- **Verifier:** runs compilation and tests when explicitly asked to verify the project.
 
 Independent specialist tools run concurrently (default maximum: 3 workers). The main language model is shared, so the agents do not each load another model onto the GPU. The model synthesizes the collected results once. This is deliberately a tool-specialist team, not three duplicate LLMs; separate model instances would consume more RAM/VRAM and often slow a phone down.
 
