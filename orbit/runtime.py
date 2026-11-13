@@ -74,43 +74,63 @@ class OrbitRuntime:
                 input_ids = torch.cat((input_ids, next_id), dim=1)
                 if token in (10, 13):
                     break
-                if on_progress and (index + 1) % 12 == 0:
+                if on_progress and (index + 1) % 8 == 0:
+                    partial = self.tokenizer.decode(generated).strip()
                     on_progress({
-                        "kind": "generation_progress",
-                        "message": "I'm composing the response.",
+                        "kind": "partial",
+                        "message": partial,
                         "tokens_generated": index + 1,
                         "strategy": mode,
                     })
         return self.tokenizer.decode(generated).strip()
+
+    def _build_prompt_ids(self, message, history=None, owner_preferences=None):
+        """Budget context deliberately: latest owner request always wins."""
+        limit = self.model.config.block_size
+        system = self.tokenizer.encode(
+            "You are Orbit: composed, articulate, capable, candid and helpful. "
+            "Answer the owner's request directly. Make reasonable choices. "
+            "If a method fails, explain and try another safe approach. Never fake success.\n"
+        )
+        system = system[:min(28, max(12, limit // 4))]
+        prefs = []
+        if owner_preferences:
+            prefs = self.tokenizer.encode("Preferences: " + str(owner_preferences)[:500] + "\n")
+            prefs = prefs[:min(12, max(0, limit // 10))]
+        history_ids = []
+        for item in (history or [])[-2:]:
+            role = "Owner" if item.get("role") == "user" else "Orbit"
+            part = self.tokenizer.encode(f"{role}: {str(item.get('content', ''))}\n")
+            remaining = min(18, max(0, limit // 5)) - len(history_ids)
+            if remaining <= 0:
+                break
+            history_ids.extend(part[-remaining:])
+        fixed = system + prefs + history_ids
+        message_ids = self.tokenizer.encode(f"Owner: {message.strip()}\nOrbit:")
+        budget = max(8, limit - len(fixed))
+        if len(message_ids) > budget:
+            marker = self.tokenizer.encode(" ... ")
+            marker = marker[:min(len(marker), max(1, budget // 8))]
+            available = max(2, budget - len(marker))
+            left = (available + 1) // 2
+            right = available - left
+            message_ids = message_ids[:left] + marker + (message_ids[-right:] if right else [])
+        ids = fixed + message_ids
+        if len(ids) > limit:
+            ids = ids[-limit:]
+        return ids
 
     def reply(self, message, history=None, owner_preferences=None, on_progress=None):
         if not self.ready:
             raise ModelNotReady(self.load_error or "No trained checkpoint is loaded.")
         if not isinstance(message, str) or not message.strip():
             raise ValueError("Message must not be empty.")
-        history = (history or [])[-self.max_history_messages:]
-        transcript = build_system_prompt(owner_preferences=owner_preferences) + "\n\n"
-        for item in history:
-            role = "Owner" if item.get("role") == "user" else "Orbit"
-            transcript += f"{role}: {item.get('content', '')}\n"
-        transcript += f"Owner: {message.strip()}\nOrbit:"
-        ids = self.tokenizer.encode(transcript)
-        limit = self.model.config.block_size
-        if len(ids) > limit:
-            identity_ids = self.tokenizer.encode(
-                "You are Orbit: composed, clear, candid, and helpful. "
-                "Answer directly. If a method fails, explain and try another approach.\n"
-            )
-            newest_ids = self.tokenizer.encode(f"Owner: {message.strip()}\nOrbit:")
-            prefix_budget = max(0, limit - len(newest_ids) - 1)
-            tail_budget = max(1, limit - min(prefix_budget, len(identity_ids)))
-            ids = identity_ids[:prefix_budget] + ids[-tail_budget:]
-            ids = ids[-limit:]
+        prompt_ids = self._build_prompt_ids(message, history, owner_preferences)
 
         with self._lock:
             first_error = None
             try:
-                answer = self._generate_once(ids, "greedy", on_progress)
+                answer = self._generate_once(prompt_ids, "greedy", on_progress)
                 if answer:
                     return answer
                 first_error = "The first decoding strategy returned an empty response."
@@ -121,11 +141,13 @@ class OrbitRuntime:
                         if on_progress:
                             on_progress({
                                 "kind": "method_failed",
-                                "message": "GPU memory ran out. I'm switching this response to CPU.",
+                                "message": "GPU memory ran out. I'm moving this response to CPU and continuing.",
                                 "strategy": "cuda",
                             })
                         self.model = self.model.to("cpu")
                         self.device = "cpu"
+                        if torch.cuda.is_available():
+                            torch.cuda.empty_cache()
                     except Exception as move_exc:
                         first_error += f"; CPU fallback setup failed: {type(move_exc).__name__}: {move_exc}"
 
@@ -137,11 +159,11 @@ class OrbitRuntime:
                 })
                 on_progress({
                     "kind": "status",
-                    "message": "Switching to a controlled sampling strategy and continuing.",
+                    "message": "Switching to controlled sampling and continuing.",
                     "strategy": "sample",
                 })
             try:
-                answer = self._generate_once(ids, "sample", on_progress)
+                answer = self._generate_once(prompt_ids, "sample", on_progress)
                 if answer:
                     return answer
                 raise RuntimeError("The alternate decoding strategy also returned an empty response.")
