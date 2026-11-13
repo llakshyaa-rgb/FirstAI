@@ -16,7 +16,7 @@ function bubble(role,text,kind=""){
 }
 async function health(){
   try{const r=await fetch("/api/health");const d=await r.json();
-    presence.textContent=d.status==="ready"?"Personal AI · Online":"Personal AI · Model not loaded";
+    presence.textContent=d.status==="ready"?"Personal AI · Online":"Local tools online · language model not loaded";
     device.textContent=d.device||"";
     const imageStatus=document.querySelector("#image-status");
     if(imageStatus)imageStatus.textContent=d.image_backend_connected?"Image model online":(d.image_workflow_configured?"Workflow exists · backend offline":"Backend not configured");
