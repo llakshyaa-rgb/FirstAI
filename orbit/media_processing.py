@@ -99,9 +99,9 @@ def process_upload(file_id: str, prompt: str = "Describe or analyse this attachm
         return {"name": item["name"], "kind": "document", "content": _process_pdf(path, item.get("text", ""))}
     if ext == ".zip":
         return {"name": item["name"], "kind": "archive", "content": _process_zip(path)}
-    if ext in {".mp3", ".wav", ".m4a", ".ogg", ".flac"}:
+    if ext in {".mp3", ".wav", ".m4a", ".ogg", ".flac", ".aac", ".aiff", ".aif", ".opus", ".amr", ".wma"}:
         return {"name": item["name"], "kind": "audio", "content": _transcribe_audio(path)}
-    if ext in {".mp4", ".mov", ".webm", ".mkv"}:
+    if ext in {".mp4", ".mov", ".webm", ".mkv", ".avi", ".m4v", ".3gp", ".mpeg", ".mpg", ".wmv", ".flv", ".ts"}:
         return {"name": item["name"], "kind": "video", "content": _process_video(path)}
     if item.get("text"):
         return {"name": item["name"], "kind": "document", "content": item["text"]}
