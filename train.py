@@ -9,12 +9,12 @@ from firstai.model import FirstGPT, GPTConfig
 from firstai.bpe import BPETokenizer
 
 
-def save_checkpoint(path, model, optimizer, config, tokenizer, step, best_val, corpus_hash):
+def save_checkpoint(path, model, optimizer, scaler, config, tokenizer, step, best_val, corpus_hash):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_suffix(path.suffix + ".tmp")
     torch.save({
-        "model": model.state_dict(), "optimizer": optimizer.state_dict(),
+        "model": model.state_dict(), "optimizer": optimizer.state_dict(), "scaler": scaler.state_dict(),
         "config": vars(config), "tokenizer": tokenizer.to_dict(),
         "step": step, "best_validation_loss": best_val,
         "corpus_sha256": corpus_hash,
@@ -96,6 +96,8 @@ def main():
     amp_dtype = torch.bfloat16 if use_amp and torch.cuda.is_bf16_supported() else torch.float16
     use_scaler = use_amp and amp_dtype == torch.float16
     scaler = torch.amp.GradScaler("cuda", enabled=use_scaler)
+    if args.resume and checkpoint.get("scaler"):
+        scaler.load_state_dict(checkpoint["scaler"])
     print(f"Device: {device}" + (f" | GPU: {torch.cuda.get_device_name(0)}" if device == "cuda" else ""))
     if args.amp and not use_amp:
         print("AMP requested but CUDA is unavailable; continuing in full precision.")
@@ -129,7 +131,7 @@ def main():
             print(f"step {step:6d} | train {scores['train']:.4f} | validation {scores['validation']:.4f} | perplexity {perplexity:.2f}")
             if scores["validation"] < best_val:
                 best_val = scores["validation"]
-                save_checkpoint(best_path, model, optimizer, config, tokenizer, step, best_val, corpus_hash)
+                save_checkpoint(best_path, model, optimizer, scaler, config, tokenizer, step, best_val, corpus_hash)
                 print(f"  saved best checkpoint: {best_path}")
 
         optimizer.zero_grad(set_to_none=True)
@@ -155,10 +157,10 @@ def main():
 
         completed = step + 1
         if completed % args.checkpoint_interval == 0:
-            save_checkpoint(args.out, model, optimizer, config, tokenizer, completed, best_val, corpus_hash)
+            save_checkpoint(args.out, model, optimizer, scaler, config, tokenizer, completed, best_val, corpus_hash)
             print(f"  checkpointed at step {completed}: {args.out} | loss {accumulated_loss / args.grad_accum_steps:.4f}")
 
-    save_checkpoint(args.out, model, optimizer, config, tokenizer,
+    save_checkpoint(args.out, model, optimizer, scaler, config, tokenizer,
                     start_step + args.steps, best_val, corpus_hash)
     print(f"Saved resumable checkpoint: {args.out}")
 
