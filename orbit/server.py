@@ -160,31 +160,47 @@ class OrbitApplication:
             self.store.update(task_id, "running")
             self.store.emit(task_id, "status", "Certainly. I'm considering your request.")
             context_parts = []
-            for file_id in (attachments or [])[:5]:
-                try:
-                    item = get_upload(file_id)
-                    self.store.emit(task_id, "status", "Processing attachment: " + item["name"])
-                    try:
-                        processed = process_upload(file_id, "User request: " + message + "\nAnalyse this attachment and extract the details relevant to the request.")
-                        context_parts.append(processed["kind"].capitalize() + " " + processed["name"] + " analysis:\n" + processed["content"][:30000])
-                    except Exception as processing_error:
-                        emit_progress("I received " + item["name"] + ", but its content-processing method failed (" + type(processing_error).__name__ + ": " + str(processing_error) + "). I'll continue with the rest of the request.", kind="method_failed")
-                        if item.get("text"):
-                            context_parts.append("Readable text from " + item["name"] + ":\n" + item["text"][:30000])
-                except Exception as attachment_error:
-                    emit_progress("I couldn't open one attachment: " + type(attachment_error).__name__ + ": " + str(attachment_error) + ". I'll continue.", kind="method_failed")
-            if context_parts:
-                message = message + "\n\nAttached material:\n" + "\n\n".join(context_parts)
-            # Run only narrowly matched, deterministic local utility intents.
-            # All other messages are passed to the language model.
+            specialist_results = []
             agent = LocalAgent(
                 workspace=Path(__file__).resolve().parent.parent,
                 progress=emit_progress,
                 memory=self.memory,
                 browser=self.browser,
             )
+            # Attachments are delegated to a dedicated media specialist. Other
+            # relevant specialists can research or inspect the workspace in parallel.
+            if attachments:
+                team = AgentTeam(agent.registry, progress=emit_progress)
+                specialist_results = team.run(message, attachments=attachments)
+                for item in specialist_results:
+                    if item.get("agent") != "media" or not item.get("ok"):
+                        continue
+                    for media_item in item.get("result", []):
+                        if media_item.get("content"):
+                            context_parts.append(
+                                media_item.get("kind", "file").capitalize() + " " +
+                                media_item.get("name", "attachment") + " analysis:\n" +
+                                media_item["content"]
+                            )
+                        elif media_item.get("fallback_text"):
+                            context_parts.append(
+                                "Readable extracted text from attachment:\n" + media_item["fallback_text"]
+                            )
+                        elif not media_item.get("ok"):
+                            emit_progress(
+                                "An attachment could not be fully interpreted (" +
+                                media_item.get("error", "unknown error") +
+                                "). I'll continue with any readable fallback content.",
+                                kind="method_failed",
+                            )
+                if context_parts:
+                    message += "\n\nAttached material:\n" + "\n\n".join(context_parts)
+                findings = [item for item in specialist_results if item.get("agent") != "media"]
+                if findings:
+                    message += "\n\nOther specialist findings:\n" + json.dumps(findings, ensure_ascii=False, default=str)[:12000]
+
             answer = agent.try_execute(message)
-            if answer is None:
+            if answer is None and not specialist_results:
                 team = AgentTeam(
                     agent.registry,
                     progress=emit_progress,
