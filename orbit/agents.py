@@ -100,7 +100,7 @@ class AgentTeam:
         if specialist.tool_name == "web_search":
             return self.registry.call("web_search", {"query": query, "count": 8})
         if specialist.tool_name == "image_search":
-            explicit_mature = any(term in message.casefold() for term in ("mature", "adult", "nsfw", "18+"))
+            explicit_mature = any(term in message.casefold() for term in ("mature", "adult", "nsfw", "18+", "nude", "nudity", "naked", "intimate"))
             return search_web_images(query, count=8, safesearch="off" if explicit_mature else "strict")
         if specialist.tool_name == "inspect_project":
             overview = self.registry.call("inspect_project", {"relative": ".", "max_files": 80})
