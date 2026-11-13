@@ -19,6 +19,7 @@ from .tasks import TaskStore
 from .memory import MemoryStore
 from .images import ComfyUIImageBackend
 from .image_workflow import load_workflow_template
+from .agent import LocalAgent
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -29,6 +30,7 @@ class OrbitApplication:
         self.runtime = OrbitRuntime(checkpoint)
         self.store = TaskStore(state_path)
         self.memory = MemoryStore(state_path)
+        self.agent = LocalAgent(workspace=Path(__file__).resolve().parent.parent)
         self._threads = set()
         self._lock = threading.Lock()
         # Resume interrupted chat-generation tasks after the checkpoint is loaded.
@@ -94,15 +96,20 @@ class OrbitApplication:
         try:
             self.store.update(task_id, "running")
             self.store.emit(task_id, "status", "Certainly. I'm considering your request.")
-            answer = self.runtime.reply(
-                message,
-                history=self.store.recent_history(),
+            # Run only narrowly matched, deterministic local utility intents.
+            # All other messages are passed to the language model.
+            self.agent.progress = lambda text, **details: self.store.emit(task_id, "status", text, **details)
+            answer = self.agent.try_execute(message)
+            if answer is None:
+                answer = self.runtime.reply(
+                    message,
+                    history=self.store.recent_history(),
                 owner_preferences=self.memory.prompt_context(),
                 on_progress=lambda event: self.store.emit(
                     task_id, event["kind"], event["message"],
-                    **{key: value for key, value in event.items() if key not in ("kind", "message")}
+                        **{key: value for key, value in event.items() if key not in ("kind", "message")}
+                    )
                 )
-            )
             self.store.update(task_id, "completed", result=answer)
             self.store.emit(task_id, "message", answer)
         except ModelNotReady as exc:
@@ -146,6 +153,8 @@ def make_handler(app):
                 })
             if parsed.path == "/api/memory":
                 return self._json(200, {"memories": app.memory.get_all()})
+            if parsed.path == "/api/history":
+                return self._json(200, {"history": app.store.recent_history(limit=40)})
             if parsed.path == "/api/events":
                 params = parse_qs(parsed.query)
                 task_id = (params.get("task_id") or [""])[0]
