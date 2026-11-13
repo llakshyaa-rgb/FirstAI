@@ -128,9 +128,6 @@ class OrbitApplication:
         except Exception as exc:
             self.store.update(task_id, "failed", error=type(exc).__name__ + ": " + str(exc))
             self.store.emit(task_id, "method_failed", "Design creation failed: " + type(exc).__name__ + ": " + str(exc))
-        finally:
-            with self._lock:
-                self._threads = {future for future in self._threads if not future.done()}
     def start_image(self, prompt, negative_prompt="", seed=None):
         task_id = self.store.create("Generate image: " + prompt)
         self._submit(self._image_worker, task_id, prompt, negative_prompt, seed)
@@ -209,15 +206,8 @@ class OrbitApplication:
         except Exception as exc:
             self.store.update(task_id, "failed", error=f"{type(exc).__name__}: {exc}")
             self.store.emit(task_id, "method_failed", f"Image generation failed: {type(exc).__name__}: {exc}. Check the configured image backend and workflow.")
-        finally:
-            with self._lock:
-                self._threads = {t for t in self._threads if t.is_alive() and t is not threading.current_thread()}
-
     def _launch_chat(self, task_id, message, attachments=None):
-        thread = threading.Thread(target=self._chat_worker, args=(task_id, message, attachments or []), daemon=True)
-        with self._lock:
-            self._threads.add(thread)
-        thread.start()
+        self._submit(self._chat_worker, task_id, message, attachments or [])
 
     def _chat_worker(self, task_id, message, attachments=None):
         execution_failures = []
@@ -313,11 +303,7 @@ class OrbitApplication:
             self.store.update(task_id, "failed", error=f"{type(exc).__name__}: {exc}")
             self.store.emit(task_id, "method_failed",
                             f"I encountered an error: {type(exc).__name__}: {exc}")
-        finally:
-            with self._lock:
-                self._threads = {t for t in self._threads if t.is_alive() and t is not threading.current_thread()}
-
-def make_handler(app):
+\ndef make_handler(app):
     class Handler(BaseHTTPRequestHandler):
         server_version = "OrbitLocal/0.1"
 
