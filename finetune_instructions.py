@@ -2,7 +2,7 @@
 
 JSONL format, one object per line:
 {"prompt":"Owner: ...","response":"Orbit: ..."}
-This is a small educational SFT stage, not a substitute for a large curated dataset.
+This small educational SFT stage is not a substitute for a large curated dataset.
 """
 from __future__ import annotations
 import argparse
@@ -46,7 +46,7 @@ def encode_examples(examples, tokenizer, block_size):
             prefix = prefix[-(block_size - len(answer)):]
         ids = prefix + answer
         if len(ids) >= 2:
-            rows.append(ids)
+            rows.append((ids, len(prefix)))
     if len(rows) < 2:
         raise ValueError("Not enough usable examples after applying block_size")
     return rows
@@ -56,11 +56,18 @@ def make_batch(rows, batch_size, block_size, device):
     selected = [rows[random.randrange(len(rows))] for _ in range(batch_size)]
     x = torch.zeros((batch_size, block_size), dtype=torch.long)
     y = torch.full((batch_size, block_size), -100, dtype=torch.long)
-    for i, row in enumerate(selected):
-        row = row[-(block_size + 1):]
+    for i, (tokens, prompt_length) in enumerate(selected):
+        row = tokens[-(block_size + 1):]
+        # If a row is trimmed, adjust the response boundary by the removed prefix.
+        removed = max(0, len(tokens) - len(row))
+        boundary = max(0, prompt_length - removed)
         inp, target = row[:-1], row[1:]
         x[i, :len(inp)] = torch.tensor(inp)
-        y[i, :len(target)] = torch.tensor(target)
+        # Only response tokens contribute to the supervised objective.
+        for target_pos, token in enumerate(target):
+            original_pos = target_pos + 1
+            if original_pos >= boundary:
+                y[i, target_pos] = token
     return x.to(device), y.to(device)
 
 
