@@ -117,7 +117,7 @@ class OrbitRuntime:
             marker = self.tokenizer.encode(" ... ")
             marker = marker[:min(len(marker), max(1, budget // 10))]
             available = max(2, budget - len(marker))
-            left = max(1, available // 4)
+            left = max(1, available // 3)
             right = available - left
             message_ids = message_ids[:left] + marker + (message_ids[-right:] if right else [])
         ids = fixed + history_ids + message_ids
