@@ -13,12 +13,19 @@ class ImageWorkflowTests(unittest.TestCase):
             path.write_text(json.dumps({
                 "1": {"inputs": {"text": "{{PROMPT}}"}},
                 "2": {"inputs": {"text": "{{NEGATIVE_PROMPT}}"}},
-                "3": {"inputs": {"seed": "{{SEED}}"}},
+                "3": {"inputs": {"seed": "{{SEED}}", "width": "{{WIDTH}}",
+                                "height": "{{HEIGHT}}", "steps": "{{STEPS}}",
+                                "cfg": "{{CFG}}", "checkpoint": "{{CHECKPOINT}}"}},
             }), encoding="utf-8")
             result = load_workflow_template(path, "adult character concept", "blur", 42)
             self.assertEqual(result["1"]["inputs"]["text"], "adult character concept")
             self.assertEqual(result["2"]["inputs"]["text"], "blur")
             self.assertEqual(result["3"]["inputs"]["seed"], 42)
+            self.assertEqual(result["3"]["inputs"]["width"], 768)
+            self.assertEqual(result["3"]["inputs"]["height"], 768)
+            self.assertEqual(result["3"]["inputs"]["steps"], 24)
+            self.assertEqual(result["3"]["inputs"]["cfg"], 7.0)
+            self.assertEqual(result["3"]["inputs"]["checkpoint"], "model.safetensors")
 
     def test_completed_job_without_outputs_fails_immediately(self):
         backend = ComfyUIImageBackend()
