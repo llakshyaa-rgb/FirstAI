@@ -9,7 +9,7 @@ import json
 from pathlib import Path
 
 
-def download_wikitext(output, config="wikitext-2-raw-v1", max_chars=5_000_000):
+def download_wikitext(output, config="wikitext-103-raw-v1", max_chars=5_000_000):
     try:
         from datasets import load_dataset
     except ImportError as exc:
