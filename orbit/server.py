@@ -81,14 +81,15 @@ class OrbitApplication:
             if backend_kind == "diffusers":
                 from .diffusion_backend import DiffusionImageBackend
                 backend = DiffusionImageBackend()
-                outputs = backend.generate(
-                    prompt, negative_prompt=negative_prompt, seed=seed,
-                    width=int(os.environ.get("ORBIT_IMAGE_WIDTH", "512")),
-                    height=int(os.environ.get("ORBIT_IMAGE_HEIGHT", "512")),
-                    steps=int(os.environ.get("ORBIT_IMAGE_STEPS", "20")),
-                    guidance=float(os.environ.get("ORBIT_IMAGE_CFG", "7.0")),
-                    on_progress=progress,
-                )
+                with self.runtime.offload_for_external_gpu_work():
+                    outputs = backend.generate(
+                        prompt, negative_prompt=negative_prompt, seed=seed,
+                        width=int(os.environ.get("ORBIT_IMAGE_WIDTH", "512")),
+                        height=int(os.environ.get("ORBIT_IMAGE_HEIGHT", "512")),
+                        steps=int(os.environ.get("ORBIT_IMAGE_STEPS", "20")),
+                        guidance=float(os.environ.get("ORBIT_IMAGE_CFG", "7.0")),
+                        on_progress=progress,
+                    )
             elif backend_kind == "comfyui":
                 workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
                 if not workflow_path or not Path(workflow_path).is_file():
