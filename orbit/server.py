@@ -303,7 +303,8 @@ class OrbitApplication:
             self.store.update(task_id, "failed", error=f"{type(exc).__name__}: {exc}")
             self.store.emit(task_id, "method_failed",
                             f"I encountered an error: {type(exc).__name__}: {exc}")
-\ndef make_handler(app):
+
+def make_handler(app):
     class Handler(BaseHTTPRequestHandler):
         server_version = "OrbitLocal/0.1"
 
