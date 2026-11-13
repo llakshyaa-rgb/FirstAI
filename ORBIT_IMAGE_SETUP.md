@@ -4,7 +4,7 @@ Orbit's FirstGPT language checkpoint does not generate pixels. Image creation is
 
 ## What is implemented
 - `orbit.images.ComfyUIImageBackend` submits ComfyUI API workflows, polls job history, and retrieves generated image bytes.
-- `orbit.image_workflow.load_workflow_template` loads a ComfyUI API-format workflow JSON and replaces `{{PROMPT}}`, `{{NEGATIVE_PROMPT}}`, and `{{SEED}}` placeholders.
+- `orbit.image_workflow.load_workflow_template` loads a ComfyUI API-format workflow JSON and replaces prompt, negative prompt, checkpoint, seed, dimensions, steps and CFG placeholders with validated typed values.
 - The backend can run locally or on a separately managed machine reachable from the Orbit host.
 
 ## Configure
