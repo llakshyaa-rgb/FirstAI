@@ -147,6 +147,29 @@ Open `http://127.0.0.1:8767` on the same device (or use the optional Colab launc
 
 The tool registry is an allow-list foundation. No arbitrary shell or code execution is exposed, and tools requiring confirmation are blocked until the application supplies explicit confirmation. No external tools are registered by default.
 
+
+### Orbit instruction tuning
+
+A small supervised fine-tuning script is included:
+
+```bash
+python finetune_instructions.py --checkpoint checkpoints/firstgpt.best.pt --data data/orbit_instructions.example.jsonl --out checkpoints/orbit-instruct.pt --steps 1000
+```
+
+JSONL examples use `prompt` and `response` fields. The trainer masks prompt tokens so the supervised loss is applied to the response, holds out validation examples, clips gradients, and writes the best validation checkpoint atomically. The included examples are only a format/demo starter set. They are far too small to create a capable assistant; build a large, diverse, carefully reviewed instruction corpus before expecting meaningful instruction-following. The SFT script preserves the base checkpoint and writes a separate output file.
+
+### Image studio
+
+The local UI includes an Image Studio panel. To enable it, run a ComfyUI server with an image model installed and export a ComfyUI API workflow JSON. Configure prompt placeholders `{{PROMPT}}`, `{{NEGATIVE_PROMPT}}`, and `{{SEED}}`, then set these environment variables before starting Orbit:
+
+```bash
+export ORBIT_COMFYUI_URL=http://127.0.0.1:8188
+export ORBIT_IMAGE_WORKFLOW=/absolute/path/to/orbit_api_workflow.json
+python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
+```
+
+The UI submits image tasks asynchronously, records progress, saves returned images under `orbit/generated/`, and displays them in the conversation. The image backend is external and is not bundled or automatically downloaded. Its model and workflow determine which visual requests it can fulfill; this code does not bypass the model's restrictions. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
+
 ### Image generation
 
 FirstGPT is still a text-only model. To generate images, install and run a compatible ComfyUI server, load an image model and workflow, then pass the workflow dictionary to `ComfyUIImageBackend`. The adapter does not download models, host ComfyUI, or create an image model on its own.
