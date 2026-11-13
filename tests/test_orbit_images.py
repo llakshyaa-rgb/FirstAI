@@ -16,7 +16,7 @@ class ImageWorkflowTests(unittest.TestCase):
             result = load_workflow_template(path, "adult character concept", "blur", 42)
             self.assertEqual(result["1"]["inputs"]["text"], "adult character concept")
             self.assertEqual(result["2"]["inputs"]["text"], "blur")
-            self.assertEqual(result["3"]["inputs"]["seed"], "42")
+            self.assertEqual(result["3"]["inputs"]["seed"], 42)
 
 if __name__ == "__main__":
     unittest.main()
