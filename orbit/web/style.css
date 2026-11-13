@@ -52,3 +52,7 @@ footer{text-align:center;padding:14px 0 0}
 .search-card img{width:100%;height:125px;object-fit:cover;border-radius:7px}
 .search-card p{font-size:11px;margin:5px 0;overflow-wrap:anywhere}
 .search-card small{font-size:10px;color:#8d9aa8}
+
+.file-link{display:inline-block;margin:6px 8px 4px 0;color:#b8c8d7;font-size:12px;text-decoration:underline}
+.upload-card audio,.uploaded-video{display:block;max-width:100%;width:min(100%,520px);margin-top:8px}
+.uploaded-video{max-height:360px;border-radius:8px;background:#000}
