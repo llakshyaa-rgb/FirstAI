@@ -161,8 +161,8 @@ def make_handler(app):
         server_version = "OrbitLocal/0.1"
 
         def log_message(self, fmt, *args):
-            # Avoid dumping prompts or generated content into terminal logs.
-            print("[Orbit HTTP] " + (fmt % args))
+            # Do not log query strings, filenames, or potentially sensitive upload/search details.
+            print("[Orbit HTTP] request handled")
 
         def _json(self, status, payload):
             body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -194,7 +194,9 @@ def make_handler(app):
                     "image_workflow_configured": workflow_configured,
                     "image_backend_connected": image_connected,
                     "image_backend_error": image_error,
-                    "image_backend": os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188")
+                    "image_backend": os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"),
+                    "image_search_configured": bool(os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()),
+                    "vision_configured": bool(os.environ.get("ORBIT_VISION_MODEL", "").strip())
                 })
             if parsed.path == "/api/memory":
                 return self._json(200, {"memories": app.memory.get_all()})
