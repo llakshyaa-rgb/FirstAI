@@ -269,7 +269,7 @@ Supported output formats:
 - **DOCX** — editable Microsoft Word documents.
 - **PPTX** — PowerPoint slide decks with title and content slides.
 - **XLSX** — Excel workbooks with headings, tables, styled header rows and adjusted columns.
-- **CSV** — structured table/data export.
+- **CSV and JSON** — structured table/data and block-structured document export.
 - **HTML** — responsive, styled standalone web pages.
 - **SVG** — scalable vector poster/one-page graphic layouts.
 - **Markdown and TXT** — editable source documents.
