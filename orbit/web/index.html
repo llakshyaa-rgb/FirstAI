@@ -13,6 +13,15 @@
   <section id="conversation" class="conversation" aria-live="polite">
     <article class="bubble orbit"><strong>Orbit</strong><p>Good evening. I'm ready when you are.</p></article>
   </section>
+  <details class="image-panel">
+    <summary>Image studio <span id="image-status">Backend not configured</span></summary>
+    <p>Uses a separately installed ComfyUI image model and workflow.</p>
+    <form id="image-composer">
+      <textarea id="image-prompt" rows="2" maxlength="5000" placeholder="Describe the image you want to create" required></textarea>
+      <textarea id="image-negative" rows="1" maxlength="2000" placeholder="Optional negative prompt"></textarea>
+      <button id="image-send" type="submit">Generate image</button>
+    </form>
+  </details>
   <details class="memory-panel"><summary>Owner preferences</summary><p>Save preferences Orbit should use in future conversations on this device.</p><div class="memory-form"><input id="memory-key" maxlength="120" placeholder="Preference name"><input id="memory-value" maxlength="4000" placeholder="Preference value"><button id="memory-save" type="button">Save</button></div><div id="memory-list"></div></details>
   <form id="composer">
     <textarea id="message" rows="2" maxlength="12000" placeholder="What would you like me to do?" required></textarea>
