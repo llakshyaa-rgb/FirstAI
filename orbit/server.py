@@ -20,7 +20,7 @@ from .memory import MemoryStore
 from .images import ComfyUIImageBackend
 from .image_workflow import load_workflow_template
 from .agent import LocalAgent
-from .media import parse_multipart, save_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
+from .media import parse_multipart, save_upload, list_uploads, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
 from .vision import describe_image
 
 ROOT = Path(__file__).resolve().parent
@@ -198,6 +198,8 @@ def make_handler(app):
                 })
             if parsed.path == "/api/memory":
                 return self._json(200, {"memories": app.memory.get_all()})
+            if parsed.path == "/api/uploads":
+                return self._json(200, {"files": list_uploads()})
             if parsed.path == "/api/image-search":
                 params = parse_qs(parsed.query)
                 query = (params.get("q") or [""])[0]
