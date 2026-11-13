@@ -1,21 +1,21 @@
-"""Connect the trained FirstGPT checkpoint to Orbit's identity and chat memory.
+"""Connect a trained FirstGPT checkpoint to Orbit's identity and chat memory.
 
-This runtime is deliberately honest about the baseline model: identity conditioning
-does not make an untrained checkpoint instruction-capable.
+Identity conditioning does not make an untrained checkpoint instruction-capable.
+Generation retries use a different decoding strategy; they cannot repair missing
+knowledge or replace a better-trained model.
 """
 from __future__ import annotations
-import json
-import math
 import threading
 from pathlib import Path
 import torch
-from torch.nn import functional as F
 from firstai.model import FirstGPT, GPTConfig
 from firstai.bpe import BPETokenizer
 from .identity import build_system_prompt
 
+
 class ModelNotReady(RuntimeError):
     pass
+
 
 class OrbitRuntime:
     def __init__(self, checkpoint="checkpoints/firstgpt.best.pt", device=None,
@@ -52,6 +52,37 @@ class OrbitRuntime:
     def ready(self):
         return self.model is not None and self.tokenizer is not None
 
+    def _generate_once(self, prompt_ids, mode, on_progress=None):
+        input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=self.device)
+        generated = []
+        with torch.inference_mode():
+            for index in range(self.max_new_tokens):
+                context = input_ids[:, -self.model.config.block_size:]
+                logits, _ = self.model(context)
+                next_logits = logits[:, -1, :].float()
+                if mode == "sample":
+                    next_logits = next_logits / 0.85
+                    top_k = min(40, next_logits.size(-1))
+                    values, _ = torch.topk(next_logits, top_k)
+                    next_logits = next_logits.masked_fill(next_logits < values[:, [-1]], -float("inf"))
+                    probabilities = torch.softmax(next_logits, dim=-1)
+                    next_id = torch.multinomial(probabilities, num_samples=1)
+                else:
+                    next_id = torch.argmax(next_logits, dim=-1, keepdim=True)
+                token = int(next_id.item())
+                generated.append(token)
+                input_ids = torch.cat((input_ids, next_id), dim=1)
+                if token in (10, 13):
+                    break
+                if on_progress and (index + 1) % 12 == 0:
+                    on_progress({
+                        "kind": "generation_progress",
+                        "message": "I'm composing the response.",
+                        "tokens_generated": index + 1,
+                        "strategy": mode,
+                    })
+        return self.tokenizer.decode(generated).strip()
+
     def reply(self, message, history=None, owner_preferences=None, on_progress=None):
         if not self.ready:
             raise ModelNotReady(self.load_error or "No trained checkpoint is loaded.")
@@ -64,31 +95,58 @@ class OrbitRuntime:
             transcript += f"{role}: {item.get('content', '')}\n"
         transcript += f"Owner: {message.strip()}\nOrbit:"
         ids = self.tokenizer.encode(transcript)
-        # Preserve the newest request and a compact identity prefix within context.
         limit = self.model.config.block_size
         if len(ids) > limit:
-            identity_ids = self.tokenizer.encode("You are Orbit. Be composed, clear, honest, and helpful.\n")
+            identity_ids = self.tokenizer.encode(
+                "You are Orbit: composed, clear, candid, and helpful. "
+                "Answer directly. If a method fails, explain and try another approach.\n"
+            )
             newest_ids = self.tokenizer.encode(f"Owner: {message.strip()}\nOrbit:")
-            budget = max(1, limit - len(identity_ids) - len(newest_ids))
-            ids = identity_ids[:max(0, limit-len(newest_ids)-1)] + ids[-(budget+len(newest_ids)):]
+            prefix_budget = max(0, limit - len(newest_ids) - 1)
+            tail_budget = max(1, limit - min(prefix_budget, len(identity_ids)))
+            ids = identity_ids[:prefix_budget] + ids[-tail_budget:]
             ids = ids[-limit:]
-        input_ids = torch.tensor([ids], dtype=torch.long, device=self.device)
-        generated = []
-        with self._lock, torch.inference_mode():
-            for index in range(self.max_new_tokens):
-                context = input_ids[:, -self.model.config.block_size:]
-                logits, _ = self.model(context)
-                next_logits = logits[:, -1, :].float()
-                # Greedy decoding is stable for a tiny baseline and avoids invalid sampling.
-                next_id = torch.argmax(next_logits, dim=-1, keepdim=True)
-                token = int(next_id.item())
-                generated.append(token)
-                input_ids = torch.cat((input_ids, next_id), dim=1)
-                if token in (10, 13):
-                    break
-                if on_progress and (index + 1) % 12 == 0:
-                    on_progress({"kind": "generation_progress", "message": "I'm composing the response.", "tokens_generated": index + 1})
-        answer = self.tokenizer.decode(generated).strip()
-        if not answer:
-            answer = "I have a trained checkpoint loaded, but it did not produce a usable response. The current model needs further training."
-        return answer
+
+        with self._lock:
+            first_error = None
+            try:
+                answer = self._generate_once(ids, "greedy", on_progress)
+                if answer:
+                    return answer
+                first_error = "The first decoding strategy returned an empty response."
+            except Exception as exc:
+                first_error = f"{type(exc).__name__}: {exc}"
+                if self.device == "cuda" and isinstance(exc, torch.cuda.OutOfMemoryError):
+                    try:
+                        if on_progress:
+                            on_progress({
+                                "kind": "method_failed",
+                                "message": "GPU memory ran out. I'm switching this response to CPU.",
+                                "strategy": "cuda",
+                            })
+                        self.model = self.model.to("cpu")
+                        self.device = "cpu"
+                    except Exception as move_exc:
+                        first_error += f"; CPU fallback setup failed: {type(move_exc).__name__}: {move_exc}"
+
+            if on_progress:
+                on_progress({
+                    "kind": "method_failed",
+                    "message": f"The initial response method failed ({first_error}). I'm trying a different decoding strategy.",
+                    "strategy": "greedy",
+                })
+                on_progress({
+                    "kind": "status",
+                    "message": "Switching to a controlled sampling strategy and continuing.",
+                    "strategy": "sample",
+                })
+            try:
+                answer = self._generate_once(ids, "sample", on_progress)
+                if answer:
+                    return answer
+                raise RuntimeError("The alternate decoding strategy also returned an empty response.")
+            except Exception as second_error:
+                raise RuntimeError(
+                    f"Both response strategies failed. Initial attempt: {first_error}. "
+                    f"Alternate attempt: {type(second_error).__name__}: {second_error}"
+                ) from second_error
