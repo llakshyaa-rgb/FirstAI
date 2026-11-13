@@ -24,6 +24,7 @@ from .media import parse_multipart, save_upload, list_uploads, get_upload, searc
 from .vision import describe_image
 from .media_processing import process_upload
 from .planner import execute_tool_plan
+from .agents import AgentTeam
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -157,6 +158,14 @@ class OrbitApplication:
                 memory=self.memory,
             )
             answer = agent.try_execute(message)
+            if answer is None:
+                team = AgentTeam(
+                    agent.registry,
+                    progress=lambda text, kind="status", **details: self.store.emit(task_id, kind, text, **details),
+                )
+                specialist_results = team.run(message)
+                if specialist_results:
+                    message = message + "\n\nSpecialist-agent findings (tool results; verify before relying on them):\n" + json.dumps(specialist_results, ensure_ascii=False, default=str)[:16000]
             if answer is None and self.runtime.ready and any(
                 word in message.casefold() for word in
                 ("search", "research", "look up", "calculate", "compute", "list files",
