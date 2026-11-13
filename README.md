@@ -148,6 +148,46 @@ Open `http://127.0.0.1:8767` on the same device (or use the optional Colab launc
 The tool registry is an allow-list foundation. No arbitrary shell or code execution is exposed, and tools requiring confirmation are blocked until the application supplies explicit confirmation. No external tools are registered by default.
 
 
+### Orbit local tools and memory
+
+Orbit now has a bounded local tool layer in `orbit/local_tools.py` and a deterministic request router in `orbit/agent.py`. It can calculate arithmetic, list/read/search project text files, create new workspace files, update existing files with timestamped backups, compile-check the project, and run the repository's unit tests. File access is confined to the repository workspace; credential paths, Git internals, backup internals, and symlinks are excluded. It does not expose arbitrary shell commands or Python evaluation.
+
+Examples you can send in the local chat:
+
+- `calculate (144 / 12) + 3`
+- `list files`
+- `read file README.md`
+- `search project for OrbitRuntime`
+- `run tests`
+- `create file: notes/idea.txt` followed by the file content on the next line
+- `update file: notes/idea.txt` followed by replacement content on the next line; the old version is backed up first
+- `I prefer concise explanations.` or `remember that I like detailed examples.`
+- `what do you remember about me`
+
+Preferences are saved explicitly in the local SQLite memory store and included as context in later model conversations. This is deliberate preference memory, not automatic recording of every private conversation.
+
+The chat now restores saved text history and displays partial generated text while the model is responding. Context budgeting prioritizes the newest owner request over older history and preferences.
+
+### Download open training data without uploads
+
+The optional downloader uses the Hugging Face `datasets` library; it downloads directly into the current workspace and does not require Drive or manual uploads:
+
+```bash
+pip install datasets
+python download_training_data.py
+```
+
+By default it downloads up to 1 million characters from WikiText-2 for base language-model training and Databricks Dolly 15K instruction examples, then appends the Orbit-specific examples. See [data/SOURCES.md](data/SOURCES.md) for dataset sources and attribution. The current WikiText card describes the dataset as a collection of over 100 million tokens across its variants; the Dolly dataset contains roughly 15,000 human-written instruction/response records. <Cite> </Cite>
+
+Train a fresh base checkpoint and then instruction-tune it:
+
+```bash
+python train.py --data data/wikitext_train.txt --out checkpoints/firstgpt-wikitext.pt --steps 2000 --block-size 256 --batch-size 8 --grad-accum-steps 2 --amp
+python finetune_instructions.py --checkpoint checkpoints/firstgpt-wikitext.best.pt --data data/orbit_instructions_full.jsonl --out checkpoints/orbit-instruct.pt --steps 1000 --batch-size 8
+```
+
+This is an experimental small-model training path. It will improve the training signal over the synthetic smoke-test corpus, but it cannot guarantee strong reasoning, long-form writing, factual reliability, or general assistant performance.
+
 ### Orbit instruction tuning
 
 A small supervised fine-tuning script is included:
@@ -176,8 +216,8 @@ FirstGPT is still a text-only model. To generate images, install and run a compa
 
 ### Capability and safety note
 
-The identity blueprint supports natural, nonjudgmental discussion of mature topics. It is not a content-filter bypass or a guarantee of unrestricted output. Any deployment that serves adult audiences needs age controls, consent and privacy safeguards, and appropriate content restrictions. The current implementation does not provide an explicit-content image model.
+The identity blueprint supports natural, nonjudgmental discussion of mature topics. It is not a content-filter bypass or a guarantee of unrestricted output. Any deployment that serves adult audiences needs age controls, consent and privacy safeguards, and appropriate content restrictions. The current local image adapter does not bundle an image model; its output depends on the separately configured ComfyUI model and workflow.
 
 ## Scope and limitations
 
-The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. The instruction-tuning pipeline and image-studio adapter/UI are implemented, but the included tuning examples are only a tiny demo. Meaningful instruction tuning on a large curated corpus, registration of real-world tools, actual model-driven tool calling, vision understanding, true token-by-token streaming, a supervised always-on service, a dedicated image-model deployment, and extensive end-to-end testing remain future engineering work.
+The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. The instruction-tuning pipeline and image-studio adapter/UI are implemented, but the included tuning examples are only a tiny demo. The optional open-corpus and Dolly instruction-data pipeline is implemented but must still be run on a GPU. Local deterministic tools are available, but general model-driven tool planning/execution, vision understanding, robust tool recovery, and extensive end-to-end testing remain future engineering work. Orbit is currently a local prototype, not an always-on service.
