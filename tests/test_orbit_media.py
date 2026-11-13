@@ -2,7 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
-from orbit.media import save_upload, extract_text, _image_signature, parse_multipart
+from orbit.media import save_upload, extract_text, parse_multipart, list_uploads
 
 class MediaTests(unittest.TestCase):
     def test_accepts_png_and_rejects_fake_image(self):
@@ -30,9 +30,12 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(items[0][0], "hello.txt")
         self.assertEqual(items[0][1], b"hello orbit")
 
-    def test_unsafe_extensions_rejected(self):
-        with self.assertRaises(ValueError):
-            save_upload("run.pyc", b"bad")
+    def test_unknown_file_types_are_stored_as_opaque_data(self):
+        with tempfile.TemporaryDirectory() as tmp, patch("orbit.media.UPLOAD_DIR", Path(tmp)):
+            item = save_upload("archive.custom", b"opaque bytes")
+            self.assertEqual(item["category"], "file")
+            self.assertEqual(list_uploads()[0]["name"], "archive.custom")
+            self.assertEqual((Path(tmp) / item["stored_name"]).read_bytes(), b"opaque bytes")
 
 if __name__ == "__main__":
     unittest.main()
