@@ -7,6 +7,8 @@ from __future__ import annotations
 import argparse
 import json
 import mimetypes
+import os
+import uuid
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -16,9 +18,12 @@ import uuid
 from .runtime import OrbitRuntime, ModelNotReady
 from .tasks import TaskStore
 from .memory import MemoryStore
+from .images import ComfyUIImageBackend
+from .image_workflow import load_workflow_template
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
+GENERATED = ROOT / "generated"
 
 class OrbitApplication:
     def __init__(self, checkpoint, state_path):
@@ -38,6 +43,44 @@ class OrbitApplication:
         task_id = self.store.create(message)
         self._launch_chat(task_id, message)
         return task_id
+
+    def start_image(self, prompt, negative_prompt="", seed=None):
+        task_id = self.store.create("Generate image: " + prompt)
+        thread = threading.Thread(target=self._image_worker, args=(task_id, prompt, negative_prompt, seed), daemon=True)
+        with self._lock:
+            self._threads.add(thread)
+        thread.start()
+        return task_id
+
+    def _image_worker(self, task_id, prompt, negative_prompt, seed):
+        try:
+            workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
+            if not workflow_path or not Path(workflow_path).is_file():
+                raise RuntimeError("Image workflow is not configured. Set ORBIT_IMAGE_WORKFLOW to a ComfyUI API workflow JSON file.")
+            self.store.update(task_id, "running")
+            self.store.emit(task_id, "status", "The image backend is preparing the requested artwork.")
+            workflow = load_workflow_template(workflow_path, prompt, negative_prompt=negative_prompt, seed=seed)
+            backend = ComfyUIImageBackend(base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"))
+            outputs = backend.generate(workflow)
+            if not outputs:
+                raise RuntimeError("The image backend completed without returning images.")
+            GENERATED.mkdir(parents=True, exist_ok=True)
+            for item in outputs:
+                original = str(item.get("info", {}).get("filename", "image.png"))
+                suffix = Path(original).suffix.lower()
+                if suffix not in {".png", ".jpg", ".jpeg", ".webp", ".gif"}:
+                    suffix = ".png"
+                name = uuid.uuid4().hex + suffix
+                (GENERATED / name).write_bytes(item["content"])
+                self.store.emit(task_id, "image", "Image generated.", url="/generated/" + name)
+            self.store.update(task_id, "completed", result=f"Generated {len(outputs)} image(s).")
+            self.store.emit(task_id, "completed", f"Generated {len(outputs)} image(s).")
+        except Exception as exc:
+            self.store.update(task_id, "failed", error=f"{type(exc).__name__}: {exc}")
+            self.store.emit(task_id, "method_failed", f"Image generation failed: {type(exc).__name__}: {exc}. Check the configured image backend and workflow.")
+        finally:
+            with self._lock:
+                self._threads = {t for t in self._threads if t.is_alive() and t is not threading.current_thread()}
 
     def _launch_chat(self, task_id, message):
         thread = threading.Thread(target=self._chat_worker, args=(task_id, message), daemon=True)
@@ -92,7 +135,9 @@ def make_handler(app):
                 return self._json(200, {
                     "name": "Orbit", "status": "ready" if app.runtime.ready else "model_missing",
                     "device": app.runtime.device, "checkpoint": str(app.runtime.checkpoint_path),
-                    "model_error": app.runtime.load_error
+                    "model_error": app.runtime.load_error,
+                    "image_ready": bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file(),
+                    "image_backend": os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188")
                 })
             if parsed.path == "/api/memory":
                 return self._json(200, {"memories": app.memory.get_all()})
@@ -107,6 +152,20 @@ def make_handler(app):
                     return self._json(404, {"error": "Unknown task"})
                 events = app.store.events(task_id, after)
                 return self._json(200, {"events": events, "task": app.store.get(task_id)})
+            if parsed.path.startswith("/generated/"):
+                name = parsed.path.removeprefix("/generated/")
+                target = (GENERATED / name).resolve()
+                if GENERATED.resolve() not in target.parents or not target.is_file():
+                    return self._json(404, {"error": "Not found"})
+                content = target.read_bytes()
+                ctype = mimetypes.guess_type(str(target))[0] or "application/octet-stream"
+                self.send_response(200)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.end_headers()
+                self.wfile.write(content)
+                return
             if parsed.path == "/" or parsed.path.startswith("/static/"):
                 name = "index.html" if parsed.path == "/" else parsed.path.removeprefix("/static/")
                 # Only serve files under the packaged web directory.
@@ -126,7 +185,7 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route not in ("/api/chat", "/api/memory"):
+            if route not in ("/api/chat", "/api/memory", "/api/image"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -137,6 +196,19 @@ def make_handler(app):
                     key, value = payload.get("key"), payload.get("value")
                     app.memory.set(key, value)
                     return self._json(201, {"saved": True, "memories": app.memory.get_all()})
+                if route == "/api/image":
+                    prompt = payload.get("prompt")
+                    negative_prompt = payload.get("negative_prompt", "")
+                    seed = payload.get("seed")
+                    if not isinstance(prompt, str) or not prompt.strip():
+                        return self._json(400, {"error": "prompt must be a non-empty string"})
+                    workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
+                    if not workflow_path or not Path(workflow_path).is_file():
+                        return self._json(503, {"error": "Image workflow is not configured. Set ORBIT_IMAGE_WORKFLOW to a ComfyUI API workflow JSON file."})
+                    if not isinstance(negative_prompt, str):
+                        return self._json(400, {"error": "negative_prompt must be text"})
+                    task_id = app.start_image(prompt.strip(), negative_prompt, seed)
+                    return self._json(202, {"task_id": task_id, "status": "queued"})
                 message = payload.get("message")
                 if not isinstance(message, str) or not message.strip():
                     return self._json(400, {"error": "message must be a non-empty string"})
