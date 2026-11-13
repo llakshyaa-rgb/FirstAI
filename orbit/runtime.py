@@ -10,7 +10,6 @@ from pathlib import Path
 import torch
 from firstai.model import FirstGPT, GPTConfig
 from firstai.bpe import BPETokenizer
-from .identity import build_system_prompt
 
 
 class ModelNotReady(RuntimeError):
