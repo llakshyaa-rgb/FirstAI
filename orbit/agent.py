@@ -32,14 +32,14 @@ class LocalAgent:
                 for item in items
             ) if items else "(No visible files found.)")
 
-        match = re.match(r"^(?:create|make)\s+file:\s*([^\n]+)\n([\\s\\S]+)$", text, re.I)
+        match = re.match(r"^(?:create|make)\s+file:\s*([^\n]+)\n([\s\S]+)$", text, re.I)
         if match:
             relative, content = match.group(1).strip(), match.group(2)
             self.progress(f"I'll create {relative} inside the workspace.")
             result = self.workspace.create_file(relative, content)
             return f"Created {result['path']} ({result['bytes']:,} bytes)."
 
-        match = re.match(r"^update\s+file:\s*([^\n]+)\n([\\s\\S]+)$", text, re.I)
+        match = re.match(r"^update\s+file:\s*([^\n]+)\n([\s\S]+)$", text, re.I)
         if match:
             relative, content = match.group(1).strip(), match.group(2)
             self.progress(f"I'll update {relative}; the previous version will be backed up first.")
