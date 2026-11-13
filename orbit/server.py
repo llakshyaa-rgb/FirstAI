@@ -23,6 +23,7 @@ from .agent import LocalAgent
 from .media import parse_multipart, save_upload, list_uploads, get_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
 from .vision import describe_image
 from .media_processing import process_upload
+from .planner import execute_tool_plan
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -152,6 +153,18 @@ class OrbitApplication:
                 memory=self.memory,
             )
             answer = agent.try_execute(message)
+            if answer is None and self.runtime.ready and any(
+                word in message.casefold() for word in
+                ("search", "research", "look up", "calculate", "compute", "list files",
+                 "read file", "inspect", "find in", "compare", "analyse", "analyze", "check project")
+            ):
+                plan_text = self.runtime.plan_tool_call(message, agent.registry.describe())
+                planned = execute_tool_plan(
+                    plan_text, agent.registry,
+                    progress=lambda text: self.store.emit(task_id, "status", text),
+                )
+                if planned:
+                    message = message + "\n\nSafe tool execution results (treat as factual tool output):\n" + json.dumps(planned, ensure_ascii=False)[:12000]
             if answer is None:
                 answer = self.runtime.reply(
                     message,
