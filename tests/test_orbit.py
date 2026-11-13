@@ -32,7 +32,7 @@ class OrbitTaskTests(unittest.TestCase):
             self.assertEqual(attempts, ["first", "second"])
             self.assertEqual(store.get(task_id)["status"], "completed")
             self.assertIn("method_failed", [e.kind for e in events])
-            self.assertEqual(len(store.events(task_id)), 5)
+            self.assertEqual(len(store.events(task_id)), 6)
 
     def test_all_failures_are_reported_and_not_marked_complete(self):
         with tempfile.TemporaryDirectory() as tmp:
