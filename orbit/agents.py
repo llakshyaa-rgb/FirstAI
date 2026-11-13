@@ -51,21 +51,21 @@ class AgentTeam:
     def _query_for(name, message):
         text = str(message or "").strip()
         if name == "researcher":
-            match = re.search(r"(?:research|search(?: the)? web for|search web for|look up|find sources for|fact check)s+(.+)", text, re.I)
+            match = re.search(r"(?:research|search(?: the)? web for|search web for|look up|find sources for|fact check)\s+(.+)", text, re.I)
             return (match.group(1) if match else text)[:400]
         if name == "image_researcher":
-            match = re.search(r"(?:find images|find pictures|search images|search pictures|show me images|look for images)\\s+(.+)", text, re.I)
+            match = re.search(r"(?:find images|find pictures|search images|search pictures|show me images|look for images)\s+(.+)", text, re.I)
             return (match.group(1) if match else text)[:350]
         if name == "code_scout":
             topics = ("image", "vision", "agent", "gpu", "memory", "training", "video", "audio",
                       "pdf", "browser", "tool", "server", "model", "chat", "ui", "task", "file",
                       "auth", "api", "database", "frontend", "backend", "template")
-            found = [word for word in topics if word in text.casefold()]
+            found = next((word for word in topics if word in text.casefold()), None)
             if found:
-                return " ".join(found[:4])
+                return found
             return text[:200]
         if name == "analyst":
-            match = re.search(r"(?:calculate|compute|what is|what's|compare|estimate)s+(.+)", text, re.I)
+            match = re.search(r"(?:calculate|compute|what is|what's|compare|estimate)\s+(.+)", text, re.I)
             return (match.group(1) if match else text).replace("^", "**")[:180]
         return text
 
