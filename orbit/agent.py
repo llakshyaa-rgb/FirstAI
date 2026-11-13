@@ -8,6 +8,7 @@ import re
 import hashlib
 from .local_tools import WorkspaceTools, safe_calculate
 from .tools import ToolRegistry
+from .web_search import search_web
 
 
 class LocalAgent:
@@ -17,6 +18,7 @@ class LocalAgent:
         self.memory = memory
         self.registry = ToolRegistry()
         self.registry.register("calculate", "Evaluate restricted arithmetic", safe_calculate, requires_confirmation=False)
+        self.registry.register("web_search", "Search the public web and return source links", search_web, requires_confirmation=False)
         self.registry.register("list_files", "List visible workspace files", self.workspace.list_files, requires_confirmation=False)
         self.registry.register("read_file", "Read a UTF-8 workspace file", self.workspace.read_file, requires_confirmation=False)
         self.registry.register("search_files", "Search visible workspace text", self.workspace.search_files, requires_confirmation=False)
@@ -62,6 +64,17 @@ class LocalAgent:
             self.progress("I'll calculate that directly.")
             result = self.registry.call("calculate", {"expression": expression})
             return f"{expression} = {result}"
+
+        match = re.match(r"^(?:search the web for|search web for|look up|research)\\s+(.+?)\\s*$", text, re.I)
+        if match:
+            query = match.group(1).strip()
+            self.progress("I'll search the web and gather source links.")
+            results = self.registry.call("web_search", {"query": query})
+            if not results:
+                return "The web search returned no results."
+            return "Web research results:\\n" + "\\n\\n".join(
+                f"- {item['title']} ({item['source']})\\n  {item['description']}\\n  {item['url']}" for item in results
+            )
 
         if lower in {"list files", "show files", "list project files", "show project files"}:
             self.progress("I'll inspect the project workspace.")
