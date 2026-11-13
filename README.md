@@ -97,7 +97,7 @@ and generation.
 ## Colab
 
 Open [FirstAI_Colab.ipynb](https://colab.research.google.com/github/llakshyaa-rgb/FirstAI/blob/main/FirstAI_Colab.ipynb).
-The notebook checks the active PyTorch/CUDA build and reports the attached GPU before GPU tests. Test 2 deliberately stops if CUDA is unavailable; it does not silently claim a CPU run is a T4 test. Google Drive is optional: if Drive authentication fails, the notebook initializes a temporary local workspace so uploads and training can still proceed during that runtime. Local files are lost when the runtime disconnects, so persistent checkpoints require a successful Drive mount or manual download. A free GPU is not guaranteed.
+The notebook checks the active PyTorch/CUDA build and reports the attached GPU before GPU tests. Test 2 deliberately stops if CUDA is unavailable; it does not silently claim a CPU run is a T4 test. The workflow uses temporary Colab storage only: no Drive mount and no manual data uploads are required. Runtime files disappear when Colab disconnects, so download checkpoints before ending the session. A free GPU is not guaranteed.
 
 
 ## Orbit assistant foundations
@@ -145,7 +145,7 @@ python -m orbit.server --checkpoint checkpoints/firstgpt.best.pt --port 8767
 
 Open `http://127.0.0.1:8767` on the same device (or use the optional Colab launch cell, which prints a proxied URL). The UI displays live task updates by polling the local event API, and owner preferences are stored in the same SQLite database as task state. Interrupted generation tasks are re-queued on server restart when a usable checkpoint is available. This is restart recovery, not an always-on service: the Python process must remain running.
 
-The tool registry is an allow-list foundation. No arbitrary shell or code execution is exposed, and tools requiring confirmation are blocked until the application supplies explicit confirmation. No external tools are registered by default.
+The allow-list registry is connected to Orbit's local calculator, workspace file tools, compiler check and test runner. File creation/updates and test execution are only routed after an explicit owner command. No arbitrary shell or unrestricted code execution is exposed.
 
 
 ### Orbit local tools and memory
@@ -213,7 +213,7 @@ export ORBIT_IMAGE_CFG=7.0
 python -m orbit.server --checkpoint checkpoints/orbit-instruct.pt --port 8767
 ```
 
-The UI submits image tasks asynchronously, records progress, saves returned images under `orbit/generated/`, and displays them in the conversation. The image backend is external and is not bundled or automatically downloaded. Its model and workflow determine which visual requests it can fulfill; this code does not bypass model restrictions or guarantee nude/explicit output. The local prototype has no built-in age verification, authentication, or full content-moderation system. Do not expose it to a network or public users as-is. A public adult-facing deployment needs authentication, age assurance, consent/privacy protections, rate limits, and robust content safeguards. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
+The UI submits image tasks asynchronously, records progress, saves returned images under `orbit/generated/`, and displays them in the conversation. The image backend is external and is not bundled or automatically downloaded. Its model and workflow determine which visual requests it can fulfill; this code does not bypass model restrictions or guarantee nude/explicit output. This implementation is being developed as a private local assistant; public-service features are intentionally out of scope. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
 
 ### Image generation
 
