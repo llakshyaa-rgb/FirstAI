@@ -87,12 +87,12 @@ class LocalAgent:
                 f"- {item['title']} ({item['source']})\n  {item['description']}\n  {item['url']}" for item in results
             )
 
-        match = re.match(r"^(?:open|visit) website:\\s*(https?://\\S+)\\s*$", text, re.I)
+        match = re.match(r"^(?:open|visit) website:\s*(https?://\S+)\s*$", text, re.I)
         if match:
             self.progress("I'll open the public website and inspect its visible content.")
             try:
                 result = self.registry.call("browser_open", {"url": match.group(1)}, confirmed=True)
-                return f"Website: {result['title']}\\nURL: {result['url']}\\nHTTP status: {result['status']}\\n\\n{result['text']}"
+                return f"Website: {result['title']}\nURL: {result['url']}\nHTTP status: {result['status']}\n\n{result['text']}"
             except Exception as exc:
                 self.progress(f"Browser navigation failed ({type(exc).__name__}: {exc}).", kind="method_failed")
                 return None
@@ -101,22 +101,22 @@ class LocalAgent:
             self.progress("I'll read the currently open website.")
             try:
                 result = self.registry.call("browser_read", confirmed=True)
-                return f"Website: {result['title']}\\nURL: {result['url']}\\n\\n{result['text']}"
+                return f"Website: {result['title']}\nURL: {result['url']}\n\n{result['text']}"
             except Exception as exc:
                 self.progress(f"Website reading failed ({type(exc).__name__}: {exc}).", kind="method_failed")
                 return None
 
-        match = re.match(r"^click website:\\s*(.+?)\\s*$", text, re.I)
+        match = re.match(r"^click website:\s*(.+?)\s*$", text, re.I)
         if match:
             self.progress("I'll click the element you specified. This may change the current website state.")
             try:
                 result = self.registry.call("browser_click", {"selector": match.group(1)}, confirmed=True)
-                return f"Clicked {match.group(1)}.\\nURL: {result['url']}\\n\\n{result['text']}"
+                return f"Clicked {match.group(1)}.\nURL: {result['url']}\n\n{result['text']}"
             except Exception as exc:
                 self.progress(f"Website click failed ({type(exc).__name__}: {exc}).", kind="method_failed")
                 return None
 
-        match = re.match(r"^fill website:\\s*([^\\n]+)\\n([\\s\\S]+)$", text, re.I)
+        match = re.match(r"^fill website:\s*([^\n]+)\n([\s\S]+)$", text, re.I)
         if match:
             self.progress("I'll enter the text in the specified field without submitting the form.")
             try:
