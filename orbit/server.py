@@ -166,7 +166,7 @@ class OrbitApplication:
                 specialist_results = team.run(message)
                 if specialist_results:
                     message = message + "\n\nSpecialist-agent findings (tool results; verify before relying on them):\n" + json.dumps(specialist_results, ensure_ascii=False, default=str)[:16000]
-            if answer is None and self.runtime.ready and any(
+            if answer is None and not specialist_results and self.runtime.ready and any(
                 word in message.casefold() for word in
                 ("search", "research", "look up", "calculate", "compute", "list files",
                  "read file", "inspect", "find in", "compare", "analyse", "analyze", "check project")
