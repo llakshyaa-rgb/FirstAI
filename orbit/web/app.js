@@ -178,7 +178,7 @@ imageSearchForm?.addEventListener("submit",async e=>{
   e.preventDefault();const query=imageSearchQuery.value.trim();if(!query)return;
   imageSearchResults.textContent="Searching…";
   try{
-    const r=await fetch("/api/image-search?q="+encodeURIComponent(query));
+    const r=await fetch("/api/image-search?q="+encodeURIComponent(query)+"&safe="+(showMature?.checked?"off":"strict"));
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Search failed");
     imageSearchResults.textContent="";
     if(d.may_include_mature){const warning=document.createElement("p");warning.className="media-note";warning.textContent="The provider warns these results may include mature or offensive material.";imageSearchResults.append(warning);}
