@@ -1,0 +1,3 @@
+# Optional browser automation; install Chromium separately with:
+# python -m playwright install chromium
+playwright>=1.48
