@@ -22,6 +22,21 @@
       <button id="image-send" type="submit">Generate image</button>
     </form>
   </details>
+  <details class="media-panel" open>
+    <summary>Images & files</summary>
+    <form id="upload-form" class="media-form">
+      <input id="file-input" type="file" multiple accept="image/*,.pdf,.docx,.xlsx,.pptx,.txt,.md,.csv,.json,.jsonl,.xml,.html,.py,.js,.ts,.css,.sql,.yaml,.yml,.toml,.ini,.log,.zip,.mp3,.wav,.m4a,.ogg,.flac,.mp4,.mov,.webm,.mkv">
+      <button id="upload-send" type="submit">Attach files</button>
+    </form>
+    <p class="media-note">Images, PDFs, Office documents, text, code, audio/video and ZIP · 20 MB per file. Mature image uploads are accepted.</p>
+    <div id="upload-results"></div>
+    <form id="image-search-form" class="media-form">
+      <input id="image-search-query" type="search" maxlength="400" placeholder="Search images across the web">
+      <button type="submit">Search</button>
+    </form>
+    <label class="mature-toggle"><input id="show-mature" type="checkbox" checked> Include mature-category results where the provider returns them</label>
+    <div id="image-search-results" class="image-results"></div>
+  </details>
   <details class="memory-panel"><summary>Owner preferences</summary><p>Save preferences Orbit should use in future conversations on this device.</p><div class="memory-form"><input id="memory-key" maxlength="120" placeholder="Preference name"><input id="memory-value" maxlength="4000" placeholder="Preference value"><button id="memory-save" type="button">Save</button></div><div id="memory-list"></div></details>
   <form id="composer">
     <textarea id="message" rows="2" maxlength="12000" placeholder="What would you like me to do?" required></textarea>
