@@ -56,9 +56,18 @@ class BrowserTools:
                 args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"]
             )
         self._page = self._browser.new_page()
+        self._page.route("**/*", self._guard_request)
         self._page.set_default_timeout(self.timeout_ms)
         self._page.set_viewport_size({"width": 1280, "height": 800})
         return self._page
+
+    @staticmethod
+    def _guard_request(route):
+        try:
+            validate_public_url(route.request.url)
+            route.continue_()
+        except Exception:
+            route.abort("blockedbyclient")
 
     def open(self, url: str) -> dict:
         safe_url = validate_public_url(url)
