@@ -16,6 +16,13 @@ class MediaProcessingTests(unittest.TestCase):
             self.assertIn("Orbit archive content", result)
             self.assertNotIn("should not be parsed", result)
 
+    def test_image_processing_passes_pixels_to_vision_adapter(self):
+        item = {"name": "picture.png", "stored_name": "a" * 32 + ".png", "category": "image", "text": ""}
+        with patch("orbit.media_processing.get_upload", return_value=item), patch("orbit.media_processing.describe_image", return_value="A cat on a sofa.") as vision:
+            result = process_upload("a" * 32, "What is in this picture?")
+        self.assertEqual(result["content"], "A cat on a sofa.")
+        vision.assert_called_once_with("a" * 32, "What is in this picture?")
+
     def test_unknown_format_is_reported_as_opaque(self):
         item = {"name": "sample.unknown", "stored_name": "sample.unknown", "category": "file", "text": ""}
         with patch("orbit.media_processing.get_upload", return_value=item), patch("orbit.media_processing.UPLOAD_DIR", Path(".")):
