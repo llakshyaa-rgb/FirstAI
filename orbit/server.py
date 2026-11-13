@@ -21,6 +21,7 @@ from .images import ComfyUIImageBackend
 from .image_workflow import load_workflow_template
 from .agent import LocalAgent
 from .media import parse_multipart, save_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
+from .vision import describe_image
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -269,7 +270,7 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload"):
+            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -284,6 +285,12 @@ def make_handler(app):
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
                 if not isinstance(payload, dict):
                     return self._json(400, {"error": "Request body must be a JSON object"})
+                if route == "/api/vision":
+                    file_id = payload.get("file_id")
+                    prompt = payload.get("prompt", "Describe this image in detail.")
+                    if not isinstance(file_id, str) or not isinstance(prompt, str):
+                        return self._json(400, {"error": "file_id and prompt must be text"})
+                    return self._json(200, {"description": describe_image(file_id, prompt)})
                 if route == "/api/memory":
                     key, value = payload.get("key"), payload.get("value")
                     app.memory.set(key, value)
