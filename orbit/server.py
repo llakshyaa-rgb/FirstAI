@@ -9,6 +9,7 @@ import json
 import mimetypes
 from importlib.util import find_spec
 import os
+import re
 from pathlib import Path
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
@@ -439,7 +440,7 @@ def make_handler(app):
                 if not isinstance(attachments, list) or len(attachments) > 5 or any(not isinstance(x, str) for x in attachments):
                     return self._json(400, {"error": "attachments must be a list of up to five uploaded file IDs"})
                 # Image requests can be issued naturally from the main chat composer.
-                image_match = __import__("re").match(r"^(?:create|generate|make) image\s*:\s*(.+)$", message.strip(), __import__("re").I | __import__("re").S)
+                image_match = re.match(r"^(?:create|generate|make) image\s*:\s*(.+)$", message.strip(), re.I | re.S)
                 if image_match and not attachments:
                     image_prompt = image_match.group(1).strip()
                     if len(image_prompt) > 5000:
