@@ -48,6 +48,27 @@ def _vision_image_bytes(path: Path):
         raise RuntimeError("Could not convert " + (suffix or "image") + " for the configured vision model: " + str(exc)) from exc
 
 
+def unload_ollama_vision_model() -> bool:
+    """Ask Ollama to release its resident vision model before diffusion rendering."""
+    if os.environ.get("ORBIT_VISION_PROVIDER", "ollama").strip().lower() != "ollama":
+        return False
+    model = os.environ.get("ORBIT_VISION_MODEL", "").strip()
+    if not model:
+        return False
+    endpoint = os.environ.get("ORBIT_VISION_URL", "http://127.0.0.1:11434/api/generate").strip()
+    url = endpoint if endpoint.endswith("/api/generate") else endpoint.rstrip("/") + "/api/generate"
+    payload = {"model": model, "keep_alive": 0, "stream": False}
+    request = urllib.request.Request(
+        url, data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=8):
+            return True
+    except Exception:
+        return False
+
+
 def describe_image(file_id: str, prompt: str = "Describe this image in detail.") -> str:
     path = _image_path(file_id)
     provider = os.environ.get("ORBIT_VISION_PROVIDER", "ollama").strip().lower()
