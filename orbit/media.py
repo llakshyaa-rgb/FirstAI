@@ -38,7 +38,7 @@ def _image_signature(data: bytes, ext: str) -> bool:
     if ext == ".gif": return data.startswith((b"GIF87a", b"GIF89a"))
     if ext == ".webp": return len(data) >= 12 and data[:4] == b"RIFF" and data[8:12] == b"WEBP"
     if ext == ".bmp": return data.startswith(b"BM")
-    if ext in {".tif", ".tiff"}: return data.startswith((b"II*\\x00", b"MM\\x00*"))
+    if ext in {".tif", ".tiff"}: return data.startswith((b"II*\x00", b"MM\x00*"))
     if ext == ".avif": return len(data) >= 12 and data[4:8] == b"ftyp" and b"avif" in data[8:16]
     return True
 
