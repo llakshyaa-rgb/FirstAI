@@ -6,6 +6,7 @@ const presence=document.querySelector("#presence");
 const device=document.querySelector("#device");
 let busy=false;
 let livePartial=null;
+let modelReady=false;
 function bubble(role,text,kind=""){
   const node=document.createElement("article");
   node.className="bubble "+role+(kind?" "+kind:"");
@@ -16,7 +17,8 @@ function bubble(role,text,kind=""){
 }
 async function health(){
   try{const r=await fetch("/api/health");const d=await r.json();
-    presence.textContent=d.status==="ready"?"Personal AI · Online":"Local tools online · language model not loaded";
+    modelReady=d.status==="ready";
+    presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";
     device.textContent=d.device||"";
     const imageStatus=document.querySelector("#image-status");
     if(imageStatus)imageStatus.textContent=d.image_backend_connected?"Image model online":(d.image_workflow_configured?"Workflow exists · backend offline":"Backend not configured");
@@ -59,7 +61,7 @@ form.addEventListener("submit",async e=>{
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");
     await follow(d.task_id);
   }catch(err){bubble("orbit","I couldn't complete that request: "+err.message);}
-  finally{busy=false;send.disabled=false;presence.textContent="Personal AI · Online";input.focus();}
+  finally{busy=false;send.disabled=false;presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";input.focus();}
 });
 async function loadHistory(){
   try{
@@ -123,5 +125,5 @@ imageForm?.addEventListener("submit",async e=>{
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Image request failed");
     await follow(d.task_id);
   }catch(err){bubble("orbit","I couldn't generate that image: "+err.message);}
-  finally{busy=false;imageSend.disabled=false;presence.textContent="Personal AI · Online";}
+  finally{busy=false;imageSend.disabled=false;presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";}
 });
