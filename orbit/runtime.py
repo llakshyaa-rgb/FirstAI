@@ -7,6 +7,7 @@ knowledge or replace a better-trained model.
 from __future__ import annotations
 import threading
 import os
+from contextlib import contextmanager
 from pathlib import Path
 import torch
 from firstai.model import FirstGPT, GPTConfig
@@ -66,6 +67,30 @@ class OrbitRuntime:
         except Exception as exc:
             self.load_error = f"{type(exc).__name__}: {exc}"
             return False
+
+    @contextmanager
+    def offload_for_external_gpu_work(self):
+        """Temporarily move FirstGPT to CPU while another model uses the GPU."""
+        with self._lock:
+            original_device = self.device
+            was_amp = self._amp_enabled
+            original_dtype = self._amp_dtype
+            moved = bool(self.model is not None and original_device.startswith("cuda"))
+            if moved:
+                self.model.to("cpu")
+                self.device = "cpu"
+                self._amp_enabled = False
+                self._amp_dtype = None
+                if torch.cuda.is_available():
+                    torch.cuda.empty_cache()
+            try:
+                yield
+            finally:
+                if moved and self.model is not None:
+                    self.model.to(original_device)
+                    self.device = original_device
+                    self._amp_enabled = was_amp
+                    self._amp_dtype = original_dtype
 
     @property
     def ready(self):
