@@ -129,3 +129,60 @@ imageForm?.addEventListener("submit",async e=>{
   }catch(err){bubble("orbit","I couldn't generate that image: "+err.message);}
   finally{busy=false;imageSend.disabled=false;presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";}
 });
+
+const uploadForm=document.querySelector("#upload-form");
+const fileInput=document.querySelector("#file-input");
+const uploadSend=document.querySelector("#upload-send");
+const uploadResults=document.querySelector("#upload-results");
+uploadForm?.addEventListener("submit",async e=>{
+  e.preventDefault();
+  const files=[...(fileInput.files||[])]; if(!files.length)return;
+  uploadSend.disabled=true;
+  const body=new FormData(); for(const file of files)body.append("files",file,file.name);
+  try{
+    const r=await fetch("/api/upload",{method:"POST",body});
+    const d=await r.json(); if(!r.ok)throw new Error(d.error||"Upload failed");
+    for(const item of d.files||[]){
+      const card=document.createElement("article");card.className="upload-card";
+      const heading=document.createElement("strong");heading.textContent=item.name+" · "+Math.ceil(item.size/1024)+" KB";card.append(heading);
+      if(item.category==="image"){
+        const img=document.createElement("img");img.src=item.url;img.alt=item.name;img.loading="lazy";img.className="uploaded-image";card.append(img);
+        const note=document.createElement("p");note.textContent="Received and stored. A vision model must be connected before Orbit can interpret the pixels.";card.append(note);
+      }else{
+        const meta=document.createElement("p");meta.textContent=item.category+" · "+item.content_type;card.append(meta);
+      }
+      if(item.text){
+        const details=document.createElement("details");const summary=document.createElement("summary");summary.textContent="Extracted text preview";
+        const pre=document.createElement("pre");pre.textContent=item.text.slice(0,3000);details.append(summary,pre);card.append(details);
+      }
+      uploadResults.prepend(card);bubble("user","Attached "+item.name+" ("+item.category+").");
+    }
+    fileInput.value="";
+  }catch(err){bubble("orbit","I couldn't attach those files: "+err.message,"status");}
+  finally{uploadSend.disabled=false;}
+});
+const imageSearchForm=document.querySelector("#image-search-form");
+const imageSearchQuery=document.querySelector("#image-search-query");
+const imageSearchResults=document.querySelector("#image-search-results");
+const showMature=document.querySelector("#show-mature");
+imageSearchForm?.addEventListener("submit",async e=>{
+  e.preventDefault();const query=imageSearchQuery.value.trim();if(!query)return;
+  imageSearchResults.textContent="Searching…";
+  try{
+    const r=await fetch("/api/image-search?q="+encodeURIComponent(query));
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Search failed");
+    imageSearchResults.textContent="";
+    const results=(d.results||[]).filter(item=>showMature?.checked||!item.is_mature);
+    for(const item of results){
+      const card=document.createElement("article");card.className="search-card";
+      const link=document.createElement("a");link.href=item.page_url;link.target="_blank";link.rel="noopener noreferrer";
+      const img=document.createElement("img");img.src=item.thumbnail_url;img.alt=item.title;img.loading="lazy";link.append(img);
+      const title=document.createElement("p");title.textContent=item.title;
+      const source=document.createElement("small");source.textContent=item.source||"Open source page";
+      card.append(link,title,source);
+      if(item.is_mature){const tag=document.createElement("span");tag.className="mature-label";tag.textContent="Mature category";card.append(tag);}
+      imageSearchResults.append(card);
+    }
+    if(!results.length)imageSearchResults.textContent="No results returned for this search.";
+  }catch(err){imageSearchResults.textContent=err.message;}
+});
