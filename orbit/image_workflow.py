@@ -28,8 +28,11 @@ def load_workflow_template(path, prompt, negative_prompt="", seed=None):
         if isinstance(value, list):
             return [replace(item) for item in value]
         if isinstance(value, str):
+            if value == "{{SEED}}":
+                return int(seed if seed is not None else 0)
             for marker, replacement in replacements.items():
-                value = value.replace(marker, replacement)
+                if marker != "{{SEED}}":
+                    value = value.replace(marker, replacement)
         return value
 
     return replace(copy.deepcopy(workflow))
