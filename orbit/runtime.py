@@ -122,6 +122,28 @@ class OrbitRuntime:
             ids = ids[-limit:]
         return ids
 
+    def plan_tool_call(self, message, tool_descriptions):
+        """Ask FirstGPT for a constrained, one-line JSON plan; callers must validate it."""
+        if not self.ready:
+            return ""
+        safe = [item for item in tool_descriptions
+                if item.get("name") in {"calculate", "web_search", "list_files", "read_file", "search_files"}
+                and not item.get("requires_confirmation", True)]
+        instruction = (
+            "You are Orbit's tool planner. Decide whether a listed read-only tool is needed. "
+            "Return exactly one JSON object on one line with schema "
+            '{"steps":[{"tool":"tool_name","arguments":{}}]}. '
+            "Use one to five steps. If no listed tool is needed, return {\"steps":[]}. "
+            "Never invent tools or arguments. Owner request: " + str(message)[:3000] +
+            " Available tools: " + str(safe) + "\nJSON:"
+        )
+        ids = self.tokenizer.encode(instruction)[-self.model.config.block_size:]
+        with self._lock:
+            try:
+                return self._generate_once(ids, "greedy")
+            except Exception:
+                return ""
+
     def reply(self, message, history=None, owner_preferences=None, on_progress=None):
         if not self.ready:
             raise ModelNotReady(self.load_error or "No trained checkpoint is loaded.")
