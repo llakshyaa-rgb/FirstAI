@@ -414,9 +414,16 @@ def make_handler(app):
                     seed = payload.get("seed")
                     if not isinstance(prompt, str) or not prompt.strip():
                         return self._json(400, {"error": "prompt must be a non-empty string"})
-                    workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
-                    if not workflow_path or not Path(workflow_path).is_file():
-                        return self._json(503, {"error": "Image workflow is not configured. Set ORBIT_IMAGE_WORKFLOW to a ComfyUI API workflow JSON file."})
+                    backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
+                    if backend_kind == "comfyui":
+                        workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
+                        if not workflow_path or not Path(workflow_path).is_file():
+                            return self._json(503, {"error": "ComfyUI workflow is not configured. Set ORBIT_IMAGE_WORKFLOW, or select Diffusers in Colab."})
+                    elif backend_kind == "diffusers":
+                        if find_spec("diffusers") is None:
+                            return self._json(503, {"error": "Diffusers is not installed. Run pip install -r requirements-image.txt."})
+                    else:
+                        return self._json(400, {"error": "ORBIT_IMAGE_BACKEND must be comfyui or diffusers."})
                     if len(prompt) > 5000:
                         return self._json(400, {"error": "prompt must be no longer than 5000 characters"})
                     if not isinstance(negative_prompt, str) or len(negative_prompt) > 2000:
@@ -431,6 +438,21 @@ def make_handler(app):
                     return self._json(400, {"error": "message must be a non-empty string"})
                 if not isinstance(attachments, list) or len(attachments) > 5 or any(not isinstance(x, str) for x in attachments):
                     return self._json(400, {"error": "attachments must be a list of up to five uploaded file IDs"})
+                # Image requests can be issued naturally from the main chat composer.
+                image_match = __import__("re").match(r"^(?:create|generate|make) image\s*:\s*(.+)$", message.strip(), __import__("re").I | __import__("re").S)
+                if image_match and not attachments:
+                    image_prompt = image_match.group(1).strip()
+                    if len(image_prompt) > 5000:
+                        return self._json(400, {"error": "Image prompt must be no longer than 5000 characters."})
+                    backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
+                    if backend_kind == "diffusers" and find_spec("diffusers") is None:
+                        return self._json(503, {"error": "Diffusers is not installed. Run pip install -r requirements-image.txt."})
+                    if backend_kind == "comfyui":
+                        workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
+                        if not workflow_path or not Path(workflow_path).is_file():
+                            return self._json(503, {"error": "ComfyUI workflow is not configured. Configure ComfyUI or enable the Diffusers backend."})
+                    task_id = app.start_image(image_prompt)
+                    return self._json(202, {"task_id": task_id, "status": "queued"})
                 # Deterministic local tools remain available even before a language checkpoint is trained.
                 task_id = app.start_chat(message.strip(), attachments)
                 return self._json(202, {"task_id": task_id, "status": "queued"})
