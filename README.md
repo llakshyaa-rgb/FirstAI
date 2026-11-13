@@ -71,8 +71,8 @@ validation loss/perplexity.
 
 ## Pipeline smoke test
 
-Run a temporary synthetic-data test of training, checkpoint creation, resume
-and generation without uploading a real corpus:
+Run a temporary synthetic-data test of training, checkpoint creation, resume,
+evaluation and generation without uploading a real corpus:
 
 ```bash
 python scripts/smoke_test.py
