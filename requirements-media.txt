@@ -1,0 +1,4 @@
+# Optional heavy dependencies for extended media understanding.
+# Install only if you need scanned-PDF OCR, audio transcription or video frame analysis.
+pypdfium2>=4.30
+faster-whisper>=1.1
