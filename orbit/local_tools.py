@@ -152,16 +152,16 @@ class WorkspaceTools:
             raise FileNotFoundError(relative)
         if not isinstance(content, str) or len(content.encode("utf-8")) > _MAX_WRITE_BYTES:
             raise ValueError("File content must be text no larger than 1 MB.")
-        backup = None
-        if target.stat().st_size <= _MAX_WRITE_BYTES:
-            self.backup_root.mkdir(parents=True, exist_ok=True)
-            stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
-            backup = self.backup_root / (stamp + "-" + target.name + ".bak")
-            shutil.copy2(target, backup)
+        if target.stat().st_size > _MAX_WRITE_BYTES:
+            raise ValueError("Refusing to update a file larger than 1 MB; no backup would be safe.")
+        self.backup_root.mkdir(parents=True, exist_ok=True)
+        stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
+        backup = self.backup_root / (stamp + "-" + target.name + ".bak")
+        shutil.copy2(target, backup)
         self._atomic_write(target, content)
         return {"path": target.relative_to(self.root).as_posix(),
                 "bytes": target.stat().st_size,
-                "backup": backup.relative_to(self.root).as_posix() if backup else None}
+                "backup": backup.relative_to(self.root).as_posix()}
 
     @staticmethod
     def _atomic_write(target, content):
