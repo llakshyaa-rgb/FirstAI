@@ -115,14 +115,12 @@ class OrbitApplication:
                 "For presentations, use slide headings and concise slide-ready points. For spreadsheets, use tables with headers and rows."
             )
             self.store.emit(task_id, "status", "Drafting the deliverable with the language model.")
-            previous_limit = self.runtime.max_new_tokens
-            self.runtime.max_new_tokens = max(previous_limit, min(512, int(os.environ.get("ORBIT_DESIGN_MAX_TOKENS", "384"))))
-            try:
-                content = self.runtime.reply(prompt, history=history, owner_preferences=preference_text,
-                    on_progress=lambda event: self.store.emit(task_id, event.get("kind", "status"), event.get("message", ""),
-                        **{key: value for key, value in event.items() if key not in ("kind", "message")}))
-            finally:
-                self.runtime.max_new_tokens = previous_limit
+            content = self.runtime.reply(
+                prompt, history=history, owner_preferences=preference_text,
+                max_new_tokens=max(self.runtime.max_new_tokens, min(512, int(os.environ.get("ORBIT_DESIGN_MAX_TOKENS", "384")))),
+                on_progress=lambda event: self.store.emit(task_id, event.get("kind", "status"), event.get("message", ""),
+                    **{key: value for key, value in event.items() if key not in ("kind", "message")})
+            )
             if not content or not content.strip():
                 raise RuntimeError("The language model returned an empty design draft.")
             self.store.emit(task_id, "status", "Formatting and exporting the finished file.")
@@ -291,17 +289,13 @@ class OrbitApplication:
                     "For spreadsheets, use tables with headers and rows. Do not invent facts or sources; "
                     "label assumptions. Do not explain what you would do."
                 )
-                previous_limit = self.runtime.max_new_tokens
-                self.runtime.max_new_tokens = max(previous_limit, min(512, int(os.environ.get("ORBIT_DESIGN_MAX_TOKENS", "384"))))
-                try:
-                    draft = self.runtime.reply(
-                        prompt, history=self.store.recent_history(limit=4),
-                        owner_preferences=self.memory.prompt_context(),
-                        on_progress=lambda event: emit_progress(event["message"], kind=event["kind"],
-                            **{key: value for key, value in event.items() if key not in ("kind", "message")}),
-                    )
-                finally:
-                    self.runtime.max_new_tokens = previous_limit
+                draft = self.runtime.reply(
+                    prompt, history=self.store.recent_history(limit=4),
+                    owner_preferences=self.memory.prompt_context(),
+                    max_new_tokens=max(self.runtime.max_new_tokens, min(512, int(os.environ.get("ORBIT_DESIGN_MAX_TOKENS", "384")))),
+                    on_progress=lambda event: emit_progress(event["message"], kind=event["kind"],
+                        **{key: value for key, value in event.items() if key not in ("kind", "message")}),
+                )
                 if not draft or not draft.strip():
                     raise RuntimeError("The model returned an empty deliverable draft.")
                 artifact = create_artifact(
