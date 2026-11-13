@@ -13,6 +13,29 @@
   <section id="conversation" class="conversation" aria-live="polite">
     <article class="bubble orbit"><strong>Orbit</strong><p>Good evening. I'm ready when you are.</p></article>
   </section>
+  <details class="design-panel" open>
+    <summary>Creative studio <span>PDF · Word · PowerPoint · Excel · Web · SVG</span></summary>
+    <p>Describe the finished thing you want. Orbit writes the content, designs the layout and exports a real file.</p>
+    <form id="design-form" class="design-form">
+      <input id="design-title" maxlength="200" placeholder="Title / project name" required>
+      <textarea id="design-brief" rows="4" maxlength="6000" placeholder="Describe what to create, its audience, style, sections, information and any requirements..." required></textarea>
+      <div class="design-options">
+        <label>Format<select id="design-format">
+          <option value="pdf">PDF document</option><option value="docx">Word document</option>
+          <option value="pptx">PowerPoint presentation</option><option value="xlsx">Excel workbook</option>
+          <option value="csv">CSV data</option><option value="html">Web page</option>
+          <option value="svg">SVG graphic / poster</option><option value="md">Markdown</option><option value="txt">Plain text</option>
+        </select></label>
+        <label>Visual theme<select id="design-theme">
+          <option value="midnight">Midnight · cinematic</option><option value="paper">Paper · premium</option>
+          <option value="ocean">Ocean · clean</option><option value="editorial">Editorial · warm</option>
+        </select></label>
+      </div>
+      <button id="design-send" type="submit">Design and export</button>
+    </form>
+    <p class="media-note">Orbit needs a trained FirstGPT checkpoint to write the content. Export engines are separate optional dependencies for PDF, Word, PowerPoint and Excel.</p>
+    <div id="design-results"></div>
+  </details>
   <details class="image-panel">
     <summary>Image studio <span id="image-status">Backend not configured</span></summary>
     <p>Uses a Diffusers GPU model directly or a separately hosted ComfyUI workflow.</p>
