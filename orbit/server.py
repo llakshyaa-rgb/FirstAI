@@ -226,7 +226,7 @@ class OrbitApplication:
             context_parts = []
             specialist_results = []
             agent = LocalAgent(
-                workspace=Path(__file__).resolve().parent.parent,
+                workspace=Path(os.environ.get("ORBIT_WORKSPACE_ROOT", str(Path(__file__).resolve().parent.parent))).expanduser().resolve(),
                 progress=emit_progress,
                 memory=self.memory,
                 browser=self.browser,
@@ -381,6 +381,7 @@ def make_handler(app):
                         image_error = f"{type(exc).__name__}: {exc}"
                 return self._json(200, {
                     "name": "Orbit", "status": "ready" if app.runtime.ready else "model_missing",
+                    "workspace_root": str(Path(os.environ.get("ORBIT_WORKSPACE_ROOT", str(Path(__file__).resolve().parent.parent))).expanduser().resolve()),
                     "device": app.runtime.device, "checkpoint": str(app.runtime.checkpoint_path),
                     "model_error": app.runtime.load_error,
                     "image_workflow_configured": workflow_configured,
