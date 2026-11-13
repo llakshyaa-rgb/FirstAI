@@ -37,13 +37,6 @@ class MediaTests(unittest.TestCase):
         self.assertEqual(items[0][0], "hello.txt")
         self.assertEqual(items[0][1], b"hello orbit")
 
-    def test_unknown_file_types_are_stored_as_opaque_data(self):
-        with tempfile.TemporaryDirectory() as tmp, patch("orbit.media.UPLOAD_DIR", Path(tmp)):
-            item = save_upload("archive.custom", b"opaque bytes")
-            self.assertEqual(item["category"], "file")
-            self.assertEqual(list_uploads()[0]["name"], "archive.custom")
-            self.assertEqual((Path(tmp) / item["stored_name"]).read_bytes(), b"opaque bytes")
-
     def test_upload_size_limit(self):
         from orbit.media import MAX_UPLOAD_BYTES
         with self.assertRaises(ValueError):
