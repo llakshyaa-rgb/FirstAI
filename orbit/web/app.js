@@ -19,7 +19,7 @@ async function health(){
     presence.textContent=d.status==="ready"?"Personal AI · Online":"Personal AI · Model not loaded";
     device.textContent=d.device||"";
     const imageStatus=document.querySelector("#image-status");
-    if(imageStatus)imageStatus.textContent=d.image_workflow_configured?"Workflow configured · service connection not checked":"Backend not configured";
+    if(imageStatus)imageStatus.textContent=d.image_backend_connected?"Image model online":(d.image_workflow_configured?"Workflow exists · backend offline":"Backend not configured");
     if(d.status!=="ready")bubble("orbit","The chat interface is running, but no trained checkpoint is loaded. "+(d.model_error||""));
   }catch{presence.textContent="Connection unavailable";}
 }
