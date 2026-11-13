@@ -10,9 +10,9 @@ Orbit's FirstGPT language checkpoint does not generate pixels. Image creation is
 ## Configure
 1. Install ComfyUI on a machine with suitable compute and install a compatible image checkpoint.
 2. Export a workflow in ComfyUI's API format.
-3. In the workflow JSON, replace the positive prompt text with `{{PROMPT}}`, negative prompt text with `{{NEGATIVE_PROMPT}}`, and the sampler seed with `{{SEED}}`.
+3. Use the included `workflows/comfyui_checkpoint_template.json` as a starting point. It contains placeholders for prompt, negative prompt, checkpoint filename, seed, width, height, steps and CFG; Orbit replaces these with typed values.
 4. Keep the workflow file local and pass it to `load_workflow_template`.
-5. Create `ComfyUIImageBackend(base_url="http://127.0.0.1:8188")` and call `generate(workflow)`.
+5. Set `ORBIT_IMAGE_CHECKPOINT` to the exact filename shown in ComfyUI's `models/checkpoints` folder. Optional render settings are `ORBIT_IMAGE_WIDTH`, `ORBIT_IMAGE_HEIGHT`, `ORBIT_IMAGE_STEPS`, and `ORBIT_IMAGE_CFG`. The local server reads these when each image task starts.
 
 Example:
 
@@ -21,10 +21,12 @@ from orbit.images import ComfyUIImageBackend
 from orbit.image_workflow import load_workflow_template
 
 workflow = load_workflow_template(
-    "workflows/orbit_api.json",
+    "workflows/comfyui_checkpoint_template.json",
     prompt="A detailed character concept illustration, cinematic lighting",
     negative_prompt="low quality, distorted anatomy",
     seed=12345,
+    checkpoint="your-installed-model.safetensors",
+    width=768, height=768, steps=24, cfg=7.0,
  )
 images = ComfyUIImageBackend().generate(workflow)
 for index, item in enumerate(images):
