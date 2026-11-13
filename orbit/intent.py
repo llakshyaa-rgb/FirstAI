@@ -23,8 +23,8 @@ def classify_request(message: str) -> dict:
         re.search(r"\b" + re.escape(n) + r"\b", lower) for n in image_nouns
     )
     search_image = _has(lower, ("find images", "find image", "find pictures", "find picture",
-                                "search images", "search pictures", "show me images", "show images",
-                                "show pictures", "show me a photo", "find photos", "search photos", "look for images", "look up images",
+                                "search images", "search pictures", "search for images", "search for pictures", "search for photos", "show me images", "show images",
+                                "show pictures", "show me a photo", "find a photo", "find photos", "look up photos", "search photos", "look for images", "look up images",
                                 "image references", "photo references"))
     if wants_image and not search_image:
         route.update(kind="image_generation", prompt=text)
