@@ -51,6 +51,7 @@ class OrbitApplication:
             self.store.emit(task_id, "status", "Certainly. I'm considering your request.")
             answer = self.runtime.reply(
                 message,
+                history=self.store.recent_history(),
                 owner_preferences=self.memory.prompt_context(),
                 on_progress=lambda event: self.store.emit(task_id, event["kind"], event["message"], **event)
             )
