@@ -66,6 +66,14 @@ async function loadHistory(){
     const r=await fetch("/api/history");if(!r.ok)return;
     const d=await r.json();
     for(const item of d.history||[])bubble(item.role==="user"?"user":"orbit",item.content);
+    for(const item of d.images||[]){
+      const node=document.createElement("article");node.className="bubble orbit";
+      const label=document.createElement("strong");label.textContent="Orbit · Image";
+      const caption=document.createElement("p");caption.textContent=item.prompt||"Previously generated image";
+      const img=document.createElement("img");img.src=item.url;img.alt="Previously generated image";img.loading="lazy";img.className="generated-image";
+      node.append(label,caption,img);conversation.append(node);
+    }
+    conversation.scrollTop=conversation.scrollHeight;
   }catch{}
 }
 health();
