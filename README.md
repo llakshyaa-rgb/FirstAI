@@ -108,8 +108,9 @@ The repository now includes an initial Orbit runtime layer:
 - `orbit.identity`: builds a system prompt from that contract and optional owner/task context.
 - `orbit.tasks`: SQLite-backed task/event persistence and a strategy runner that reports a failed method, tries the next supplied strategy, and records completion or failure.
 - `orbit.images`: ComfyUI-compatible adapter for a separately hosted image-generation workflow.
-- `orbit.media`: private local file uploads, safe file-type validation, text extraction for common formats, and Brave image search with a mature-results SafeSearch toggle.
-- `orbit.vision`: optional Ollama-compatible image-understanding adapter for uploaded images.
+- `orbit.media`: private local uploads, format validation, text extraction, upload library, and Brave image search with a mature-results SafeSearch toggle.
+- `orbit.vision`: Ollama and OpenAI-compatible vision adapters for actual image-pixel analysis.
+- `orbit.media_processing`: optional scanned-PDF OCR, ZIP text inspection, audio transcription and sampled-frame video understanding.
 - `orbit.memory`: explicit SQLite-backed owner preferences, editable through the local UI/API.
 - `orbit.tools`: allow-list tool registry with confirmation gates for consequential actions.
 - `orbit.runtime` and `orbit.server`: local chat runtime, HTTP API, browser UI, task progress polling, and restart recovery for interrupted generation tasks.
@@ -223,7 +224,7 @@ The local UI accepts JPG/JPEG, PNG, WEBP and GIF images, any file format up to 2
 
 Internet image search uses the Brave Search API. Set `BRAVE_SEARCH_API_KEY`; the mature-results toggle selects SafeSearch off or strict. Search returns thumbnails and original source-page links. Availability of mature results depends on the provider. Respect source-site access controls and image licences.
 
-FirstGPT is still a text-only model and cannot directly interpret image pixels. For image analysis, configure an Ollama-compatible vision endpoint and model using `ORBIT_VISION_URL` and `ORBIT_VISION_MODEL`; then use **Ask Orbit to analyse** on an uploaded image. This sends the image to that configured endpoint. It is a separate vision model, not an ability learned by FirstGPT. See [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md) for configuration and privacy details.
+FirstGPT's current checkpoint remains text-only, but Orbit can now read image pixels through a configured Ollama or OpenAI-compatible vision model. Uploaded images and documents can be attached to the normal chat composer; Orbit analyses them first and passes the results into FirstGPT's context. The optional media pipeline also supports scanned-PDF OCR, ZIP text inspection, faster-whisper audio transcription and ffmpeg-sampled video-frame analysis. These require the optional dependencies and configured vision endpoint described in [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md). Vision is currently a connected modality, not a capability learned by FirstGPT itself.
 
 Image generation remains separate: configure ComfyUI and an image checkpoint as described in [ORBIT_IMAGE_SETUP.md](ORBIT_IMAGE_SETUP.md).
 
@@ -233,4 +234,4 @@ The identity blueprint supports natural, nonjudgmental discussion of mature topi
 
 ## Scope and limitations
 
-The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. The instruction-tuning pipeline and image-studio adapter/UI are implemented, but the included tuning examples are only a tiny demo. The optional open-corpus and Dolly instruction-data pipeline is implemented but must still be run on a GPU. Local deterministic tools are available, but general model-driven tool planning/execution, integrated multimodal chat context, audio/video transcription, robust tool recovery, and extensive end-to-end testing remain future engineering work. Image understanding currently requires the optional external vision endpoint. Orbit is currently a local prototype, not an always-on service.
+The GPT training foundation is complete as an engineering baseline, and the initial Orbit runtime foundations are now present. This does not mean the model has learned useful language or that a complete autonomous assistant exists. Quality depends on corpus volume and quality, compute, model scale and subsequent training. The instruction-tuning pipeline and image-studio adapter/UI are implemented, but the included tuning examples are only a tiny demo. The optional open-corpus and Dolly instruction-data pipeline is implemented but must still be run on a GPU. Local deterministic tools are available, but general model-driven tool planning/execution, native vision training inside FirstGPT, full audio/video comprehension, robust tool recovery, and extensive end-to-end testing remain future engineering work. Orbit's connected vision and optional media-processing adapters require their respective external/local backends. Orbit is currently a local prototype, not an always-on service.
