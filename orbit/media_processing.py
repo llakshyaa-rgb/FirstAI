@@ -6,11 +6,14 @@ import tempfile
 import uuid
 import zipfile
 import tarfile
+import threading
 from pathlib import Path
 from .media import get_upload, UPLOAD_DIR
 from .vision import describe_image
 
-_TEXT_SUFFIXES = {".txt", ".md", ".csv", ".json", ".jsonl", ".xml", ".html", ".htm", ".py", ".js", ".ts", ".css", ".sql", ".yaml", ".yml", ".toml", ".ini", ".log"}
+_TEXT_SUFFIXES = {".txt", ".md", ".csv", ".json", ".jsonl", ".xml", ".html", ".htm", ".rtf", ".py", ".js", ".ts", ".tsx", ".jsx", ".css", ".sql", ".yaml", ".yml", ".toml", ".ini", ".log"}
+_WHISPER_CACHE = {}
+_WHISPER_LOCK = threading.Lock()
 
 def _vision_temp(data: bytes, prompt: str) -> str:
     name = uuid.uuid4().hex + ".png"
@@ -90,7 +93,12 @@ def _transcribe_audio(path: Path) -> str:
     size = os.environ.get("ORBIT_WHISPER_MODEL", "tiny")
     device = os.environ.get("ORBIT_WHISPER_DEVICE", "cpu")
     compute = os.environ.get("ORBIT_WHISPER_COMPUTE_TYPE", "int8")
-    model = WhisperModel(size, device=device, compute_type=compute)
+    cache_key = (size, device, compute)
+    with _WHISPER_LOCK:
+        model = _WHISPER_CACHE.get(cache_key)
+        if model is None:
+            model = WhisperModel(size, device=device, compute_type=compute)
+            _WHISPER_CACHE[cache_key] = model
     segments, info = model.transcribe(str(path), beam_size=1, vad_filter=True)
     lines = [segment.text.strip() for segment in segments if segment.text.strip()]
     return "Detected language: " + str(info.language) + "\n\n" + "\n".join(lines)
