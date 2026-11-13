@@ -44,6 +44,18 @@ class OrbitTaskTests(unittest.TestCase):
                 TaskRunner(store).run(task_id, [("route A", broken), ("route B", broken)])
             self.assertEqual(store.get(task_id)["status"], "failed")
 
+    def test_recent_history_returns_completed_turns_oldest_first(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            store = TaskStore(Path(tmp) / "state.db")
+            first = store.create("Hello")
+            store.update(first, "completed", result="Good evening.")
+            second = store.create("How are you?")
+            store.update(second, "completed", result="Operating normally.")
+            history = store.recent_history(limit=2)
+            self.assertEqual([item["role"] for item in history],
+                             ["user", "assistant", "user", "assistant"])
+            self.assertEqual(history[-1]["content"], "Operating normally.")
+
     def test_interrupted_running_task_is_preserved(self):
         with tempfile.TemporaryDirectory() as tmp:
             store = TaskStore(Path(tmp) / "state.db")
