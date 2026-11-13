@@ -1,13 +1,14 @@
-"""Run a tiny end-to-end training, resume, checkpoint and generation smoke test.
+"""Run an end-to-end training, checkpoint, resume and generation smoke test.
 
-Uses a temporary synthetic corpus only to verify the engineering pipeline.
-It does not create meaningful training data or define FirstAI's identity.
+By default all temporary artifacts are deleted. Use --keep-artifacts to retain
+the synthetic corpus and checkpoints for inspection/download from a cloud runtime.
 """
-import json
+import argparse
 import subprocess
 import sys
 import tempfile
 from pathlib import Path
+import torch
 
 
 def run(command, cwd):
@@ -16,11 +17,34 @@ def run(command, cwd):
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--require-cuda", action="store_true",
+                        help="Fail unless a CUDA GPU is attached.")
+    parser.add_argument("--keep-artifacts", action="store_true",
+                        help="Keep synthetic corpus and smoke checkpoints in output directory.")
+    parser.add_argument("--output-dir", default="artifacts/gpu-smoke")
+    args = parser.parse_args()
+
+    if args.require_cuda and not torch.cuda.is_available():
+        raise RuntimeError("A CUDA GPU was required, but torch.cuda.is_available() is False.")
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    print(f"Smoke-test device: {device}", flush=True)
+    if device == "cuda":
+        print(f"GPU: {torch.cuda.get_device_name(0)}", flush=True)
+        print(f"CUDA runtime: {torch.version.cuda}", flush=True)
+        torch.cuda.reset_peak_memory_stats()
+
     root = Path(__file__).resolve().parents[1]
-    with tempfile.TemporaryDirectory(prefix="firstai-smoke-") as temp:
-        work = Path(temp)
+    temp_context = None
+    if args.keep_artifacts:
+        work = (root / args.output_dir).resolve()
+        work.mkdir(parents=True, exist_ok=True)
+    else:
+        temp_context = tempfile.TemporaryDirectory(prefix="firstai-smoke-")
+        work = Path(temp_context.name)
+
+    try:
         corpus = work / "smoke.txt"
-        # Repetition supplies enough tokens for both train and validation splits.
         paragraph = (
             "A machine learns patterns by predicting the next token. "
             "The training loop measures error, computes gradients, and updates weights. "
@@ -35,7 +59,7 @@ def main():
             "--layers", "1", "--heads", "2", "--width", "32",
             "--vocab-size", "300", "--min-frequency", "2",
             "--eval-interval", "2", "--checkpoint-interval", "2",
-            "--seed", "17",
+            "--seed", "17", "--amp",
         ]
         run([sys.executable, "train.py", *common, "--steps", "3"], root)
 
@@ -48,7 +72,7 @@ def main():
             "--steps", "1", "--resume",
         ], root)
 
-        latest = __import__("torch").load(checkpoint, map_location="cpu", weights_only=True)
+        latest = torch.load(checkpoint, map_location="cpu", weights_only=True)
         if latest.get("step") != 4:
             raise RuntimeError(f"Resume expected step 4, found {latest.get('step')}")
 
@@ -59,8 +83,19 @@ def main():
             "--temperature", "0.8", "--top-k", "10",
         ], root)
 
+        if device == "cuda":
+            torch.cuda.synchronize()
+            print(f"Peak allocated GPU memory: {torch.cuda.max_memory_allocated() / 1024**2:.1f} MiB")
+        if args.keep_artifacts:
+            print(f"Artifacts retained at: {work}")
+            print(f"Latest checkpoint: {checkpoint}")
+            print(f"Best checkpoint: {best}")
+    finally:
+        if temp_context is not None:
+            temp_context.cleanup()
+
     print("\nFIRSTAI END-TO-END SMOKE TEST: PASS")
-    print("Training, best/latest checkpoint creation, resume, reload and generation all worked.")
+    print("Training, checkpoint creation, resume, reload and generation all worked.")
 
 
 if __name__ == "__main__":
