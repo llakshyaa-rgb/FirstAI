@@ -1,7 +1,7 @@
-"""Bounded specialist-agent team coordinated around one shared Orbit runtime.
+"""Specialist agents coordinated around one shared Orbit runtime.
 
-The coordinator delegates independent read-only work concurrently. The media
-specialist handles owner-supplied attachments without loading another LLM.
+Specialists use bounded concurrency and the same registered tools/runtime.
+They return evidence and structured findings; Orbit remains the sole voice in chat.
 """
 from __future__ import annotations
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -22,42 +22,42 @@ class Specialist:
 
 SPECIALISTS = (
     Specialist("researcher", "Find current public information and source links",
-               ("research", "search the web", "search web", "look up", "latest", "current", "sources", "website"), "web_search"),
-    Specialist("workspace", "Scout existing project files and implementation patterns",
+               ("research", "search the web", "search web", "look up", "latest", "current", "sources", "fact check"), "web_search"),
+    Specialist("code_scout", "Map relevant source files, definitions, dependencies and call sites",
                ("project", "repository", "repo", "codebase", "workspace", "file", "code", "bug", "error",
                 "build", "implement", "create", "add", "fix", "debug", "modify", "refactor", "integrate"), "search_files"),
-    Specialist("analyst", "Handle explicit calculations and numerical checks",
-               ("calculate", "compute", "equation", "percentage", "average", "total"), "calculate"),
-    Specialist("verifier", "Run requested project checks after implementation",
+    Specialist("analyst", "Handle calculations, data checks and explicit numerical reasoning",
+               ("calculate", "compute", "equation", "percentage", "average", "total", "compare", "estimate"), "calculate"),
+    Specialist("verifier", "Run compile and test checks only when explicitly requested",
                ("verify project", "validate project", "run project tests", "test the project"), "compile_project"),
 )
 
 
 class AgentTeam:
-    """Coordinator assigns only the specialists relevant to the owner's request."""
+    """Capability router and bounded specialist executor."""
     def __init__(self, registry, progress=None, max_workers=None):
         self.registry = registry
         self.progress = progress or (lambda message, **details: None)
-        requested = int(max_workers or os.environ.get("ORBIT_AGENT_WORKERS", "3"))
-        self.max_workers = max(1, min(4, requested))
+        requested = int(max_workers or os.environ.get("ORBIT_AGENT_WORKERS", "4"))
+        self.max_workers = max(1, min(5, requested))
 
     @staticmethod
     def _query_for(name, message):
-        text = message.strip()
+        text = str(message or "").strip()
         if name == "researcher":
-            match = re.search(r"(?:research|search(?: the)? web for|search web for|look up|find sources for)\s+(.+)", text, re.I)
-            return (match.group(1) if match else text)[:300]
-        if name == "workspace":
-            match = re.search(r"(?:search (?:the )?(?:project|workspace|repo(?:sitory)?) for|find in (?:the )?(?:project|repo(?:sitory)?)|search files for)\s+(.+)", text, re.I)
-            if match:
-                return match.group(1)[:200]
+            match = re.search(r"(?:research|search(?: the)? web for|search web for|look up|find sources for|fact check)s+(.+)", text, re.I)
+            return (match.group(1) if match else text)[:400]
+        if name == "code_scout":
             topics = ("image", "vision", "agent", "gpu", "memory", "training", "video", "audio",
-                      "pdf", "browser", "tool", "server", "model", "chat", "ui", "task", "file")
-            found = next((word for word in topics if word in text.casefold()), None)
-            return found or "orbit"
+                      "pdf", "browser", "tool", "server", "model", "chat", "ui", "task", "file",
+                      "auth", "api", "database", "frontend", "backend", "template")
+            found = [word for word in topics if word in text.casefold()]
+            if found:
+                return " ".join(found[:4])
+            return text[:200]
         if name == "analyst":
-            match = re.search(r"(?:calculate|compute|what is|what's)\s+(.+)", text, re.I)
-            return (match.group(1) if match else text).replace("^", "**")[:160]
+            match = re.search(r"(?:calculate|compute|what is|what's|compare|estimate)s+(.+)", text, re.I)
+            return (match.group(1) if match else text).replace("^", "**")[:180]
         return text
 
     def _run_specialist(self, specialist, message, attachments=None):
@@ -65,14 +65,10 @@ class AgentTeam:
             results = []
             for file_id in (attachments or [])[:5]:
                 try:
-                    item = process_upload(
-                        file_id,
-                        "User request: " + message + "\nAnalyse this attachment and extract the details relevant to the request."
-                    )
-                    results.append({
-                        "name": item["name"], "kind": item["kind"],
-                        "ok": True, "content": item["content"][:30000],
-                    })
+                    item = process_upload(file_id, "User request: " + message +
+                        "\nAnalyse this attachment and extract details relevant to the request.")
+                    results.append({"name": item["name"], "kind": item["kind"],
+                                    "ok": True, "content": item["content"][:30000]})
                 except Exception as exc:
                     fallback = {}
                     try:
@@ -81,19 +77,19 @@ class AgentTeam:
                             fallback = {"fallback_text": stored["text"][:30000]}
                     except Exception:
                         pass
-                    results.append({
-                        "file_id": file_id, "ok": False,
-                        "error": f"{type(exc).__name__}: {exc}", **fallback,
-                    })
+                    results.append({"file_id": file_id, "ok": False,
+                                    "error": f"{type(exc).__name__}: {exc}", **fallback})
             return results
 
         query = self._query_for(specialist.name, message)
         if specialist.tool_name == "web_search":
-            return self.registry.call("web_search", {"query": query, "count": 6})
+            return self.registry.call("web_search", {"query": query, "count": 8})
         if specialist.tool_name == "search_files":
             files = self.registry.call("list_files", {"relative": "."})
             matches = self.registry.call("search_files", {"query": query})
-            return {"project_files": files[:100], "matching_lines": matches[:50], "search_term": query}
+            return {"project_files": files[:120], "matching_lines": matches[:80],
+                    "search_term": query,
+                    "guidance": "Map call sites and dependencies before edits; prefer minimal targeted patches."}
         if specialist.tool_name == "compile_project":
             compiled = self.registry.call("compile_project", confirmed=True)
             if not compiled.get("passed"):
@@ -104,39 +100,26 @@ class AgentTeam:
             return self.registry.call("calculate", {"expression": query})
         raise ValueError("Specialist has no executable tool")
 
-    def run(self, message, attachments=None):
+    def run(self, message, attachments=None, capabilities=None):
         text = str(message or "")
         lower = text.casefold()
+        requested = set(capabilities or ())
         selected = []
         for specialist in SPECIALISTS:
-            if any(word in lower for word in specialist.keywords):
-                if specialist.tool_name == "web_search" and not any(
-                    phrase in lower for phrase in ("research", "search the web", "search web", "look up", "latest", "current", "sources")
-                ):
-                    continue
-                if specialist.tool_name == "search_files" and not any(
-                    phrase in lower for phrase in ("search", "find", "inspect", "check", "bug", "error",
-                                                   "build", "implement", "create", "add", "fix", "debug",
-                                                   "modify", "refactor", "integrate")
-                ):
-                    continue
-                if specialist.tool_name == "compile_project" and not any(
-                    phrase in lower for phrase in ("verify project", "validate project", "run project tests", "test the project")
-                ):
-                    continue
-                if specialist.tool_name == "calculate" and not any(ch.isdigit() for ch in text):
-                    continue
+            choose = (
+                (specialist.name == "researcher" and ("research" in requested or any(x in lower for x in ("research", "search the web", "search web", "look up", "latest", "current", "fact check"))))
+                or (specialist.name == "code_scout" and ("coding" in requested or "code_scout" in requested))
+                or (specialist.name == "analyst" and ("analysis" in requested or any(x in lower for x in ("calculate", "compute", "equation", "percentage", "average", "total")) and any(ch.isdigit() for ch in text)))
+                or (specialist.name == "verifier" and ("verification" in requested or any(x in lower for x in ("verify project", "validate project", "run project tests", "test the project"))))
+            )
+            if choose:
                 selected.append(specialist)
-
         if attachments:
-            selected.append(Specialist("media", "Read and interpret owner-supplied files", (), None))
+            selected.append(Specialist("media", "Read and interpret owner-supplied attachments", (), None))
         if not selected:
             return []
-
-        self.progress(
-            "Coordinator assigned " + ", ".join(item.name for item in selected) +
-            " specialist agent(s). Independent work runs concurrently where possible."
-        )
+        self.progress("Orbit's coordinator assigned " + ", ".join(item.name for item in selected) +
+                      ". Independent specialists are working in parallel; Orbit will combine their findings.")
         results = []
         with ThreadPoolExecutor(max_workers=min(self.max_workers, len(selected)),
                                 thread_name_prefix="orbit-agent") as pool:
@@ -144,16 +127,11 @@ class AgentTeam:
             for future in as_completed(futures):
                 specialist = futures[future]
                 try:
-                    value = future.result()
-                    results.append({"agent": specialist.name, "ok": True, "result": value})
+                    results.append({"agent": specialist.name, "ok": True, "result": future.result()})
                 except Exception as exc:
-                    self.progress(
-                        f"{specialist.name.capitalize()} agent failed ({type(exc).__name__}: {exc}); "
-                        "the coordinator will continue with the other results.",
-                        kind="method_failed", agent=specialist.name,
-                    )
+                    self.progress(f"{specialist.name} agent failed ({type(exc).__name__}: {exc}); continuing with other specialists.",
+                                  kind="method_failed", agent=specialist.name)
                     results.append({"agent": specialist.name, "ok": False,
                                     "error": f"{type(exc).__name__}: {exc}"})
         return sorted(results, key=lambda item: next(
-            (index for index, specialist in enumerate(selected) if specialist.name == item["agent"]), 99
-        ))
+            (index for index, specialist in enumerate(selected) if specialist.name == item["agent"]), 99))
