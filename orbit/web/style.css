@@ -33,3 +33,5 @@ footer{text-align:center;padding:14px 0 0}
 #image-composer textarea{width:100%;min-height:42px}
 #image-send{align-self:flex-end}
 .generated-image{display:block;max-width:min(100%,560px);max-height:70vh;object-fit:contain;margin-top:9px;border-radius:10px}
+
+.bubble.partial{border-color:#526577;background:#18222c;color:#dce7f0;min-height:36px}
