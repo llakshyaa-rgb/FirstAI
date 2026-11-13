@@ -219,7 +219,7 @@ The UI submits image tasks asynchronously, records progress, saves returned imag
 
 ### Images, files and image search
 
-The local UI accepts JPG/JPEG, PNG, WEBP and GIF images, common text/code files, PDF, DOCX, XLSX and PPTX, ZIP, audio and video files (20 MB per file). It previews image uploads and extracts text from supported document formats. ZIP/audio/video are stored but are not unpacked or transcribed in this release. PDF extraction uses the optional `pypdf` dependency.
+The local UI accepts JPG/JPEG, PNG, WEBP and GIF images, any file format up to 20 MB per file; common text/code files, PDF, DOCX, XLSX and PPTX also receive text extraction, and supported images preview. It previews image uploads and extracts text from supported document formats. Other formats are safely stored as opaque files unless a dedicated parser is implemented. PDF extraction uses the optional `pypdf` dependency.
 
 Internet image search uses the Brave Search API. Set `BRAVE_SEARCH_API_KEY`; the mature-results toggle selects SafeSearch off or strict. Search returns thumbnails and original source-page links. Availability of mature results depends on the provider. Respect source-site access controls and image licences.
 
