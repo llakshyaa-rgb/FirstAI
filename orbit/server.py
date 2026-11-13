@@ -457,6 +457,8 @@ def make_handler(app):
                         workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
                         if not workflow_path or not Path(workflow_path).is_file():
                             return self._json(503, {"error": "ComfyUI workflow is not configured. Configure ComfyUI or enable the Diffusers backend."})
+                    elif backend_kind != "diffusers":
+                        return self._json(400, {"error": "ORBIT_IMAGE_BACKEND must be comfyui or diffusers."})
                     task_id = app.start_image(image_prompt)
                     return self._json(202, {"task_id": task_id, "status": "queued"})
                 # Deterministic local tools remain available even before a language checkpoint is trained.
