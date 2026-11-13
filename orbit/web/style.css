@@ -21,3 +21,7 @@ footer{text-align:center;padding:14px 0 0}
 .memory-form input{min-width:0;flex:1;padding:10px;border-radius:8px;border:1px solid #34404c;background:#121922;color:#eef3f8}
 .memory-form button{padding:10px 14px}
 .memory-item{font-size:12px;color:#aebdca;overflow-wrap:anywhere}
+
+.memory-row{display:flex;align-items:center;gap:8px;border-top:1px solid #26313b}
+.memory-row .memory-item{flex:1}
+.memory-row .memory-delete{padding:6px 9px;font-size:11px;background:#29333d;color:#d5dee7}
