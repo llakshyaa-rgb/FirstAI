@@ -51,8 +51,30 @@ def describe_image(file_id: str, prompt: str = "Describe this image in detail.")
     else:
         raise ValueError("ORBIT_VISION_PROVIDER must be ollama or openai-compatible.")
     request = urllib.request.Request(url, data=json.dumps(payload).encode("utf-8"), headers=headers)
-    with urllib.request.urlopen(request, timeout=240) as response:
-        result = json.loads(response.read(4_000_000).decode("utf-8"))
+    try:
+        with urllib.request.urlopen(request, timeout=240) as response:
+            result = json.loads(response.read(4_000_000).decode("utf-8"))
+    except Exception as primary_error:
+        fallback_endpoint = os.environ.get("ORBIT_VISION_FALLBACK_URL", "").strip()
+        if not fallback_endpoint or fallback_endpoint == endpoint:
+            raise
+        fallback_model = os.environ.get("ORBIT_VISION_FALLBACK_MODEL", model).strip()
+        fallback_payload = dict(payload)
+        fallback_payload["model"] = fallback_model
+        if provider == "ollama":
+            fallback_url = fallback_endpoint if fallback_endpoint.endswith("/api/generate") else fallback_endpoint.rstrip("/") + "/api/generate"
+        else:
+            fallback_url = fallback_endpoint if fallback_endpoint.rstrip("/").endswith("/chat/completions") else fallback_endpoint.rstrip("/") + "/v1/chat/completions"
+        fallback_request = urllib.request.Request(
+            fallback_url, data=json.dumps(fallback_payload).encode("utf-8"), headers=headers
+        )
+        try:
+            with urllib.request.urlopen(fallback_request, timeout=240) as response:
+                result = json.loads(response.read(4_000_000).decode("utf-8"))
+        except Exception as fallback_error:
+            raise RuntimeError(
+                f"Primary vision backend failed: {primary_error}; fallback vision backend also failed: {fallback_error}"
+            ) from fallback_error
     if provider == "ollama":
         answer = result.get("response")
     else:
