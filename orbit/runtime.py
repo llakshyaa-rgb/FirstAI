@@ -6,6 +6,7 @@ knowledge or replace a better-trained model.
 """
 from __future__ import annotations
 import threading
+import os
 from pathlib import Path
 import torch
 from firstai.model import FirstGPT, GPTConfig
@@ -24,7 +25,15 @@ class OrbitRuntime:
         self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
         self.max_history_messages = max_history_messages
         self.max_new_tokens = max_new_tokens
+        self.gpu_memory_fraction = min(0.90, max(0.50, float(os.environ.get("ORBIT_GPU_MEMORY_FRACTION", "0.86"))))
+        self._amp_enabled = False
+        self._amp_dtype = None
         self._lock = threading.Lock()
+        if self.device == "cuda" and torch.cuda.is_available():
+            try:
+                torch.cuda.set_per_process_memory_fraction(self.gpu_memory_fraction, device=0)
+            except (AttributeError, RuntimeError, ValueError):
+                pass
         self.model = None
         self.tokenizer = None
         self.load_error = None
@@ -42,6 +51,9 @@ class OrbitRuntime:
             model.load_state_dict(saved["model"])
             model.eval()
             self.model, self.tokenizer = model, tokenizer
+            if self.device == "cuda" and torch.cuda.is_available():
+                self._amp_enabled = True
+                self._amp_dtype = torch.bfloat16 if torch.cuda.is_bf16_supported() else torch.float16
             self.load_error = None
             return True
         except Exception as exc:
@@ -58,7 +70,10 @@ class OrbitRuntime:
         with torch.inference_mode():
             for index in range(self.max_new_tokens):
                 context = input_ids[:, -self.model.config.block_size:]
-                logits, _ = self.model(context)
+                with torch.autocast(
+                    device_type="cuda", dtype=self._amp_dtype, enabled=self._amp_enabled
+                ):
+                    logits, _ = self.model(context)
                 next_logits = logits[:, -1, :].float()
                 if mode == "sample":
                     next_logits = next_logits / 0.85
@@ -170,6 +185,8 @@ class OrbitRuntime:
                             })
                         self.model = self.model.to("cpu")
                         self.device = "cpu"
+                        self._amp_enabled = False
+                        self._amp_dtype = None
                         if torch.cuda.is_available():
                             torch.cuda.empty_cache()
                     except Exception as move_exc:
