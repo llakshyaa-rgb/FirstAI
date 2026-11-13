@@ -153,7 +153,7 @@ class OrbitApplication:
             # All other messages are passed to the language model.
             agent = LocalAgent(
                 workspace=Path(__file__).resolve().parent.parent,
-                progress=lambda text, **details: self.store.emit(task_id, "status", text, **details),
+                progress=lambda text, kind="status", **details: self.store.emit(task_id, kind, text, **details),
                 memory=self.memory,
             )
             answer = agent.try_execute(message)
