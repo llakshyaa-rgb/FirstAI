@@ -45,7 +45,8 @@ def classify_request(message: str) -> dict:
         for term, value in (("pptx", "pptx"), ("powerpoint", "pptx"), ("presentation", "pptx"),
                             ("slide deck", "pptx"), ("xlsx", "xlsx"), ("excel", "xlsx"),
                             ("spreadsheet", "xlsx"), ("csv", "csv"), ("docx", "docx"),
-                            ("word document", "docx"), ("html", "html"), ("svg", "svg")):
+                            ("word document", "docx"), ("html", "html"), ("svg", "svg"),
+                            ("poster", "svg"), ("diagram", "svg")):
             if term in lower:
                 fmt = value
                 break
