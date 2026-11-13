@@ -14,7 +14,7 @@ import threading
 import uuid
 
 from .runtime import OrbitRuntime, ModelNotReady
-from .tasks import TaskStore
+from .tasks import TaskStore\nfrom .memory import MemoryStore
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
@@ -23,17 +23,26 @@ class OrbitApplication:
     def __init__(self, checkpoint, state_path):
         self.runtime = OrbitRuntime(checkpoint)
         self.store = TaskStore(state_path)
-        self.store.recover_interrupted()
+        self.memory = MemoryStore(state_path)
         self._threads = set()
         self._lock = threading.Lock()
+        # Resume interrupted chat-generation tasks after the checkpoint is loaded.
+        for task_id in self.store.recover_interrupted():
+            task = self.store.get(task_id)
+            if task and self.runtime.ready:
+                self.store.update(task_id, "queued")
+                self._launch_chat(task_id, task["goal"])
 
     def start_chat(self, message):
         task_id = self.store.create(message)
+        self._launch_chat(task_id, message)
+        return task_id
+
+    def _launch_chat(self, task_id, message):
         thread = threading.Thread(target=self._chat_worker, args=(task_id, message), daemon=True)
         with self._lock:
             self._threads.add(thread)
         thread.start()
-        return task_id
 
     def _chat_worker(self, task_id, message):
         try:
@@ -41,6 +50,7 @@ class OrbitApplication:
             self.store.emit(task_id, "status", "Certainly. I'm considering your request.")
             answer = self.runtime.reply(
                 message,
+                owner_preferences=self.memory.prompt_context(),
                 on_progress=lambda event: self.store.emit(task_id, event["kind"], event["message"], **event)
             )
             self.store.update(task_id, "completed", result=answer)
@@ -82,6 +92,8 @@ def make_handler(app):
                     "device": app.runtime.device, "checkpoint": str(app.runtime.checkpoint_path),
                     "model_error": app.runtime.load_error
                 })
+            if parsed.path == "/api/memory":
+                return self._json(200, {"memories": app.memory.get_all()})
             if parsed.path == "/api/events":
                 params = parse_qs(parsed.query)
                 task_id = (params.get("task_id") or [""])[0]
@@ -111,13 +123,18 @@ def make_handler(app):
             return self._json(404, {"error": "Not found"})
 
         def do_POST(self):
-            if urlparse(self.path).path != "/api/chat":
+            route = urlparse(self.path).path
+            if route not in ("/api/chat", "/api/memory"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
                 if length < 1 or length > 32768:
                     return self._json(413, {"error": "Request body must be between 1 and 32768 bytes"})
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
+                if route == "/api/memory":
+                    key, value = payload.get("key"), payload.get("value")
+                    app.memory.set(key, value)
+                    return self._json(201, {"saved": True, "memories": app.memory.get_all()})
                 message = payload.get("message")
                 if not isinstance(message, str) or not message.strip():
                     return self._json(400, {"error": "message must be a non-empty string"})
@@ -127,6 +144,8 @@ def make_handler(app):
                 return self._json(202, {"task_id": task_id, "status": "queued"})
             except (UnicodeDecodeError, json.JSONDecodeError):
                 return self._json(400, {"error": "Invalid JSON"})
+            except ValueError as exc:
+                return self._json(400, {"error": str(exc)})
             except Exception as exc:
                 return self._json(500, {"error": f"{type(exc).__name__}: {exc}"})
 
