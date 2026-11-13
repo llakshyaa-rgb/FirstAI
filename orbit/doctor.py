@@ -40,9 +40,9 @@ def diagnose(checkpoint=None):
     comfy_url = os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188").rstrip("/") + "/system_stats"
     vision_endpoint = os.environ.get("ORBIT_VISION_URL", "http://127.0.0.1:11434/api/generate").rstrip("/")
     if os.environ.get("ORBIT_VISION_PROVIDER", "ollama").strip().lower() == "ollama":
-        vision_url = vision_endpoint.removesuffix("/api/generate").rstrip("/") + "/api/tags"
+        vision_url = vision_endpoint if vision_endpoint.endswith("/api/tags") else vision_endpoint.removesuffix("/api/generate").rstrip("/") + "/api/tags"
     else:
-        vision_url = vision_endpoint.removesuffix("/v1/chat/completions").rstrip("/") + "/v1/models"
+        vision_url = vision_endpoint if vision_endpoint.endswith("/v1/models") else vision_endpoint.removesuffix("/v1/chat/completions").rstrip("/") + "/v1/models"
     for name, url in (
         ("ComfyUI service", comfy_url),
         ("Vision service", vision_url),
