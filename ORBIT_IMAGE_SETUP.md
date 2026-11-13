@@ -44,7 +44,7 @@ The prompt can describe adult fictional characters, styling, pose, composition, 
 Orbit's local browser UI also accepts uploads independently of image generation:
 - JPG/JPEG, PNG, WEBP and GIF images (including mature images) are stored locally and previewed in the private local interface.
 - PDF text extraction uses `pypdf`; DOCX, XLSX and PPTX text is extracted from their Open XML package; common text, code, JSON and CSV files are read as UTF-8.
-- ZIP, audio and video files can be uploaded and stored, but this release does not unpack archives or transcribe/decode audio/video.
+- Any file extension can be uploaded and stored as an opaque file, but formats without a parser are not automatically decoded. ZIP, audio and video files are stored but not unpacked or transcribed.
 - Files are size-limited to 20 MB each. Uploads are data, never executable code.
 
 ### Internet image search
