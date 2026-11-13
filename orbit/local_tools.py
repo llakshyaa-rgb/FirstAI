@@ -135,6 +135,56 @@ class WorkspaceTools:
                 continue
         return matches
 
+    def inspect_project(self, relative=".", max_files=60):
+        """Return a bounded source map: project tree, imports, definitions and entrypoints."""
+        base = self._path(relative)
+        if not base.is_dir():
+            raise NotADirectoryError(relative)
+        ignored = _BLOCKED_PARTS | {".pytest_cache", "node_modules", "dist", "build", ".next"}
+        files = []
+        source_map = []
+        candidates = []
+        for path in base.rglob("*"):
+            if path.is_symlink() or not path.is_file():
+                continue
+            rel_parts = path.relative_to(self.root).parts
+            if any(part in ignored or part.startswith(".env") for part in rel_parts):
+                continue
+            if path.suffix.lower() not in {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".cjs"}:
+                continue
+            candidates.append(path)
+            if len(candidates) >= max(1, min(int(max_files), 100)):
+                break
+        for path in candidates:
+            rel = path.relative_to(self.root).as_posix()
+            files.append({"path": rel, "bytes": path.stat().st_size})
+            if path.suffix.lower() != ".py" or path.stat().st_size > 160_000:
+                continue
+            try:
+                source = path.read_text(encoding="utf-8")
+                tree = ast.parse(source, filename=rel)
+                imports, definitions = [], []
+                for node in ast.walk(tree):
+                    if isinstance(node, (ast.Import, ast.ImportFrom)):
+                        imports.append(ast.get_source_segment(source, node) or "")
+                    elif isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                        definitions.append({
+                            "kind": "class" if isinstance(node, ast.ClassDef) else "function",
+                            "name": node.name, "line": node.lineno,
+                        })
+                source_map.append({
+                    "path": rel, "imports": imports[:30], "definitions": definitions[:80],
+                })
+            except (OSError, UnicodeDecodeError, SyntaxError) as exc:
+                source_map.append({"path": rel, "parse_error": type(exc).__name__})
+        return {
+            "root": str(base.relative_to(self.root)) if base != self.root else ".",
+            "files_scanned": len(files),
+            "files": files,
+            "python_source_map": source_map,
+            "limits": "Bounded source map; excluded secrets, environments, dependencies and generated build folders.",
+        }
+
     def create_file(self, relative, content):
         target = self._path(relative)
         if not isinstance(content, str) or len(content.encode("utf-8")) > _MAX_WRITE_BYTES:
