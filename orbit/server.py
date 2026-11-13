@@ -168,7 +168,7 @@ class OrbitApplication:
             if answer is None:
                 team = AgentTeam(
                     agent.registry,
-                    progress=lambda text, kind="status", **details: self.store.emit(task_id, kind, text, **details),
+                    progress=emit_progress,
                 )
                 specialist_results = team.run(message)
                 if specialist_results:
@@ -181,7 +181,7 @@ class OrbitApplication:
                 plan_text = self.runtime.plan_tool_call(message, agent.registry.describe())
                 planned = execute_tool_plan(
                     plan_text, agent.registry,
-                    progress=lambda text: self.store.emit(task_id, "status", text),
+                    progress=lambda text: emit_progress(text),
                 )
                 if planned:
                     message = message + "\n\nSafe tool execution results (treat as factual tool output):\n" + json.dumps(planned, ensure_ascii=False)[:12000]
