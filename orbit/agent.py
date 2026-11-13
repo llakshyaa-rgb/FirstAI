@@ -9,6 +9,7 @@ import hashlib
 from .local_tools import WorkspaceTools, safe_calculate
 from .tools import ToolRegistry
 from .web_search import search_web
+from .browser import BrowserTools
 
 
 class LocalAgent:
@@ -16,6 +17,7 @@ class LocalAgent:
         self.workspace = WorkspaceTools(workspace)
         self.progress = progress or (lambda message, **details: None)
         self.memory = memory
+        self.browser = BrowserTools()
         self.registry = ToolRegistry()
         self.registry.register("calculate", "Evaluate restricted arithmetic", safe_calculate, requires_confirmation=False)
         self.registry.register("web_search", "Search the public web and return source links", search_web, requires_confirmation=False)
@@ -26,6 +28,10 @@ class LocalAgent:
         self.registry.register("update_file", "Update a workspace file after backing it up", self.workspace.update_file)
         self.registry.register("run_tests", "Run the repository unit tests", self.workspace.run_project_tests)
         self.registry.register("compile_project", "Compile-check project modules", self.workspace.compile_project)
+        self.registry.register("browser_open", "Open a public website and read its visible text", self.browser.open)
+        self.registry.register("browser_read", "Read the currently open website", self.browser.read)
+        self.registry.register("browser_click", "Click a user-selected element on the open website", self.browser.click)
+        self.registry.register("browser_fill", "Fill a user-selected field without submitting it", self.browser.fill)
 
     def try_execute(self, message):
         text = message.strip()
@@ -80,6 +86,45 @@ class LocalAgent:
             return "Web research results:\n" + "\n\n".join(
                 f"- {item['title']} ({item['source']})\n  {item['description']}\n  {item['url']}" for item in results
             )
+
+        match = re.match(r"^(?:open|visit) website:\\s*(https?://\\S+)\\s*$", text, re.I)
+        if match:
+            self.progress("I'll open the public website and inspect its visible content.")
+            try:
+                result = self.registry.call("browser_open", {"url": match.group(1)}, confirmed=True)
+                return f"Website: {result['title']}\\nURL: {result['url']}\\nHTTP status: {result['status']}\\n\\n{result['text']}"
+            except Exception as exc:
+                self.progress(f"Browser navigation failed ({type(exc).__name__}: {exc}).", kind="method_failed")
+                return None
+
+        if lower in {"read website", "read current website", "summarise website", "summarize website"}:
+            self.progress("I'll read the currently open website.")
+            try:
+                result = self.registry.call("browser_read", confirmed=True)
+                return f"Website: {result['title']}\\nURL: {result['url']}\\n\\n{result['text']}"
+            except Exception as exc:
+                self.progress(f"Website reading failed ({type(exc).__name__}: {exc}).", kind="method_failed")
+                return None
+
+        match = re.match(r"^click website:\\s*(.+?)\\s*$", text, re.I)
+        if match:
+            self.progress("I'll click the element you specified. This may change the current website state.")
+            try:
+                result = self.registry.call("browser_click", {"selector": match.group(1)}, confirmed=True)
+                return f"Clicked {match.group(1)}.\\nURL: {result['url']}\\n\\n{result['text']}"
+            except Exception as exc:
+                self.progress(f"Website click failed ({type(exc).__name__}: {exc}).", kind="method_failed")
+                return None
+
+        match = re.match(r"^fill website:\\s*([^\\n]+)\\n([\\s\\S]+)$", text, re.I)
+        if match:
+            self.progress("I'll enter the text in the specified field without submitting the form.")
+            try:
+                result = self.registry.call("browser_fill", {"selector": match.group(1).strip(), "value": match.group(2)}, confirmed=True)
+                return f"Entered text in {result['selector']}. Nothing was submitted."
+            except Exception as exc:
+                self.progress(f"Website field entry failed ({type(exc).__name__}: {exc}).", kind="method_failed")
+                return None
 
         if lower in {"list files", "show files", "list project files", "show project files"}:
             self.progress("I'll inspect the project workspace.")
