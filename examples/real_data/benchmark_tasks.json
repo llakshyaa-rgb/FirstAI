@@ -152,6 +152,17 @@
         "Do not assume the reference profile and World Bank indicators share the same observation date.",
         "Preserve original source URLs."
       ]
+    },
+    {
+      "id": "air-001",
+      "category": "environmental-data",
+      "prompt": "Build an air-quality forecast dashboard for the selected city.",
+      "acceptance": [
+        "Distinguish modeled forecasts from ground-station observations.",
+        "Show PM2.5 and PM10 units.",
+        "Keep European AQI and US AQI clearly separate.",
+        "Do not present the feed as an official health alert."
+      ]
     }
   ],
   "source_pack": "examples/real_data/build_data_lab.py"
