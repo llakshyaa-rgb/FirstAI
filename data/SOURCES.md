@@ -66,3 +66,9 @@ Image-reference search uses Wikimedia Commons as a keyless strict-safe fallback 
 ## Checked-in real-data seed examples
 
 `data/raw/real_world_examples.txt` and `data/raw/capability_seed_examples.txt` are small source-attributed starter samples. Their structured provenance companions are `examples/real_data/seed_examples.jsonl` and `examples/real_data/capability_seed_examples.jsonl`. These are included by `prepare_corpus.py`; they are not a replacement for full source datasets.
+
+## One-command corpus preparation
+
+Run `pip install datasets` followed by `python build_all_data.py` to download the base WikiText/Dolly datasets, the capability-specific instruction datasets, collect the seven-domain public data lab, generate source-grounded examples, prepare `data/input.txt`, and merge a balanced `data/instructions_balanced.jsonl` instruction set. The pipeline stops on a failed stage and preserves earlier outputs. It does not train a checkpoint.
+
+Use `python finetune_instructions.py --checkpoint checkpoints/firstgpt.best.pt --data data/instructions_balanced.jsonl --out checkpoints/firstgpt-capabilities.pt` after reviewing the source manifest and training mix.
