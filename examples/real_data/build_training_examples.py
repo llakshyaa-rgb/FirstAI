@@ -147,6 +147,75 @@ def build(folder: Path):
             )
             examples.append(make_example(question, answer, "nasa_open_natural_events", bundle, row, index))
 
+
+    # Practical applied questions are generated from the exact retrieved records.
+    # They are not fabricated measurements: each row retains source/time/units/caveats.
+    bundle = load_bundle(folder, "inr_reference_exchange_rates")
+    if bundle:
+        for index, row in enumerate(bundle["records"]):
+            rate = row.get("rate")
+            if isinstance(rate, (int, float)) and row.get("base") == "INR" and row.get("quote"):
+                amount = 5000
+                converted = amount * rate
+                examples.append(make_example(
+                    f"A person has ₹{amount:,}. Using the supplied INR/{row.get('quote')} reference rate, approximately how much is that?",
+                    f"The record gives 1 INR = {rate} {row.get('quote')}. So {amount:,} × {rate} = {converted:.2f} {row.get('quote')}. This is an indicative reference-rate calculation, not a bank/card quote; fees and spreads may apply.",
+                    "inr_reference_exchange_rates", bundle, row, index))
+
+    bundle = load_bundle(folder, "world_bank_economy")
+    if bundle:
+        rows = sorted(bundle["records"], key=lambda x: x.get("year") or 0)
+        for field, label, unit in (("population", "population", "people"), ("internet_users_pct", "internet use", "percentage points")):
+            valid = [r for r in rows if isinstance(r.get(field), (int, float))]
+            if len(valid) >= 2:
+                first, last = valid[0], valid[-1]
+                delta = last[field] - first[field]
+                delta_text = f"{delta:,.0f} people" if field == "population" else f"{delta:.2f} percentage points"
+                examples.append(make_example(
+                    f"Compare the earliest and latest available {label} observations for {first.get('country_code')} in this World Bank extract.",
+                    f"The records show {first[field]} {unit} in {first.get('year')} and {last[field]} {unit} in {last.get('year')}. The arithmetic difference is {delta_text}. This describes the observations and does not establish why the value changed; missing years are not zero.",
+                    "world_bank_economy", bundle, {"first": first, "last": last}, 0))
+
+    bundle = load_bundle(folder, "country_reference_profile")
+    if bundle and bundle["records"]:
+        row = bundle["records"][0]
+        population, area = row.get("population"), row.get("area_km2")
+        if isinstance(population, (int, float)) and isinstance(area, (int, float)) and area > 0:
+            examples.append(make_example(
+                f"Calculate the approximate population density of {row.get('name') or 'this country'} from the supplied profile.",
+                f"Population is {population:,} and area is {area:,.2f} km². Density = population ÷ area = {population / area:,.2f} people per km². This national average does not describe local distribution.",
+                "country_reference_profile", bundle, row, 0))
+
+    bundle = load_bundle(folder, "weather_forecast")
+    if bundle:
+        location = (bundle.get("metadata") or {}).get("location") or {}
+        city = location.get("name") or "the requested location"
+        row = next((r for r in bundle["records"] if "15:00" in str(r.get("time_local", ""))), None)
+        if row:
+            examples.append(make_example(
+                f"I'm planning an outdoor activity around 3 pm in {city}. What does this forecast say?",
+                f"For {city} at {row.get('time_local')}, the forecast gives {row.get('temperature_2m_c')} °C, precipitation {row.get('precipitation_mm')} mm and wind {row.get('wind_speed_10m_kmh')} km/h. Use these as planning inputs, recheck the latest forecast and local alerts, and remember forecasts are not guarantees.",
+                "weather_forecast", bundle, row, bundle["records"].index(row)))
+
+    bundle = load_bundle(folder, "air_quality_forecast")
+    if bundle:
+        location = (bundle.get("metadata") or {}).get("location") or {}
+        city = location.get("name") or "the requested location"
+        row = next((r for r in bundle["records"] if r.get("pm2_5") is not None), None)
+        if row:
+            examples.append(make_example(
+                f"Help me interpret this air-quality forecast for {city}.",
+                f"At {row.get('time_local')}, model output is PM2.5 {row.get('pm2_5')} µg/m³, PM10 {row.get('pm10')} µg/m³, European AQI {row.get('european_aqi')} and US AQI {row.get('us_aqi')}. PM values are particulate concentrations; the two AQI scales are not interchangeable. This is a model forecast, not a certified station reading or official health alert.",
+                "air_quality_forecast", bundle, row, bundle["records"].index(row)))
+
+    bundle = load_bundle(folder, "earthquakes_m45_past_day")
+    if bundle and bundle["records"]:
+        row = bundle["records"][0]
+        examples.append(make_example(
+            f"Explain the fields in this USGS earthquake record without overstating the risk.",
+            f"USGS lists magnitude {row.get('magnitude')} near {row.get('place')}, depth {row.get('depth_km')} km, at {row.get('time_utc')} UTC. Coordinates are latitude {row.get('latitude')}, longitude {row.get('longitude')}. These fields describe the event but alone cannot determine damage or personal danger; follow official local emergency guidance.",
+            "earthquakes_m45_past_day", bundle, row, 0))
+
     return examples
 
 
