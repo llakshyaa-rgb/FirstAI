@@ -20,9 +20,31 @@
       <input id="file-input" type="file" multiple accept="*/*">
       <button id="upload-send" type="submit">Attach files</button>
     </form>
-    <p class="media-note">Uploads are limited to 20 MB per batch. Files stay in Orbit’s local upload folder until deleted; use Delete uploaded file to remove an item. Do not expose this prototype server on an untrusted public network.  Common images preview; text, PDF, modern Office, OpenDocument, EPUB and supported archives can be read. Optional backends add scanned-PDF OCR, audio transcription and video analysis. Other formats can be stored without being interpreted. Newly uploaded files are queued for your next chat.</p>
+    <p class="media-note">Uploads are limited to 20 MB per batch. Files stay in Orbit’s local upload folder until deleted; use Delete uploaded file to remove an item. Do not expose this prototype server on an untrusted public network.  Common images preview; text, PDF, modern Office, OpenDocument, EPUB and supported archives can be read. Image understanding, audio transcription, video frame analysis and document extraction run through the configured local backends. Use “Analyse with Orbit” on an upload for direct processing. Newly uploaded files are queued for your next chat. Private media stays on this device by default; remote vision endpoints are blocked unless you explicitly override the privacy guard.</p>
     <div id="upload-results"></div>
 
+  </details>
+  <details class="design-panel" open>
+    <summary>Creative Studio <span>Documents · spreadsheets · presentations · web assets</span></summary>
+    <p>Create a finished, downloadable deliverable from one brief. Files are generated locally in Orbit's output folder.</p>
+    <form id="design-form" class="design-form">
+      <input id="design-title" maxlength="200" placeholder="Deliverable title" required>
+      <textarea id="design-brief" maxlength="6000" placeholder="Describe what to create, who it is for, the content, structure and any real sources to use…" required></textarea>
+      <div class="design-options">
+        <label>Output format<select id="design-format">
+          <option value="pdf">PDF document</option><option value="docx">Editable Word document</option>
+          <option value="pptx">PowerPoint presentation</option><option value="xlsx">Excel workbook</option>
+          <option value="csv">CSV data</option><option value="json">JSON data</option>
+          <option value="html">HTML page</option><option value="svg">SVG graphic</option>
+          <option value="md">Markdown</option><option value="txt">Plain text</option>
+        </select></label>
+        <label>Visual theme<select id="design-theme">
+          <option value="midnight">Midnight</option><option value="paper">Paper</option>
+          <option value="ocean">Ocean</option><option value="editorial">Editorial</option>
+        </select></label>
+      </div>
+      <button id="design-send" type="submit">Create deliverable</button>
+    </form>
   </details>
   <section class="preview-panel" id="preview-panel">
     <div class="preview-toolbar"><div><strong>Live app preview</strong><small id="preview-state">No project running</small></div><div class="preview-actions"><input id="preview-project-path" type="text" maxlength="500" placeholder="Project folder (optional, e.g. apps/site)" aria-label="Project folder relative to workspace"><button id="preview-start" type="button">Preview app</button><button id="preview-inspect" type="button" disabled>Inspect app</button><button id="preview-stop" type="button" disabled>Stop</button><a id="preview-open" href="#" target="_blank" rel="noopener noreferrer" hidden>Open separately</a><a id="preview-cloud-open" href="/remote-preview/" target="_blank" rel="noopener noreferrer" hidden>Open cloud preview</a></div></div>
