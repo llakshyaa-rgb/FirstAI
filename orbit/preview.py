@@ -37,7 +37,7 @@ class PreviewManager:
             return
         candidate = Path(str(relative))
         blocked = {".git", ".venv", "venv", "node_modules", ".orbit_preview"}
-        if candidate.is_absolute() or any(part in blocked or part.startswith(".env") for part in candidate.parts):
+        if candidate.is_absolute() or ".." in candidate.parts or any(part in blocked or part.startswith(".env") for part in candidate.parts):
             raise PermissionError("Preview project path is not allowed.")
         target = (self.root / candidate).resolve()
         if target != self.root and self.root not in target.parents:
