@@ -375,16 +375,25 @@ const previewState=document.querySelector("#preview-state");
 const previewFrame=document.querySelector("#app-preview");
 const previewOpen=document.querySelector("#preview-open");
 const previewProjectPath=document.querySelector("#preview-project-path");
+const previewCloudOpen=document.querySelector("#preview-cloud-open");
+const previewLogOutput=document.querySelector("#preview-log-output");
 function showPreview(data){
   const running=!!data.running;
   previewState.textContent=running?"Running on this device · "+data.port:"No project running";
   previewStart.disabled=running;previewStop.disabled=!running;
   previewOpen.hidden=!running;
+  if(previewCloudOpen){previewCloudOpen.hidden=!data.remote_preview_url;previewCloudOpen.href=data.remote_preview_url||"#";}
   if(running){previewFrame.hidden=false;if(previewFrame.src!==data.url+"/")previewFrame.src=data.url+"/";previewOpen.href=data.url;}
   else{previewFrame.hidden=true;previewFrame.src="about:blank";previewOpen.removeAttribute("href");}
+  if(data.remote_preview_error)previewState.textContent=data.remote_preview_error;
 }
 async function refreshPreview(){
-  try{const r=await fetch("/api/preview/status");if(r.ok)showPreview(await r.json());}catch{}
+  try{
+    const r=await fetch("/api/preview/status");
+    if(r.ok)showPreview(await r.json());
+    const logs=await fetch("/api/preview/logs");
+    if(logs.ok){const d=await logs.json();if(previewLogOutput)previewLogOutput.textContent=d.text||"No logs yet.";}
+  }catch{}
 }
 previewStart?.addEventListener("click",async()=>{
   previewStart.disabled=true;previewState.textContent="Starting development server…";
