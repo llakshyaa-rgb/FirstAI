@@ -27,6 +27,9 @@ def merge(paths, output, per_source_cap=3000):
                 raise ValueError(f"{path}:{line_no}: invalid JSON: {exc}") from exc
             prompt = row.get("prompt")
             response = row.get("response")
+            if not prompt and isinstance(row.get("input"), str):
+                prompt = str(row.get("instruction") or "Answer using the supplied sourced data.") + "\n\n" + row["input"]
+                response = row.get("output")
             if not isinstance(prompt, str) or not prompt.strip() or not isinstance(response, str) or not response.strip():
                 rejected += 1
                 continue
@@ -36,7 +39,7 @@ def merge(paths, output, per_source_cap=3000):
                 continue
             seen.add(digest)
             metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
-            source_id = str(metadata.get("dataset_id") or fallback_id)
+            source_id = str(metadata.get("dataset_id") or metadata.get("dataset") or metadata.get("capability") or fallback_id)
             normalized = {"prompt": prompt.strip(), "response": response.strip(),
                           "metadata": {**metadata, "dataset_id": source_id,
                                        "source_file": str(path)}}
@@ -74,6 +77,9 @@ def main():
         "data/orbit_instructions_full.jsonl",
         "data/orbit_instructions.example.jsonl",
         "data/instructions_capabilities.jsonl",
+        "examples/real_data/capability_seed_examples.jsonl",
+        "examples/real_data/seed_examples.jsonl",
+        "examples/real_data/generated/data_lab_qa_examples.jsonl",
     ])
     parser.add_argument("--output", default="data/instructions_balanced.jsonl")
     parser.add_argument("--per-source-cap", type=int, default=3000)
