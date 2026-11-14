@@ -91,8 +91,54 @@ for(const [key,rows] of Object.entries(data)){if(!rows.length)continue;const box
         sheet.freeze_panes="A2"; sheet.auto_filter.ref=sheet.dimensions
         book.save(output / "world_bank_data.xlsx")
     except ImportError: pass
+    # Turn retrieved observations into grounded instruction examples for FirstGPT.
+    # Keep them separate from raw data so they can be reviewed before training.
+    qa_examples = []
+    training_lines = [
+        "REAL-WORLD DATA EXAMPLES — World Bank Open Data",
+        "Source: https://data.worldbank.org/ | API: https://api.worldbank.org/v2/",
+        "Retrieved at (UTC): " + retrieved,
+        "Country code: " + country,
+        "All values below are published observations, not forecasts.",
+        "Missing observations are unknown, never zero.",
+        "",
+    ]
+    for key, (code, label, unit) in INDICATORS.items():
+        available = [row for row in records if row.get(key) is not None]
+        if not available:
+            continue
+        row = max(available, key=lambda item: item["year"])
+        value = row[key]
+        if key == "population":
+            shown = f"{int(value):,} people"
+        elif key == "gdp_current_usd":
+            shown = f"USD {value:,.2f} (current dollars)"
+        elif key == "internet_users_pct":
+            shown = f"{value:.2f}% of the population"
+        else:
+            shown = f"{value:.2f} years"
+        question = f"What was {label.lower()} for country {country} in {row['year']} according to the World Bank?"
+        answer = f"The World Bank observation for {country} in {row['year']} was {shown}. This is the latest non-null year in this retrieved dataset for this indicator. Source: https://api.worldbank.org/v2/country/{country}/indicator/{code}?format=json."
+        qa_examples.append({
+            "instruction": "Answer using only the sourced observation. Preserve the year and unit, and do not infer causation.",
+            "input": question,
+            "output": answer,
+            "metadata": {
+                "country_code": country, "year": row["year"], "indicator": key,
+                "indicator_code": code, "value": value, "unit": unit,
+                "source": "World Bank Open Data API",
+                "source_url": f"https://api.worldbank.org/v2/country/{country}/indicator/{code}?format=json",
+                "retrieved_at_utc": retrieved,
+                "data_kind": "historical_observation",
+            },
+        })
+        training_lines.extend(["Question: " + question, "Answer: " + answer, ""])
+    qa_path = output / "world_bank_qa_examples.jsonl"
+    qa_path.write_text("".join(json.dumps(item, ensure_ascii=False) + "\n" for item in qa_examples), encoding="utf-8")
+    training_path = output / "world_bank_training_examples.txt"
+    training_path.write_text("\n".join(training_lines) + "\n", encoding="utf-8")
     return {"output":str(output.resolve()),"records":len(records),"retrieved_at_utc":retrieved,
-            "files":sorted(p.name for p in output.iterdir())}
+            "qa_examples":len(qa_examples),"files":sorted(p.name for p in output.iterdir())}
 
 if __name__ == "__main__":
     parser=argparse.ArgumentParser(description=__doc__)
