@@ -15,11 +15,11 @@ echo "[1/4] Installing Termux prerequisites..."
 pkg update -y
 pkg install -y proot-distro git
 
-if ! proot-distro list | grep -q '^  debian'; then
+if proot-distro login debian -- true >/dev/null 2>&1; then
+  echo "[2/4] Debian rootfs already exists."
+else
   echo "[2/4] Installing Debian rootfs (this may take a while)..."
   proot-distro install debian
-else
-  echo "[2/4] Debian rootfs already exists."
 fi
 
 echo "[3/4] Installing Orbit runtime inside Debian..."
