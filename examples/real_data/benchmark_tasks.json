@@ -1,9 +1,9 @@
 {
-  "title": "Orbit real-data engineering benchmark",
-  "version": 1,
+  "title": "Orbit real-world data and autonomous engineering benchmark",
+  "version": 2,
   "source": "World Bank Open Data API",
   "source_url": "https://api.worldbank.org/v2/",
-  "note": "Run build_examples.py first. These are acceptance criteria, not claims of completed tests.",
+  "note": "Run the data builder before these tasks. Acceptance criteria describe what to verify; they are not claims that any task has passed.",
   "tasks": [
     {
       "id": "data-001",
@@ -71,6 +71,77 @@
         "Use safe DOM text rendering.",
         "Document external requests."
       ]
+    },
+    {
+      "id": "weather-001",
+      "category": "weather",
+      "prompt": "Build a forecast explorer for the selected city.",
+      "acceptance": [
+        "Label data as forecast, not observed weather.",
+        "Display local time and units.",
+        "Preserve null measurements."
+      ]
+    },
+    {
+      "id": "quake-001",
+      "category": "geospatial",
+      "prompt": "Build an earthquake event map and searchable table.",
+      "acceptance": [
+        "Use actual coordinates.",
+        "Show magnitude, depth, event time and source link.",
+        "Disclose feed time window."
+      ]
+    },
+    {
+      "id": "fx-001",
+      "category": "finance-data",
+      "prompt": "Build an INR reference-rate explorer.",
+      "acceptance": [
+        "Display rate date and base/quote currency.",
+        "Label reference rates, not trading quotes.",
+        "Retain provider attribution and caveats."
+      ]
+    },
+    {
+      "id": "hazard-001",
+      "category": "natural-events",
+      "prompt": "Build a NASA EONET natural-events dashboard.",
+      "acceptance": [
+        "Show event title, category, geometry date and source.",
+        "Treat metadata as curated and revisable.",
+        "Do not present as a complete hazard inventory."
+      ]
+    },
+    {
+      "id": "multi-001",
+      "category": "data-integration",
+      "prompt": "Combine all successful datasets into one explorer.",
+      "acceptance": [
+        "Keep units and time semantics separate.",
+        "Show source-specific retrieval times.",
+        "A failed source must not erase successful datasets."
+      ]
+    },
+    {
+      "id": "resilience-001",
+      "category": "reliability",
+      "prompt": "Improve a source adapter that fails intermittently.",
+      "acceptance": [
+        "Use bounded timeouts and response-size limits.",
+        "Record per-source errors.",
+        "Preserve successful sibling datasets."
+      ]
+    },
+    {
+      "id": "api-001",
+      "category": "api-integration",
+      "prompt": "Add a new public data source using the existing adapter contract.",
+      "acceptance": [
+        "Use a fixed HTTPS endpoint.",
+        "Record provenance, units, timestamp and caveats.",
+        "Add JSON/CSV output and validator coverage."
+      ]
     }
-  ]
+  ],
+  "source_pack": "examples/real_data/build_data_lab.py"
 }
