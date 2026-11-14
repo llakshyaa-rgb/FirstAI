@@ -89,3 +89,8 @@ footer{text-align:center;padding:14px 0 0}
 #preview-open{font-size:11px;color:#c4d3e0}
 #app-preview{display:block;width:100%;height:min(72vh,720px);min-height:360px;border:0;border-top:1px solid #354554;background:white}
 @media(max-width:520px){.preview-toolbar{align-items:flex-start;flex-direction:column}.preview-actions{width:100%}#app-preview{height:65vh;min-height:300px}}
+
+.preview-logs{margin:0 12px 12px;border-top:1px solid #263646;padding-top:10px;color:#aebdca;font-size:12px}
+.preview-logs summary{cursor:pointer}
+.preview-logs pre{max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1118;border:1px solid #253342;border-radius:8px;padding:10px;color:#b8c8d6;font-size:11px}
+.preview-actions a{color:#86cfff;text-decoration:none;border:1px solid #354554;border-radius:7px;padding:8px 10px;font-size:11px}
