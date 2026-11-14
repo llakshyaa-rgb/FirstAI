@@ -49,6 +49,7 @@ Defaults: India (IND), New Delhi, and the period 2000 through the current year. 
 | USGS | Earthquakes | Magnitude 4.5+ events from the past day |
 | Frankfurter | Currency reference data | INR against eight major currencies |
 | NASA EONET | Natural events | Open event metadata from the last 30 days |
+| REST Countries | Country reference | Population, area, capital, languages, currencies and time zones |
 
 Each successful source gets JSON and CSV exports with source attribution, retrieval time, units or metadata, and caveats. A failed provider is recorded separately; successful datasets are retained. The generated `dashboard.html` provides a browsable overview.
 
