@@ -46,6 +46,10 @@ class AutonomousCoder:
         target = (self.workspace.root / path).resolve()
         if target != self.workspace.root and self.workspace.root not in target.parents:
             raise PermissionError("Path escapes the selected workspace.")
+        sensitive_names = {"credentials", "secrets", "secret", "tokens", "token",
+                           "id_rsa", "id_ed25519", "private_key", "service_account"}
+        if any(part.casefold() in sensitive_names for part in path.parts):
+            raise PermissionError("Credential-related paths are excluded from autonomous coding.")
         if target.suffix.lower() not in {".py", ".js", ".ts", ".tsx", ".jsx", ".mjs", ".cjs",
             ".html", ".css", ".json", ".md", ".toml", ".yaml", ".yml", ".txt", ".sql"}:
             raise PermissionError("File type is not in the coding allow-list.")
@@ -61,7 +65,7 @@ class AutonomousCoder:
                 try:
                     content = target.read_text(encoding="utf-8")
                     secret_pattern = re.compile(
-                        r"(?i)(?:api[_-]?key|access[_-]?token|secret|password|private[_-]?key)\\s*[:=]\\s*[\"'][^\"']{8,}[\"']"
+                        r"(?i)(?:api[_-]?key|access[_-]?token|secret|password|private[_-]?key)\s*[:=]\s*[\"'][^\"']{8,}[\"']"
                     )
                     if secret_pattern.search(content):
                         self.progress("Skipping " + relative + " because it appears to contain credentials.")
@@ -149,14 +153,16 @@ class AutonomousCoder:
                     result = subprocess.run([node, "--check", relative], cwd=self.workspace.root,
                                             capture_output=True, text=True, timeout=60, check=False)
                     javascript.append({"path": relative, "passed": result.returncode == 0,
-                                       "output": (result.stdout + "\\n" + result.stderr)[-3000:]})
+                                       "output": (result.stdout + "\n" + result.stderr)[-3000:]})
         tests = None
-        if compile_result.get("passed") and all(item["passed"] for item in javascript) and (self.workspace.root / "tests").is_dir():
+        tests_enabled = os.environ.get("ORBIT_AUTORUN_TESTS", "").strip().lower() in {"1", "true", "yes"}
+        if tests_enabled and compile_result.get("passed") and all(item["passed"] for item in javascript) and (self.workspace.root / "tests").is_dir():
             tests = self.workspace.run_project_tests(timeout=180)
         ok = bool(compile_result.get("passed")) and all(item["passed"] for item in javascript) and (
             tests is None or bool(tests.get("passed"))
         )
-        return {"ok": ok, "compile": compile_result, "javascript": javascript, "tests": tests}
+        return {"ok": ok, "compile": compile_result, "javascript": javascript, "tests": tests,
+                "tests_enabled": tests_enabled}
 
     @staticmethod
     def _failures(checks):
