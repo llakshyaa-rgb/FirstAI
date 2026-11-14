@@ -11,6 +11,7 @@ from .tools import ToolRegistry
 from .web_search import search_web
 from .browser import BrowserTools
 from .live_data import fetch_live_data
+from .knowledge import search_knowledge
 
 
 class LocalAgent:
@@ -23,6 +24,7 @@ class LocalAgent:
         self.registry.register("calculate", "Evaluate restricted arithmetic", safe_calculate, requires_confirmation=False)
         self.registry.register("web_search", "Search the public web and return source links", search_web, requires_confirmation=False)
         self.registry.register("live_data", "Fetch current records from supported public data APIs with provenance", fetch_live_data, requires_confirmation=False)
+        self.registry.register("knowledge_search", "Search encyclopedic, scholarly and programming sources with provenance", search_knowledge, requires_confirmation=False)
         self.registry.register("list_files", "List visible workspace files", self.workspace.list_files, requires_confirmation=False)
         self.registry.register("read_file", "Read a UTF-8 workspace file", self.workspace.read_file, requires_confirmation=False)
         self.registry.register("search_files", "Search visible workspace text", self.workspace.search_files, requires_confirmation=False)
