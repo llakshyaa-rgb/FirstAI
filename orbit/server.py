@@ -30,7 +30,7 @@ from .planner import execute_tool_plan
 from .agents import AgentTeam
 from .coding import AutonomousCoder
 from .preview import PreviewManager
-from .remote_preview import proxy as proxy_remote_preview, configured_base
+from .remote_preview import start_proxy_server
 from .intent import classify_request
 from .browser import BrowserTools
 from .design_studio import create_artifact, SUPPORTED, THEMES
@@ -454,22 +454,12 @@ def make_handler(app):
             if parsed.path == "/api/preview/status":
                 status = self.preview.status()
                 try:
-                    if configured_base():
-                        host = urlparse("//" + self.headers.get("Host", "")).hostname
-                        alternate = {"127.0.0.1": "localhost", "localhost": "127.0.0.1"}.get(host)
-                        port = self.server.server_address[1]
-                        status["remote_preview_url"] = ("http://" + alternate + ":" + str(port) + "/remote-preview/") if alternate else None
-                        if not alternate:
-                            status["remote_preview_error"] = "Open Orbit through localhost or 127.0.0.1 to use the isolated cloud-preview frame."
-                    else:
-                        status["remote_preview_url"] = None
+                    status["remote_preview_url"] = start_proxy_server()
                 except ValueError:
                     status["remote_preview_error"] = "ORBIT_REMOTE_PREVIEW_URL is invalid; use a public HTTPS tunnel URL."
                 return self._json(200, status)
             if parsed.path == "/api/preview/logs":
                 return self._json(200, self.preview.logs())
-            if parsed.path.startswith("/remote-preview/"):
-                return proxy_remote_preview(self, "GET")
             if parsed.path == "/api/health":
                 image_backend = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
                 workflow_configured = bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file()
@@ -589,8 +579,6 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route.startswith("/remote-preview/"):
-                return proxy_remote_preview(self, "POST")
             if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry", "/api/preview/start", "/api/preview/stop"):
                 return self._json(404, {"error": "Not found"})
             try:
