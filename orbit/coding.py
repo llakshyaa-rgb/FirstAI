@@ -53,8 +53,13 @@ class AutonomousCoder:
         if not isinstance(relative, str) or not relative.strip():
             raise ValueError("Missing relative file path.")
         path = Path(relative)
-        if path.is_absolute() or any(p in BLOCKED or p.startswith(".env") for p in path.parts):
+        if path.is_absolute() or ".." in path.parts or any(p in BLOCKED or p.startswith(".env") for p in path.parts):
             raise PermissionError("Protected path selected.")
+        current = self.workspace.root
+        for part in path.parts:
+            current = current / part
+            if current.is_symlink():
+                raise PermissionError("Symbolic links are excluded from autonomous coding.")
         target = (self.workspace.root / path).resolve()
         if target != self.workspace.root and self.workspace.root not in target.parents:
             raise PermissionError("Path escapes the selected workspace.")
