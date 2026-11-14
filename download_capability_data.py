@@ -13,22 +13,22 @@ from pathlib import Path
 
 SOURCES = {
     "gsm8k": {
-        "dataset": "openai/gsm8k", "config": "main", "split": "train",
+        "dataset": "openai/gsm8k", "config": "main", "split": "train", "revision": "main",
         "license": "MIT", "url": "https://huggingface.co/datasets/openai/gsm8k",
         "purpose": "mathematical word-problem reasoning",
     },
     "arc": {
-        "dataset": "allenai/ai2_arc", "config": "ARC-Challenge", "split": "train",
+        "dataset": "allenai/ai2_arc", "config": "ARC-Challenge", "split": "train", "revision": "main",
         "license": "CC-BY-SA-4.0", "url": "https://huggingface.co/datasets/allenai/ai2_arc",
         "purpose": "school science question answering",
     },
     "squad": {
-        "dataset": "rajpurkar/squad", "config": "plain_text", "split": "train",
+        "dataset": "rajpurkar/squad", "config": "plain_text", "split": "train", "revision": "main",
         "license": "CC-BY-SA-4.0", "url": "https://huggingface.co/datasets/rajpurkar/squad",
         "purpose": "reading comprehension grounded in supplied passages",
     },
     "mbpp": {
-        "dataset": "google-research-datasets/mbpp", "config": "sanitized", "split": "train",
+        "dataset": "google-research-datasets/mbpp", "config": "sanitized", "split": "train", "revision": "main",
         "license": "CC-BY-4.0", "url": "https://huggingface.co/datasets/google-research-datasets/mbpp",
         "purpose": "Python programming tasks with reference solutions and tests",
     },
@@ -39,7 +39,7 @@ def _load(source):
         from datasets import load_dataset
     except ImportError as exc:
         raise RuntimeError("Install the optional downloader dependency: pip install datasets") from exc
-    return load_dataset(source["dataset"], source["config"], split=source["split"])
+    return load_dataset(source["dataset"], source["config"], split=source["split"], revision=source.get("revision", "main"))
 
 
 def _convert(name, row, index, source):
@@ -93,6 +93,8 @@ def _convert(name, row, index, source):
             "source_url": source["url"],
             "purpose": source["purpose"],
             "source_record_index": index,
+            "source_record_id": row.get("id") or row.get("task_id"),
+            "dataset_revision": source.get("revision", "main"),
         },
     }
 
@@ -116,7 +118,7 @@ def download_one(name, limit, output_dir):
         target.unlink(missing_ok=True)
         raise RuntimeError(f"{name} produced only {written} usable examples; refusing an empty/weak output.")
     return {"dataset_id": name, "dataset": source["dataset"], "license": source["license"],
-            "split": source["split"], "examples": written, "path": str(target)}
+            "split": source["split"], "revision": source.get("revision", "main"), "examples": written, "path": str(target)}
 
 
 def main():
