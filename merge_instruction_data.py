@@ -12,6 +12,7 @@ def merge(paths, output, per_source_cap=3000):
     groups = defaultdict(list)
     seen = set()
     rejected = 0
+    duplicates = 0
     for source_path in paths:
         path = Path(source_path)
         if not path.is_file():
@@ -31,6 +32,7 @@ def merge(paths, output, per_source_cap=3000):
                 continue
             digest = (prompt.strip(), response.strip())
             if digest in seen:
+                duplicates += 1
                 continue
             seen.add(digest)
             metadata = row.get("metadata") if isinstance(row.get("metadata"), dict) else {}
@@ -56,7 +58,7 @@ def merge(paths, output, per_source_cap=3000):
         "output": str(target),
         "examples": len(selected),
         "rejected_invalid_rows": rejected,
-        "duplicate_prompt_response_pairs_removed": len(seen) - sum(len(rows) for rows in groups.values()),
+        "duplicate_prompt_response_pairs_removed": duplicates,
         "per_source_cap": per_source_cap,
         "sources": counts,
         "note": "Balancing is by dataset ID. Inspect each source license and retain attribution when redistributing.",
