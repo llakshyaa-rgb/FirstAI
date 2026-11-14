@@ -1,0 +1,76 @@
+{
+  "title": "Orbit real-data engineering benchmark",
+  "version": 1,
+  "source": "World Bank Open Data API",
+  "source_url": "https://api.worldbank.org/v2/",
+  "note": "Run build_examples.py first. These are acceptance criteria, not claims of completed tests.",
+  "tasks": [
+    {
+      "id": "data-001",
+      "category": "data-integrity",
+      "prompt": "Reconcile the CSV and JSON records against manifest.json. Identify missing observations and indicator units.",
+      "acceptance": [
+        "Report exact retrieval timestamp and row count.",
+        "Distinguish null/blank from numeric zero.",
+        "Do not fabricate or silently impute values.",
+        "Use indicator codes and units from the manifest."
+      ]
+    },
+    {
+      "id": "web-001",
+      "category": "frontend",
+      "prompt": "Build a responsive data explorer using the generated World Bank dataset, with year filters, latest values, charts and an accessible table.",
+      "acceptance": [
+        "All displayed values come from the dataset.",
+        "Charts identify indicator and unit.",
+        "Missing values remain distinct from zero.",
+        "Filters update charts and table consistently.",
+        "Mobile layout and keyboard navigation work."
+      ]
+    },
+    {
+      "id": "research-001",
+      "category": "research",
+      "prompt": "Write a concise source-linked report explaining trends, coverage, units and limitations.",
+      "acceptance": [
+        "Numerical claims trace to source rows.",
+        "Include source, retrieval time and codes.",
+        "Do not infer causation.",
+        "Disclose current-USD GDP and missing observations."
+      ]
+    },
+    {
+      "id": "spreadsheet-001",
+      "category": "spreadsheet",
+      "prompt": "Create an analysis workbook with raw data, summary, filters, frozen headers and readable number formats.",
+      "acceptance": [
+        "Preserve raw source values.",
+        "Keep missing values blank.",
+        "Include units, source and retrieval time.",
+        "Summary matches raw data."
+      ]
+    },
+    {
+      "id": "debug-001",
+      "category": "debugging",
+      "prompt": "Fix a dashboard bug where missing values appear as zero and changing the year filter does not update the chart.",
+      "acceptance": [
+        "Missing values remain missing.",
+        "All dependent views update with the filter.",
+        "Add regression checks.",
+        "Avoid unrelated edits."
+      ]
+    },
+    {
+      "id": "security-001",
+      "category": "security",
+      "prompt": "Review the data app for unsafe rendering and accidental exposure of credentials or local files.",
+      "acceptance": [
+        "Treat dataset labels as data, not HTML.",
+        "Do not expose secrets or environment variables.",
+        "Use safe DOM text rendering.",
+        "Document external requests."
+      ]
+    }
+  ]
+}
