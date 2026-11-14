@@ -131,21 +131,28 @@ class OrbitRuntime:
         return self.tokenizer.decode(generated).strip()
 
     def _build_prompt_ids(self, message, history=None, owner_preferences=None):
-        """Budget context deliberately: current owner request always has priority."""
+        """Fit context without sacrificing the current owner request's beginning or ending."""
         limit = self.model.config.block_size
-        system = self.tokenizer.encode(build_compact_system_prompt() + "\n")
-        system = system[:min(96, max(24, limit // 5))]
-        prefs = []
-        if owner_preferences:
-            prefs = self.tokenizer.encode("Relevant owner preferences and saved context: " + str(owner_preferences)[:1800] + "\n")
-            prefs = prefs[:min(180, max(0, limit // 5))]
-        fixed = system + prefs
         message_ids = self.tokenizer.encode(f"Owner: {message.strip()}\nOrbit:")
+
+        # The live request is the highest-priority context. Keep system guidance
+        # compact, then add preferences/history only from the remaining budget.
+        system_budget = min(24, max(8, limit // 8))
+        system = self.tokenizer.encode(build_compact_system_prompt() + "\n")[:system_budget]
+        remaining = max(0, limit - len(system) - len(message_ids))
+
+        prefs = []
+        if owner_preferences and remaining >= 8:
+            prefs_budget = min(24, max(8, limit // 8), remaining)
+            prefs = self.tokenizer.encode(
+                "Owner preferences: " + str(owner_preferences)[:900] + "\n"
+            )[:prefs_budget]
+            remaining -= len(prefs)
+
         history_ids = []
-        available_for_history = max(0, limit - len(fixed) - len(message_ids))
-        if available_for_history:
-            history_budget = min(max(24, limit // 4), available_for_history)
-            for item in reversed((history or [])[-8:]):
+        if history and remaining >= 12:
+            history_budget = min(32, max(8, limit // 6), remaining)
+            for item in reversed((history or [])[-self.max_history_messages:]):
                 role = "Owner" if item.get("role") == "user" else "Orbit"
                 part = self.tokenizer.encode(f"{role}: {str(item.get('content', ''))}\n")
                 take = min(len(part), history_budget - len(history_ids))
@@ -154,15 +161,18 @@ class OrbitRuntime:
                 history_ids = part[-take:] + history_ids
                 if len(history_ids) >= history_budget:
                     break
-        budget = max(8, limit - len(fixed) - len(history_ids))
+
+        budget = max(1, limit - len(system) - len(prefs) - len(history_ids))
         if len(message_ids) > budget:
+            # Retain the request's opening context and its final instructions.
             marker = self.tokenizer.encode(" ... ")
-            marker = marker[:min(len(marker), max(1, budget // 10))]
+            marker = marker[:min(len(marker), max(1, budget // 16))]
             available = max(2, budget - len(marker))
-            left = max(1, available // 3)
-            right = available - left
-            message_ids = message_ids[:left] + marker + (message_ids[-right:] if right else [])
-        ids = fixed + history_ids + message_ids
+            left = max(1, available // 4)
+            right = max(1, available - left)
+            message_ids = message_ids[:left] + marker + message_ids[-right:]
+
+        ids = system + prefs + history_ids + message_ids
         if len(ids) > limit:
             ids = ids[-limit:]
         return ids
