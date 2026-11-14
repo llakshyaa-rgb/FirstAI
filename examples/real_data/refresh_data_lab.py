@@ -97,7 +97,7 @@ def main():
 
     history = args.history.expanduser().resolve()
     history.mkdir(parents=True, exist_ok=True)
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S%fZ")
     current = history / stamp
     current.mkdir(parents=True, exist_ok=False)
     previous = None
