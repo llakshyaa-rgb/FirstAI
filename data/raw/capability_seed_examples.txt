@@ -1,0 +1,33 @@
+REAL-WORLD CAPABILITY TRAINING EXAMPLES
+This file contains small, source-attributed seed examples for FirstGPT. It is a starter sample, not a comprehensive training dataset. Each JSONL record in examples/real_data/capability_seed_examples.jsonl contains the detailed source, license, split and record metadata.
+
+MATHEMATICS — GSM8K (MIT; train example)
+Question: Natalia sold clips to 48 of her friends in April, and then she sold half as many clips in May. How many clips did Natalia sell altogether in April and May?
+Answer: Natalia sold 48 / 2 = 24 clips in May. Altogether she sold 48 + 24 = 72 clips. Final answer: 72.
+Source: https://huggingface.co/datasets/openai/gsm8k
+
+SCIENCE — AI2 ARC Challenge (CC BY-SA 4.0; train record Mercury_SC_415702)
+Question: George wants to warm his hands quickly by rubbing them. Which skin surface will produce the most heat? A. dry palms; B. wet palms; C. palms covered with oil; D. palms covered with lotion.
+Answer: A. dry palms.
+Source: https://huggingface.co/datasets/allenai/ai2_arc/viewer/ARC-Challenge/train
+
+READING COMPREHENSION — SQuAD (CC BY-SA 4.0; train record 56be85543aeaaa14008c9063)
+Passage: Beyoncé Giselle Knowles-Carter was born in 1981. Born and raised in Houston, Texas, she performed in various singing and dancing competitions as a child, and rose to fame in the late 1990s as lead singer of an R&B girl group.
+Question: When did Beyonce start becoming popular?
+Answer: The passage says she rose to fame in the late 1990s.
+Source: https://huggingface.co/datasets/rajpurkar/squad/viewer/plain_text/train?p=2
+
+CODING — MBPP (CC BY 4.0; train row recorded by source mirror as task 604)
+Task: Write a function to reverse words in a given string.
+Tests: reverse_words("python program") == "program python"; reverse_words("java language") == "language java"; reverse_words("indian man") == "man indian".
+Reference solution:
+def reverse_words(s):
+    return ' '.join(reversed(s.split()))
+Source: https://huggingface.co/datasets/Emulated-Inc/python-functions-training-pool/viewer/default/train
+Original dataset: https://huggingface.co/datasets/google-research-datasets/mbpp
+
+DATA QUALITY
+- These examples are intentionally small and are not a substitute for the full downloaded datasets.
+- Preserve source attribution and license terms.
+- Keep training and evaluation splits separate.
+- Do not execute code examples from external datasets outside a restricted test runner.
