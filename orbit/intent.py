@@ -69,7 +69,7 @@ def classify_request(message: str) -> dict:
         "world bank")
     if _has(lower, live_data_terms):
         route["capabilities"].append("live_data")
-    knowledge_terms = ("who is ", "what is ", "tell me about ", "explain ",
+    knowledge_terms = ("who is ", "what is ", "tell me about ", "explain ", "research ",
         "history of ", "research paper", "scientific paper", "academic paper",
         "arxiv", "literature review", "studies on ", "papers about ",
         "stackoverflow", "programming question", "code example", "python error",
