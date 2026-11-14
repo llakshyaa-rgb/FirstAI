@@ -134,7 +134,10 @@ class AgentTeam:
         for specialist in SPECIALISTS:
             choose = (
                 (specialist.name == "live_data" and "live_data" in requested)
-                or                 (specialist.name == "researcher" and ("research" in requested or any(x in lower for x in ("research", "search the web", "search web", "look up", "latest", "current", "fact check"))))
+                or (specialist.name == "researcher" and "research" in requested and (
+                    "live_data" not in requested or any(x in lower for x in
+                    ("research", "search the web", "search web", "fact check", "find sources"))
+                ))
                 or (specialist.name == "image_researcher" and "image_search" in requested)
                 or (specialist.name == "code_scout" and ("coding" in requested or "code_scout" in requested))
                 or (specialist.name == "debugger" and "coding" in requested and any(x in lower for x in ("bug", "error", "debug", "crash", "fails", "failure", "exception")))
