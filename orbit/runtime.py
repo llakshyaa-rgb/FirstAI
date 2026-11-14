@@ -167,6 +167,65 @@ class OrbitRuntime:
             ids = ids[-limit:]
         return ids
 
+    def _split_long_message(self, message, max_tokens):
+        """Split a long owner request into ordered, overlapping token chunks without dropping its middle."""
+        ids = self.tokenizer.encode(message)
+        if len(ids) <= max_tokens:
+            return [message]
+        chunks, start = [], 0
+        overlap = min(48, max(8, max_tokens // 12))
+        while start < len(ids):
+            end = min(len(ids), start + max_tokens)
+            # Prefer a paragraph/sentence boundary near the end while keeping progress guaranteed.
+            if end < len(ids):
+                floor = start + max(1, max_tokens // 2)
+                for candidate in range(end, floor, -1):
+                    token_text = self.tokenizer.decode(ids[candidate - 1:candidate])
+                    if any(mark in token_text for mark in ("\n", ".", "?", "!", ";")):
+                        end = candidate
+                        break
+            chunks.append(self.tokenizer.decode(ids[start:end]))
+            if end >= len(ids):
+                break
+            start = max(start + 1, end - overlap)
+        return chunks
+
+    def _reply_long_message(self, message, on_progress=None):
+        """Read every chunk in order, carry forward a compact working brief, then answer the full request."""
+        limit = self.model.config.block_size
+        fixed = min(96, max(32, limit // 5))
+        chunk_budget = max(64, limit - fixed - 96)
+        chunks = self._split_long_message(message, chunk_budget)
+        notes = ""
+        for index, chunk in enumerate(chunks, 1):
+            if on_progress:
+                on_progress({"kind": "status", "message": f"Reading all parts of your long request ({index}/{len(chunks)}).", "chunk": index, "chunks": len(chunks)})
+            prompt = (
+                "You are processing one consecutive part of a single owner request. "
+                "Extract its requirements, constraints, decisions, examples, dependencies and questions. "
+                "Preserve exact names, numbers and must/never rules. Do not answer the owner yet. "
+                "Merge with the previous working notes without discarding earlier requirements. "
+                "Keep the notes compact but complete.\nPREVIOUS NOTES:\n" + notes[-max(300, limit * 3):] +
+                "\nCURRENT PART (" + str(index) + "/" + str(len(chunks)) + "):\n" + chunk +
+                "\nUPDATED WORKING NOTES:"
+            )
+            ids = self.tokenizer.encode(prompt)[-limit:]
+            notes = self._generate_once(ids, "greedy", on_progress, max_new_tokens=min(256, max(96, self.max_new_tokens)))
+            if not notes:
+                raise RuntimeError(f"Could not preserve the requirements in long-request part {index}.")
+        final_prompt = (
+            "Answer the owner's complete request using the accumulated notes. "
+            "Respect every requirement and constraint. If requirements conflict, identify the conflict instead of silently dropping one. "
+            "Do not claim actions were performed unless they were.\nCOMPLETE REQUEST NOTES:\n" + notes +
+            "\nOWNER'S ORIGINAL REQUEST (for exact wording and priority):\n" + message[-max(128, limit // 3):] +
+            "\nRESPONSE:"
+        )
+        final_ids = self.tokenizer.encode(final_prompt)[-limit:]
+        answer = self._generate_once(final_ids, "greedy", on_progress)
+        if not answer:
+            raise RuntimeError("The final response for the long request was empty.")
+        return answer
+
     def plan_tool_call(self, message, tool_descriptions):
         """Ask FirstGPT for a constrained, one-line JSON plan; callers must validate it."""
         if not self.ready:
@@ -194,6 +253,15 @@ class OrbitRuntime:
             raise ModelNotReady(self.load_error or "No trained checkpoint is loaded.")
         if not isinstance(message, str) or not message.strip():
             raise ValueError("Message must not be empty.")
+        # Preserve the entire owner request. Oversized messages are processed in ordered
+        # overlapping chunks instead of silently keeping only their beginning and end.
+        request_tokens = self.tokenizer.encode(message)
+        fixed_tokens = min(96, max(32, self.model.config.block_size // 5))
+        history_tokens = min(18, max(0, self.model.config.block_size // 12)) if history else 0
+        request_budget = max(64, self.model.config.block_size - fixed_tokens - history_tokens)
+        if len(request_tokens) > request_budget:
+            with self._lock:
+                return self._reply_long_message(message, on_progress)
         prompt_ids = self._build_prompt_ids(message, history, owner_preferences)
 
         with self._lock:
