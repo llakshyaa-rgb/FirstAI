@@ -25,7 +25,7 @@
 
   </details>
   <section class="preview-panel" id="preview-panel">
-    <div class="preview-toolbar"><div><strong>Live app preview</strong><small id="preview-state">No project running</small></div><div class="preview-actions"><button id="preview-start" type="button">Preview app</button><button id="preview-stop" type="button" disabled>Stop</button><a id="preview-open" href="#" target="_blank" rel="noopener noreferrer" hidden>Open separately</a></div></div>
+    <div class="preview-toolbar"><div><strong>Live app preview</strong><small id="preview-state">No project running</small></div><div class="preview-actions"><input id="preview-project-path" type="text" maxlength="500" placeholder="Project folder (optional, e.g. apps/site)" aria-label="Project folder relative to workspace"><button id="preview-start" type="button">Preview app</button><button id="preview-stop" type="button" disabled>Stop</button><a id="preview-open" href="#" target="_blank" rel="noopener noreferrer" hidden>Open separately</a></div></div>
     <iframe id="app-preview" title="Live application preview" sandbox="allow-scripts allow-forms allow-same-origin allow-downloads" hidden></iframe>
   </section>
   <details class="memory-panel"><summary>Owner preferences</summary><p>Save preferences Orbit should use in future conversations on this device.</p><div class="memory-form"><input id="memory-key" maxlength="120" placeholder="Preference name"><input id="memory-value" maxlength="4000" placeholder="Preference value"><button id="memory-save" type="button">Save</button></div><div id="memory-list"></div></details>
