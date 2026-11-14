@@ -8,8 +8,8 @@ import subprocess
 import uuid
 from pathlib import Path
 
-MAX_FILES = 2
-MAX_BYTES = 48000
+MAX_FILES = 4
+MAX_BYTES = 100000
 MAX_REPAIRS = 2
 ENGINEERING_ROLES = {
     "architect": "Own architecture, dependencies, interfaces and implementation order. Prefer small compatible changes.",
