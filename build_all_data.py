@@ -27,12 +27,13 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--country", default="IND")
     parser.add_argument("--city", default="New Delhi")
-    parser.add_argument("--max-per-dataset", type=int, default=3000)
-    parser.add_argument("--max-base-chars", type=int, default=5_000_000)
+    parser.add_argument("--max-per-dataset", type=int, default=10000, help="Maximum training rows per capability dataset.")
+    parser.add_argument("--max-base-chars", type=int, default=30_000_000, help="Maximum WikiText characters; bounded for Colab RAM/storage.")
     parser.add_argument("--skip-base-text", action="store_true",
                         help="Skip WikiText/Dolly downloads; reuse existing local files.")
     parser.add_argument("--skip-capability-datasets", action="store_true",
                         help="Skip GSM8K/ARC/SQuAD/MBPP downloads; reuse existing JSONL.")
+    parser.add_argument("--per-source-cap", type=int, default=10000)
     parser.add_argument("--skip-live-data", action="store_true",
                         help="Skip live public data collection; reuse an existing data-lab snapshot.")
     args = parser.parse_args()
@@ -61,7 +62,7 @@ def main():
         "prepare_corpus.py",
     ])
     run_step("6/6 — Merge and balance instruction sources", [
-        "merge_instruction_data.py",
+        "merge_instruction_data.py", "--per-source-cap", str(args.per_source_cap),
     ])
 
     print("\nDATA PREPARATION COMPLETE")
