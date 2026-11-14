@@ -1,7 +1,11 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 from download_capability_data import SOURCES, _convert
+from merge_instruction_data import merge
 from orbit.knowledge import _search_term
 from orbit.intent import classify_request
 from orbit.media import search_web_images
@@ -43,6 +47,25 @@ class CapabilityDataTests(unittest.TestCase):
         item = _convert("mbpp", row, 0, SOURCES["mbpp"])
         self.assertIn("assert add", item["prompt"])
         self.assertIn("def add", item["response"])
+
+    def test_instruction_merge_deduplicates_and_balances_by_source(self):
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            first = root / "one.jsonl"
+            second = root / "two.jsonl"
+            first.write_text("\n".join([
+                json.dumps({"prompt": "A", "response": "1", "metadata": {"dataset_id": "math"}}),
+                json.dumps({"prompt": "B", "response": "2", "metadata": {"dataset_id": "math"}}),
+            ]) + "\n", encoding="utf-8")
+            second.write_text("\n".join([
+                json.dumps({"prompt": "A", "response": "1", "metadata": {"dataset_id": "science"}}),
+                json.dumps({"prompt": "C", "response": "3", "metadata": {"dataset_id": "science"}}),
+            ]) + "\n", encoding="utf-8")
+            output = root / "merged.jsonl"
+            report = merge([first, second], output, per_source_cap=1)
+            self.assertEqual(report["examples"], 2)
+            self.assertEqual(report["duplicate_prompt_response_pairs_removed"], 1)
+            self.assertTrue(output.with_suffix(".manifest.json").is_file())
 
     def test_knowledge_query_prefixes_are_removed(self):
         self.assertEqual(_search_term("What is quantum computing?"), "quantum computing")
