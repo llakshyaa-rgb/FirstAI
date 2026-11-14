@@ -52,7 +52,7 @@ class PreviewManager:
                         "--port", str(port)]
             raise RuntimeError("This project has no package.json dev/start script. Add a development script before previewing.")
         if (self.root / "index.html").is_file():
-            return [sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"]
+            return [sys.executable, "-m", "orbit.preview_static", "--root", str(self.root), "--port", str(port)]
         raise RuntimeError("No runnable web project found. Orbit needs a package.json dev script or an index.html.")
 
     def status(self):
