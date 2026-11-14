@@ -166,7 +166,7 @@ class AutonomousCoder:
         plan = extract_json(self._reply(
             "Plan a minimal implementation for this goal using only paths in this project map. "
             "Return ONLY JSON: " + '{"files":["relative/path"],"plan":"ordered short plan"}. '
-            "Choose at most three files. Exclude secrets, dependencies, generated files and lockfiles.\n"
+            "Choose at most five files. Exclude secrets, dependencies, generated files and lockfiles.\n"
             "GOAL: " + goal[:2000] + "\nPROJECT MAP: " + json.dumps(overview, ensure_ascii=False)[:9000], 500))
         paths = self._paths_from_plan(plan)
         context = self._read(paths)
@@ -181,7 +181,21 @@ class AutonomousCoder:
             "\nPLAN: " + str(plan.get("plan", ""))[:800] +
             "\nALLOWED PATHS: " + json.dumps(paths) +
             "\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:22000])
-        changed, summary = self._apply(self._reply(prompt, 1500), paths)
+        raw = self._reply(prompt, 1500)
+        for edit_attempt in range(2):
+            try:
+                changed, summary = self._apply(raw, paths)
+                break
+            except Exception as exc:
+                if edit_attempt:
+                    raise
+                self.progress("The proposed patch was rejected (" + type(exc).__name__ + "). Asking the coding agent to correct its patch before touching the files.",
+                              kind="method_failed")
+                raw = self._reply(
+                    prompt + "\\nPREVIOUS PATCH REJECTED: " + type(exc).__name__ + ": " + str(exc)[:1200] +
+                    "\\nReturn a corrected JSON patch. Use exact unique anchors copied from the current files.",
+                    1500
+                )
         self.progress("Applied changes with automatic backups.", changes=changed)
         checks = None
         for attempt in range(MAX_REPAIRS + 1):
@@ -201,7 +215,20 @@ class AutonomousCoder:
                 "Use exact, unique small patches for existing files; never rewrite them wholesale. Only these paths may change: " + json.dumps(paths) +
                 "\nGOAL: " + goal[:1600] + "\nFAILURES: " + self._failures(checks)[-8500:] +
                 "\nCURRENT FILES: " + json.dumps(current, ensure_ascii=False)[:20000])
-            fixed, summary = self._apply(self._reply(repair, 1500), paths)
+            repair_raw = self._reply(repair, 1500)
+            for repair_attempt in range(2):
+                try:
+                    fixed, summary = self._apply(repair_raw, paths)
+                    break
+                except Exception as exc:
+                    if repair_attempt:
+                        raise
+                    self.progress("The repair patch was rejected; requesting a corrected repair.", kind="method_failed")
+                    repair_raw = self._reply(
+                        repair + "\\nPREVIOUS REPAIR REJECTED: " + type(exc).__name__ + ": " + str(exc)[:1200] +
+                        "\\nReturn a corrected exact patch.",
+                        1500
+                    )
             changed.extend(fixed)
             self.progress("Applied a repair with fresh backups.", changes=fixed)
         return {"status": "needs_attention", "summary": summary, "plan": plan.get("plan", ""),
