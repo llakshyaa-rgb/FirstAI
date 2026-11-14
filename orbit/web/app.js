@@ -370,6 +370,7 @@ const previewStop=document.querySelector("#preview-stop");
 const previewState=document.querySelector("#preview-state");
 const previewFrame=document.querySelector("#app-preview");
 const previewOpen=document.querySelector("#preview-open");
+const previewProjectPath=document.querySelector("#preview-project-path");
 function showPreview(data){
   const running=!!data.running;
   previewState.textContent=running?"Running on this device · "+data.port:"No project running";
@@ -383,7 +384,7 @@ async function refreshPreview(){
 }
 previewStart?.addEventListener("click",async()=>{
   previewStart.disabled=true;previewState.textContent="Starting development server…";
-  try{const r=await fetch("/api/preview/start",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+  try{const r=await fetch("/api/preview/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_path:previewProjectPath?.value.trim()||null})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Preview could not start");showPreview(d);
   }catch(err){previewState.textContent=err.message;previewStart.disabled=false;}
 });
