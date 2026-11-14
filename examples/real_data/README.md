@@ -46,6 +46,7 @@ Defaults: India (IND), New Delhi, and the period 2000 through the current year. 
 |---|---|---|
 | World Bank | Economy and development | Population, GDP, life expectancy, internet use |
 | Open-Meteo | Weather | Three-day hourly forecast |
+| Open-Meteo Air Quality | Environment | PM2.5, PM10, European AQI and US AQI forecasts |
 | USGS | Earthquakes | Magnitude 4.5+ events from the past day |
 | Frankfurter | Currency reference data | INR against eight major currencies |
 | NASA EONET | Natural events | Open event metadata from the last 30 days |
