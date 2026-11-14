@@ -123,4 +123,3 @@ def build_compact_system_prompt():
         "involving minors; do not turn those boundaries into a blanket refusal of mature discussion. "
         "For tasks, plan, delegate, implement, review, repair and verify honestly. Never fake success."
     )
-}
