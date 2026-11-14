@@ -36,7 +36,7 @@ Then use Preview app to inspect the running app. This exercises data ingestion, 
 
 ## Multi-domain live data lab
 
-A second builder collects five independent public datasets:
+A second builder collects seven datasets from six independent public-data providers:
 
     python examples/real_data/build_data_lab.py
 
