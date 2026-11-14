@@ -28,6 +28,7 @@ from .vision import describe_image, unload_ollama_vision_model
 from .media_processing import process_upload
 from .planner import execute_tool_plan
 from .agents import AgentTeam
+from .coding import AutonomousCoder
 from .intent import classify_request
 from .browser import BrowserTools
 from .design_studio import create_artifact, SUPPORTED, THEMES
@@ -318,6 +319,38 @@ class OrbitApplication:
                 message += "\n\nSpecialist failures (do not claim these succeeded):\n" + json.dumps(
                     failed_agents, ensure_ascii=False, default=str
                 )[:4000]
+
+            if "autonomous_coding" in route.get("capabilities", []):
+                self.store.emit(task_id, "status", "Orbit's autonomous coding team is planning and implementing the requested project changes.")
+                coder = AutonomousCoder(self.runtime, agent.workspace, progress=emit_progress)
+                coding_result = coder.run(message)
+                changes = coding_result.get("changes", [])
+                for change in changes:
+                    self.store.emit(task_id, "code_change", "Updated " + change.get("path", "project file"),
+                                    change=change)
+                check_ok = coding_result.get("status") == "completed"
+                compile_info = coding_result.get("checks", {}).get("compile", {})
+                test_info = coding_result.get("checks", {}).get("tests")
+                summary_lines = [
+                    "Coding task " + ("completed." if check_ok else "needs attention after repair attempts."),
+                    str(coding_result.get("summary", "")),
+                    "Plan: " + str(coding_result.get("plan", "")),
+                    "Changed files: " + (", ".join(x.get("path", "") for x in changes) or "none"),
+                    "Automatic backups: " + (", ".join(x.get("backup", "new file") for x in changes) or "none"),
+                    "Compile check: " + ("passed" if compile_info.get("passed") else "failed"),
+                    "Project tests: " + ("not present" if test_info is None else ("passed" if test_info.get("passed") else "failed")),
+                    "Repair rounds: " + str(coding_result.get("repair_rounds", 0)),
+                ]
+                if not check_ok:
+                    summary_lines.append("The task was not marked successful. Review the preserved failure output and backups.")
+                    self.store.update(task_id, "needs_input", result="\n".join(summary_lines),
+                                      error="Autonomous coding could not make every available check pass.")
+                    self.store.emit(task_id, "message", "\n".join(summary_lines), coding_result=coding_result)
+                    return
+                answer = "\n".join(summary_lines)
+                self.store.update(task_id, "completed", result=answer)
+                self.store.emit(task_id, "message", answer, coding_result=coding_result)
+                return
 
             if route.get("kind") == "artifact":
                 self.store.emit(task_id, "status", "The coordinator is preparing the requested deliverable.")
