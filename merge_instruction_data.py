@@ -51,8 +51,8 @@ def merge(paths, output, per_source_cap=3000):
         rows = groups[source_id][:per_source_cap]
         selected.extend(rows)
         counts[source_id] = {"available": len(groups[source_id]), "selected": len(rows)}
-    if len(selected) < 4:
-        raise RuntimeError("Fewer than four valid unique instruction examples were found.")
+    if not selected:
+        raise RuntimeError("No valid unique instruction examples were found.")
     target = Path(output)
     target.parent.mkdir(parents=True, exist_ok=True)
     target.write_text("".join(json.dumps(row, ensure_ascii=False) + "\n" for row in selected), encoding="utf-8")
