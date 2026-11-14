@@ -100,6 +100,20 @@ Open [FirstAI_Colab.ipynb](https://colab.research.google.com/github/llakshyaa-rg
 The notebook checks the active PyTorch/CUDA build and reports the attached GPU before GPU tests. Test 2 deliberately stops if CUDA is unavailable; it does not silently claim a CPU run is a T4 test. The workflow uses temporary Colab storage only: no Drive mount and no manual data uploads are required. Runtime files disappear when Colab disconnects, so download checkpoints before ending the session. A free GPU is not guaranteed.
 
 
+## Real-world training examples
+
+The starter corpus now includes sourced India examples in `data/raw/real_world_examples.txt`; `prepare_corpus.py` includes this file automatically. The matching structured examples, with source links, indicator IDs, years, units and retrieval dates, are in `examples/real_data/seed_examples.jsonl`.
+
+For a larger, refreshed multi-domain set, run:
+
+```bash
+python examples/real_data/build_data_lab.py
+python examples/real_data/build_training_examples.py
+python prepare_corpus.py
+```
+
+This collects real records from seven public-data domains and creates a training text file plus an auditable JSONL companion. Forecasts, historical observations and reference rates are labeled distinctly. A data refresh does not change model weights: train or resume FirstGPT separately after reviewing the corpus.
+
 ## Real-world data access
 
 Orbit now has a read-only live-data specialist connected to the single chat interface. Supported questions are automatically routed to public structured APIs for:
