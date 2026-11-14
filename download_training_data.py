@@ -39,7 +39,7 @@ def download_wikitext(output, config="wikitext-103-raw-v1", max_chars=5_000_000)
         "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
         "characters_written": written, "max_chars": max_chars,
     }
-    target.with_suffix(target.suffix + ".manifest.json").write_text(json.dumps(manifest, indent=2) + "\\n", encoding="utf-8")
+    target.with_suffix(target.suffix + ".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(f"WikiText saved: {target} | {written:,} characters | config={config}")
     return target
 
@@ -94,7 +94,7 @@ def download_dolly(output, max_examples=15_000, extra_examples=None):
         "total_examples_including_extra": count,
         "note": "Orbit extra examples are appended after Dolly; inspect their individual metadata/source file.",
     }
-    target.with_suffix(target.suffix + ".manifest.json").write_text(json.dumps(manifest, indent=2) + "\\n", encoding="utf-8")
+    target.with_suffix(target.suffix + ".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(f"Instruction data saved: {target} | {count:,} examples")
     return target
 
