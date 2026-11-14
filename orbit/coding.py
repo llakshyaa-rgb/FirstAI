@@ -13,7 +13,7 @@ MAX_BYTES = 100000
 MAX_REPAIRS = 2
 ENGINEERING_ROLES = {
     "architect": "Own architecture, dependencies, interfaces and implementation order. Prefer small compatible changes.",
-    "designer": "Own user experience, information hierarchy, accessibility, responsive behaviour and visual consistency.",
+    "designer": "Own product-quality UX and visual design: establish a coherent design system, strong hierarchy, deliberate typography, spacing, color and component states; make every screen responsive and accessible; avoid generic template layouts; design complete user journeys, empty/loading/error/success states, forms, navigation and realistic content. For adult-oriented products, design for adults with privacy, consent, clear boundaries and age-appropriate access controls.",
     "frontend": "Own browser UI, state, interactions, validation, accessibility and responsive layouts.",
     "backend": "Own API routes, data models, persistence, error handling and service boundaries.",
     "data": "Own data ingestion, schemas, provenance, validation, missing values and export correctness.",
