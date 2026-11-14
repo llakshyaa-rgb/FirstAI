@@ -77,6 +77,14 @@ async function follow(taskId,afterStart=0){
         else livePartial.textContent=event.message;
         conversation.scrollTop=conversation.scrollHeight;
       }
+      else if(event.kind==="code_change"){
+        const change=event.details.change||{};
+        const node=document.createElement("article");node.className="bubble orbit code-change";
+        const label=document.createElement("strong");label.textContent="Orbit · File updated";
+        const p=document.createElement("p");p.textContent=change.path||"Project file";
+        const backup=document.createElement("small");backup.textContent=change.backup?"Backup saved: "+change.backup:"New file created";
+        node.append(label,p,backup);conversation.append(node);conversation.scrollTop=conversation.scrollHeight;
+      }
       else if(event.kind==="image"){
         const node=document.createElement("article");node.className="bubble orbit";
         const label=document.createElement("strong");label.textContent="Orbit · Image";
