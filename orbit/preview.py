@@ -77,6 +77,48 @@ class PreviewManager:
             return [sys.executable, str(Path(__file__).with_name("preview_static.py")), "--root", str(self.workspace), "--port", str(port)]
         raise RuntimeError("No runnable web project found. Orbit needs a package.json dev script or an index.html.")
 
+    def suggest_project(self, changes):
+        """Suggest the deepest runnable project covering the largest share of changed files."""
+        candidates = set()
+        safe_files = []
+        for item in changes if isinstance(changes, list) else []:
+            relative = item.get("path") if isinstance(item, dict) else None
+            if not isinstance(relative, str):
+                continue
+            candidate = Path(relative)
+            if candidate.is_absolute() or ".." in candidate.parts:
+                continue
+            target = (self.root / candidate).resolve()
+            if target != self.root and self.root not in target.parents:
+                continue
+            if any(part in {".git", ".venv", "venv", "node_modules", ".orbit_preview"} for part in candidate.parts):
+                continue
+            safe_files.append(target)
+            parent = target.parent
+            while parent == self.root or self.root in parent.parents:
+                package = parent / "package.json"
+                runnable = (parent / "index.html").is_file()
+                if package.is_file():
+                    try:
+                        scripts = json.loads(package.read_text(encoding="utf-8")).get("scripts", {})
+                        runnable = runnable or (isinstance(scripts, dict) and
+                            any(isinstance(scripts.get(key), str) for key in ("dev", "start")))
+                    except (OSError, ValueError, AttributeError):
+                        pass
+                if runnable:
+                    candidates.add(parent)
+                if parent == self.root:
+                    break
+                parent = parent.parent
+        if not candidates:
+            return None
+        ranked = []
+        for directory in candidates:
+            coverage = sum(1 for path in safe_files if path == directory or directory in path.parents)
+            ranked.append((coverage, len(directory.parts), directory))
+        selected = max(ranked, key=lambda row: (row[0], row[1]))[2]
+        return selected.relative_to(self.root).as_posix() or "."
+
     def status(self):
         running = self.process is not None and self.process.poll() is None
         return {"running": running, "url": "http://127.0.0.1:" + str(self.port) if running else None,
