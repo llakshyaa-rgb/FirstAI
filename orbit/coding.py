@@ -431,6 +431,13 @@ class AutonomousCoder:
                     "\nFAILURES: " + self._failures(checks)[-6000:] +
                     "\nPHASE: " + phase_goal + "\nOWNER GOAL: " + goal[:1400])
                 repair_raw = self._reply(repair_prompt, 1500)
+                repair_preview = repair_raw[:16000]
+                if not self.approval_required(
+                    "Repair phase " + str(phase_index) + ": " + phase_goal, paths, repair_preview
+                ):
+                    raise PermissionError(
+                        "Owner denied or did not provide approval for the repair. No repair changes were applied."
+                    )
                 for repair_attempt in range(2):
                     try:
                         fixed, summary = self._apply(repair_raw, paths)
