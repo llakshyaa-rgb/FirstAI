@@ -371,6 +371,8 @@ designForm?.addEventListener("submit",async e=>{
 
 const previewStart=document.querySelector("#preview-start");
 const previewStop=document.querySelector("#preview-stop");
+const previewInspect=document.querySelector("#preview-inspect");
+const previewInspectionOutput=document.querySelector("#preview-inspection-output");
 const previewState=document.querySelector("#preview-state");
 const previewFrame=document.querySelector("#app-preview");
 const previewOpen=document.querySelector("#preview-open");
@@ -381,7 +383,7 @@ function showPreview(data){
   const running=!!data.running;
   const cloud=!!data.remote_preview_url;
   previewState.textContent=running?"Running on this device · "+data.port:(cloud?"Connected to configured cloud preview":"No project running");
-  previewStart.disabled=running;previewStop.disabled=!running;
+  previewStart.disabled=running;previewStop.disabled=!running;if(previewInspect)previewInspect.disabled=!running;
   previewOpen.hidden=!running;
   if(previewCloudOpen){previewCloudOpen.hidden=!cloud;previewCloudOpen.href=data.remote_preview_url||"#";}
   const target=running?data.url+"/":(cloud?data.remote_preview_url:"");
@@ -405,6 +407,16 @@ previewStart?.addEventListener("click",async()=>{
   try{const r=await fetch("/api/preview/start",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({project_path:previewProjectPath?.value.trim()||null})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Preview could not start");showPreview(d);
   }catch(err){previewState.textContent=err.message;previewStart.disabled=false;}
+});
+previewInspect?.addEventListener("click",async()=>{
+  previewInspect.disabled=true;
+  if(previewInspectionOutput)previewInspectionOutput.textContent="Inspecting the running app without clicking controls or submitting forms…";
+  try{
+    const r=await fetch("/api/preview/inspect",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Browser inspection failed");
+    if(previewInspectionOutput)previewInspectionOutput.textContent=JSON.stringify(d,null,2);
+  }catch(err){if(previewInspectionOutput)previewInspectionOutput.textContent=err.message;}
+  finally{previewInspect.disabled=false;}
 });
 previewStop?.addEventListener("click",async()=>{
   previewStop.disabled=true;
