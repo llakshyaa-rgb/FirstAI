@@ -242,11 +242,17 @@ class AutonomousCoder:
 
     @staticmethod
     def _failures(checks):
-        return "\n\n".join(
+        failures = [
             key.upper() + " FAILURE:\n" + str(value.get("output", ""))[-6500:]
-            for key in ("compile", "tests")
+            for key in ("compile", "build", "tests")
             if (value := checks.get(key)) and not value.get("passed")
-        ) or "No check failures."
+        ]
+        failures.extend(
+            "JAVASCRIPT FAILURE (" + str(item.get("path", "file")) + "):\n" +
+            str(item.get("output", ""))[-3000:]
+            for item in checks.get("javascript", []) if not item.get("passed")
+        )
+        return "\n\n".join(failures) or "No check failures."
 
     def run(self, goal):
         if not self.runtime.ready:
