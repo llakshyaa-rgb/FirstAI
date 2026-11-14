@@ -317,6 +317,12 @@ class AutonomousCoder:
             }, ensure_ascii=False, indent=2), encoding="utf-8")
             (role_space / "source_snapshot.json").write_text(
                 json.dumps(context, ensure_ascii=False, indent=2), encoding="utf-8")
+            role_project = role_space / "workspace"
+            for source_file in context:
+                if source_file.get("exists"):
+                    snapshot_file = role_project / source_file["path"]
+                    snapshot_file.parent.mkdir(parents=True, exist_ok=True)
+                    snapshot_file.write_text(source_file.get("content", ""), encoding="utf-8")
             self.progress("Phase " + str(phase_index) + " of " + str(len(phases)) + " · " +
                           phase_role.title() + " specialist: " + phase_goal, files=paths, role=phase_role)
             prompt = (
@@ -342,6 +348,15 @@ class AutonomousCoder:
                     "CURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:8000] +
                     "\nPATCHES: " + raw[:5000] +
                     "\nPHASE: " + phase_goal + "\nOWNER GOAL: " + goal[:1200], 450))
+                reviewer_space = role_space / "reviewer"
+                reviewer_space.mkdir(parents=True, exist_ok=True)
+                (reviewer_space / "source_snapshot.json").write_text(
+                    json.dumps(context, ensure_ascii=False, indent=2), encoding="utf-8")
+                (reviewer_space / "proposal.json").write_text(
+                    json.dumps({"proposal": raw, "phase_goal": phase_goal},
+                               ensure_ascii=False, indent=2), encoding="utf-8")
+                (reviewer_space / "review.json").write_text(
+                    json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8")
                 (role_space / "review.json").write_text(
                     json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8")
                 issues = review.get("issues", [])
