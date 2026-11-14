@@ -385,6 +385,8 @@ function showPreview(data){
   previewOpen.hidden=!running;
   if(previewCloudOpen){previewCloudOpen.hidden=!cloud;previewCloudOpen.href=data.remote_preview_url||"#";}
   const target=running?data.url+"/":(cloud?data.remote_preview_url:"");
+  if(cloud&&!running)previewFrame.sandbox.remove("allow-forms");
+  else previewFrame.sandbox.add("allow-forms");
   if(target){previewFrame.hidden=false;if(previewFrame.src!==new URL(target,location.href).href)previewFrame.src=target;}
   else{previewFrame.hidden=true;previewFrame.src="about:blank";}
   if(running)previewOpen.href=data.url;else previewOpen.removeAttribute("href");
