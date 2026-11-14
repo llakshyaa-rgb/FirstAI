@@ -361,6 +361,7 @@ class OrbitApplication:
                 coder = AutonomousCoder(
                     self.runtime, agent.workspace, progress=emit_progress,
                     approval_required=request_owner_approval,
+                    owner_preferences=self.memory.prompt_context(),
                 )
                 coding_result = coder.run(message)
                 changes = coding_result.get("changes", [])
