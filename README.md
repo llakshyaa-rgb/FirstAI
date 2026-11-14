@@ -105,6 +105,26 @@ The notebook checks the active PyTorch/CUDA build and reports the attached GPU b
 
 FirstAI now has a source registry at `data/real_world_sources.json`. It maps each capability to its public data/training sources, licenses, provenance policy and current integration status.
 
+### One-command complete data preparation
+
+For the full pipeline, install the optional Hugging Face dataset library and run:
+
+```bash
+pip install datasets
+python build_all_data.py
+```
+
+This downloads the base WikiText/Dolly data, capability datasets, collects the seven-domain live-data lab, generates grounded examples, prepares `data/input.txt`, and creates a deduplicated, per-source-balanced `data/instructions_balanced.jsonl`. It writes source manifests and stops on a failed stage without deleting earlier outputs.
+
+You can skip individual download stages when you already have their files:
+
+```bash
+python build_all_data.py --skip-base-text
+python build_all_data.py --skip-capability-datasets
+python build_all_data.py --skip-live-data
+```
+
+The pipeline prepares data only. It does not train or replace a model checkpoint.
 ### Download real training examples for more skills
 
 ```bash
@@ -123,7 +143,7 @@ It saves per-dataset JSONL, a combined `data/instructions_capabilities.jsonl` fi
 Instruction-tune a checkpoint with the new data:
 
 ```bash
-python finetune_instructions.py --checkpoint checkpoints/firstgpt.best.pt --data data/instructions_capabilities.jsonl --out checkpoints/firstgpt-capabilities.pt
+python finetune_instructions.py --checkpoint checkpoints/firstgpt.best.pt --data data/instructions_balanced.jsonl --out checkpoints/firstgpt-capabilities.pt
 ```
 
 ### Orbit's additional live knowledge
