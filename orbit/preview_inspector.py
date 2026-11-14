@@ -24,7 +24,8 @@ def inspect_preview(preview_url: str, timeout_ms: int = 12000) -> dict:
         browser = playwright.chromium.launch(headless=True, args=["--no-sandbox", "--disable-dev-shm-usage", "--disable-gpu"])
         try:
             page = browser.new_page(viewport={"width": 1280, "height": 800})
-            page.set_default_timeout(max(1000, min(int(timeout_ms), 20000)))
+            timeout = max(1000, min(int(timeout_ms), 20000))
+            page.set_default_timeout(timeout)
             page.on("pageerror", lambda error: errors.append(str(error)[:500]))
             page.on("console", lambda message: errors.append(message.text[:500]) if message.type == "error" else None)
             page.on("requestfailed", lambda request: failed_requests.append({
@@ -32,13 +33,15 @@ def inspect_preview(preview_url: str, timeout_ms: int = 12000) -> dict:
             }))
             def guard(route):
                 request_url = urlsplit(route.request.url)
-                if (request_url.scheme == "http" and request_url.hostname == allowed_origin[0]
+                if request_url.scheme in {"data", "blob"}:
+                    route.continue_()
+                elif (request_url.scheme == "http" and request_url.hostname == allowed_origin[0]
                         and request_url.port == allowed_origin[1]):
                     route.continue_()
                 else:
                     route.abort("blockedbyclient")
             page.route("**/*", guard)
-            response = page.goto(preview_url, wait_until="domcontentloaded", timeout=page.timeout)
+            response = page.goto(preview_url, wait_until="domcontentloaded", timeout=timeout)
             page.wait_for_timeout(500)
             details = page.evaluate("""() => ({
                 title: document.title || "",
