@@ -453,7 +453,15 @@ def make_handler(app):
             if parsed.path == "/api/preview/status":
                 status = self.preview.status()
                 try:
-                    status["remote_preview_url"] = "/remote-preview/" if configured_base() else None
+                    if configured_base():
+                        host = urlparse("//" + self.headers.get("Host", "")).hostname
+                        alternate = {"127.0.0.1": "localhost", "localhost": "127.0.0.1"}.get(host)
+                        port = self.server.server_address[1]
+                        status["remote_preview_url"] = ("http://" + alternate + ":" + str(port) + "/remote-preview/") if alternate else None
+                        if not alternate:
+                            status["remote_preview_error"] = "Open Orbit through localhost or 127.0.0.1 to use the isolated cloud-preview frame."
+                    else:
+                        status["remote_preview_url"] = None
                 except ValueError:
                     status["remote_preview_error"] = "ORBIT_REMOTE_PREVIEW_URL is invalid; use a public HTTPS tunnel URL."
                 return self._json(200, status)
