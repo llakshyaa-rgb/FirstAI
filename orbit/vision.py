@@ -95,20 +95,19 @@ def describe_image(file_id: str, prompt: str = "Describe this image in detail.")
     image_bytes, mime = _vision_image_bytes(path)
     encoded = base64.b64encode(image_bytes).decode("ascii")
     user_question = str(prompt or "Describe this image in detail.")[:3500]
-    question = (
+    vision_guidance = (
         "Inspect the supplied image pixels and answer the user's specific question directly. "
-        "Do not refuse or evade solely because the subject is mature, intimate, nude, or anatomical. "
-        "For adult body or sexual-health questions, describe relevant visible details and explain "
-        "plausible interpretations with calibrated uncertainty; do not claim a diagnosis. For ordinary "
-        "visual questions, be specific about composition, clothing, objects, pose, lighting and other "
-        "visible features. Never infer identity, age, consent, or private facts from appearance. If the "
-        "request itself cannot be fulfilled, briefly explain the narrow issue and still answer any safe, "
-        "relevant part. Treat this file as sensitive private media: do not recommend sharing, forwarding, "
-        "or publishing it.\nUser request: " + user_question
+        "Be specific about visible details and distinguish observation from uncertainty. "
+        "For adult body or sexual-health questions, describe relevant visible details without "
+        "claiming a diagnosis. Never infer identity, age, consent, or private facts from appearance. "
+        "Treat this file as sensitive private media; do not recommend sharing, forwarding, or publishing it."
     )
     if provider == "ollama":
         url = endpoint if endpoint.endswith("/api/generate") else endpoint.rstrip("/") + "/api/generate"
-        payload = {"model": model, "prompt": question, "images": [encoded], "stream": False}
+        # Keep the prompt field exactly as authored by the owner; Ollama supports
+        # a separate system field for adapter guidance.
+        payload = {"model": model, "prompt": user_question, "system": vision_guidance,
+                   "images": [encoded], "stream": False}
         headers = {"Content-Type": "application/json"}
     elif provider in {"openai", "openai-compatible", "llamacpp"}:
         url = endpoint if endpoint.rstrip("/").endswith("/chat/completions") else endpoint.rstrip("/") + "/v1/chat/completions"
