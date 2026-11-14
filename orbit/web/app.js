@@ -244,7 +244,7 @@ uploadForm?.addEventListener("submit",async e=>{
       if(item.category==="image"){
         const img=document.createElement("img");img.src=item.url;img.alt=item.name;img.loading="lazy";img.className="uploaded-image";card.append(img);
       }
-      if(item.category==="image" || (item.category==="media" && /^(audio|video)\\//.test(item.content_type||""))){
+      if(item.category==="image" || (item.category==="media" && /^(audio|video)\//.test(item.content_type||""))){
         const analyze=document.createElement("button");analyze.type="button";
         analyze.textContent=item.content_type?.startsWith("audio/")?"Transcribe / understand audio":item.content_type?.startsWith("video/")?"Analyse video":"Understand image";
         analyze.addEventListener("click",async()=>{
@@ -332,7 +332,7 @@ async function restoreUploads(){
       if(item.category==="image"){
         const img=document.createElement("img");img.src=item.url;img.alt=item.name;img.loading="lazy";img.className="uploaded-image";card.append(img);
       }
-      if(item.category==="image" || (item.category==="media" && /^(audio|video)\\//.test(item.content_type||""))){
+      if(item.category==="image" || (item.category==="media" && /^(audio|video)\//.test(item.content_type||""))){
         const analyze=document.createElement("button");analyze.type="button";
         analyze.textContent=item.content_type?.startsWith("audio/")?"Transcribe / understand audio":item.content_type?.startsWith("video/")?"Analyse video":"Understand image";
         analyze.addEventListener("click",async()=>{
