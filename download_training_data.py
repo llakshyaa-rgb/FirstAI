@@ -56,8 +56,16 @@ def download_dolly(output, max_examples=15_000, extra_examples=None):
             prompt = instruction
             if context:
                 prompt += "\n\nReference context:\n" + context
-            handle.write(json.dumps({"prompt": prompt, "response": response},
-                                     ensure_ascii=False) + "\n")
+            handle.write(json.dumps({
+                "prompt": prompt, "response": response,
+                "metadata": {
+                    "dataset_id": "dolly15k",
+                    "dataset": "databricks/databricks-dolly-15k",
+                    "split": "train",
+                    "license": "CC-BY-SA-3.0",
+                    "source_url": "https://huggingface.co/datasets/databricks/databricks-dolly-15k",
+                },
+            }, ensure_ascii=False) + "\n")
             count += 1
     if extra_examples:
         extra_path = Path(extra_examples)
