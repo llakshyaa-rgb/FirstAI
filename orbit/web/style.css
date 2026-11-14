@@ -108,3 +108,14 @@ footer{text-align:center;padding:14px 0 0}
 .design-form button{align-self:flex-end;background:#d8c29a;color:#171b20}
 .upload-card>button{margin:8px 7px 0 0;padding:9px 12px;font-size:11px;background:#263541;color:#e4edf5}
 @media(max-width:520px){.design-options{grid-template-columns:1fr}.design-panel summary span{float:none;display:block;margin-top:4px}}
+
+
+/* Explicit review surface for autonomous code changes */
+.approval-card{border-color:#8a744d;background:#211f1a}
+.approval-card>p{margin:8px 0;color:#e1d6c4}
+.approval-card>small{display:block;color:#b7aa95;font-size:11px;overflow-wrap:anywhere}
+.approval-preview{max-height:280px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#10151b;border:1px solid #494234;border-radius:8px;padding:10px;color:#d5dfeb;font:11px/1.5 ui-monospace,monospace}
+.approval-actions{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+.approval-actions button{padding:9px 12px}
+.approval-actions button:first-child{background:#d8c29a;color:#171b20}
+.approval-actions button:last-child{background:#343b43;color:#e7edf3}
