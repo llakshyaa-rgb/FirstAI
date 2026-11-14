@@ -35,10 +35,10 @@ The downloader deliberately does not fetch test/validation splits. Keep a separa
 
 Run:
 
-\`\`\`bash
+```bash
 pip install datasets
 python download_capability_data.py --max-per-dataset 3000
-\`\`\`
+```
 
 Outputs:
 - `data/capabilities/*_train.jsonl` — per-source records.
@@ -47,9 +47,9 @@ Outputs:
 
 Instruction-tune an existing checkpoint with:
 
-\`\`\`bash
+```bash
 python finetune_instructions.py --checkpoint checkpoints/firstgpt.best.pt --data data/instructions_capabilities.jsonl --out checkpoints/firstgpt-capabilities.pt
-\`\`\`
+```
 
 This is a small, capped starter mix, not a claim of professional-grade or comprehensive knowledge. Review each current dataset card and comply with the license's attribution and share-alike terms before redistributing data or model artifacts.
 
