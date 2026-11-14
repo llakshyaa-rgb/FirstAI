@@ -332,6 +332,7 @@ class OrbitApplication:
                 coder = AutonomousCoder(self.runtime, agent.workspace, progress=emit_progress)
                 coding_result = coder.run(message)
                 changes = coding_result.get("changes", [])
+                coding_result["suggested_preview_path"] = self.preview.suggest_project(changes)
                 check_ok = coding_result.get("status") == "completed"
                 compile_info = coding_result.get("checks", {}).get("compile", {})
                 test_info = coding_result.get("checks", {}).get("tests")
