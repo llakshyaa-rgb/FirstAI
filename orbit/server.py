@@ -29,6 +29,7 @@ from .media_processing import process_upload
 from .planner import execute_tool_plan
 from .agents import AgentTeam
 from .coding import AutonomousCoder
+from .preview import PreviewManager
 from .intent import classify_request
 from .browser import BrowserTools
 from .design_studio import create_artifact, SUPPORTED, THEMES
@@ -40,6 +41,8 @@ GENERATED = ROOT / "generated"
 class OrbitApplication:
     def __init__(self, checkpoint, state_path):
         self.runtime = OrbitRuntime(checkpoint)
+        preview_root = Path(os.environ.get('ORBIT_WORKSPACE_ROOT', str(Path(__file__).resolve().parent.parent))).expanduser().resolve()
+        self.preview = PreviewManager(preview_root)
         self.browser = BrowserTools()
         self._diffusion_backend = None
         self._diffusion_backend_lock = threading.Lock()
@@ -445,6 +448,8 @@ def make_handler(app):
 
         def do_GET(self):
             parsed = urlparse(self.path)
+            if parsed.path == "/api/preview/status":
+                return self._json(200, self.preview.status())
             if parsed.path == "/api/health":
                 image_backend = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
                 workflow_configured = bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file()
@@ -563,7 +568,7 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry"):
+            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry", "/api/preview/start", "/api/preview/stop"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -578,6 +583,10 @@ def make_handler(app):
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
                 if not isinstance(payload, dict):
                     return self._json(400, {"error": "Request body must be a JSON object"})
+                if route == "/api/preview/start":
+                    return self._json(200, self.preview.start())
+                if route == "/api/preview/stop":
+                    return self._json(200, self.preview.stop())
                 if route == "/api/tasks/retry":
                     task_id = payload.get("task_id")
                     if not isinstance(task_id, str) or not task_id:
