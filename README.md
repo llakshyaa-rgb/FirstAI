@@ -100,6 +100,38 @@ Open [FirstAI_Colab.ipynb](https://colab.research.google.com/github/llakshyaa-rg
 The notebook checks the active PyTorch/CUDA build and reports the attached GPU before GPU tests. Test 2 deliberately stops if CUDA is unavailable; it does not silently claim a CPU run is a T4 test. The workflow uses temporary Colab storage only: no Drive mount and no manual data uploads are required. Runtime files disappear when Colab disconnects, so download checkpoints before ending the session. A free GPU is not guaranteed.
 
 
+## Real-world data access
+
+Orbit now has a read-only live-data specialist connected to the single chat interface. Supported questions are automatically routed to public structured APIs for:
+- Weather and short-range forecasts (Open-Meteo)
+- Air-quality model forecasts (Open-Meteo)
+- Magnitude 4.5+ earthquakes from the past day (USGS)
+- Currency reference rates (Frankfurter)
+- Open natural-event catalog (NASA EONET)
+- Country reference profiles (REST Countries)
+- Annual economic/development indicators (World Bank)
+
+Example prompts: `weather in Patna`, `air quality in Delhi`, `India GDP`, `Japan inflation`, `USD to INR exchange rate`, `latest earthquakes`, or `country profile for India`.
+
+Responses include the provider, source URL, retrieval timestamp, available units and important caveats. Forecasts are labeled as forecasts, exchange rates as reference rates, and country profiles as reference metadata. These live lookups require network access from the machine running Orbit but no API key for the listed endpoints. General web research remains a separate capability and may require `BRAVE_SEARCH_API_KEY`.
+
+**Live data is not model training.** Orbit fetches these records when a supported question is asked and passes a compact evidence summary to FirstGPT. The downloaded records are not automatically written into the model's weights or corpus.
+
+Build a full local data pack:
+
+```bash
+python examples/real_data/build_data_lab.py
+python examples/real_data/validate_data_lab.py
+```
+
+Create a timestamped refresh and compare it with the previous snapshot:
+
+```bash
+python examples/real_data/refresh_data_lab.py
+```
+
+The refresh utility retains historical snapshots, source logs, validation output and a source-by-source change report under `examples/real_data/generated/data_lab_history/`. It does not overwrite earlier snapshots.
+
 ## Orbit assistant foundations
 
 The repository now includes an initial Orbit runtime layer:
