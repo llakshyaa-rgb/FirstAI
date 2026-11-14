@@ -585,7 +585,10 @@ def make_handler(app):
                 if not isinstance(payload, dict):
                     return self._json(400, {"error": "Request body must be a JSON object"})
                 if route == "/api/preview/start":
-                    return self._json(200, self.preview.start())
+                    project_path = payload.get("project_path")
+                    if project_path is not None and (not isinstance(project_path, str) or len(project_path) > 500):
+                        return self._json(400, {"error": "project_path must be a relative folder path up to 500 characters"})
+                    return self._json(200, self.preview.start(project_path=project_path))
                 if route == "/api/preview/stop":
                     return self._json(200, self.preview.stop())
                 if route == "/api/tasks/retry":
