@@ -72,3 +72,14 @@ Image-reference search uses Wikimedia Commons as a keyless strict-safe fallback 
 Run `pip install datasets` followed by `python build_all_data.py` to download the base WikiText/Dolly datasets, the capability-specific instruction datasets, collect the seven-domain public data lab, generate source-grounded examples, prepare `data/input.txt`, and merge a balanced `data/instructions_balanced.jsonl` instruction set. The pipeline stops on a failed stage and preserves earlier outputs. It does not train a checkpoint.
 
 Use `python finetune_instructions.py --checkpoint checkpoints/firstgpt.best.pt --data data/instructions_balanced.jsonl --out checkpoints/firstgpt-capabilities.pt` after reviewing the source manifest and training mix.
+
+
+## Larger, resumable training profile
+
+The default Colab profile requests up to 30 million WikiText characters, up to 10,000 rows per capability training split, and up to 10,000 instruction examples per dataset source after deduplication/balancing. Collection caps are configurable because Colab disk/RAM and GPU session duration vary. Only training splits are downloaded for these instruction datasets; reserve separate benchmarks for evaluation.
+
+Base pretraining checkpoints every 250 optimizer steps and resumes only with the same corpus hash. SFT saves latest and best-validation checkpoints separately and resumes only when the instruction JSONL hash matches. A changed dataset requires a fresh output checkpoint or explicit restart; it is never silently mixed into an old run.
+
+The Colab T4 profile defaults to 10,000 base steps and 5,000 SFT steps with a 6-layer, width-256, 1,024-token model. This remains a small experimental GPT trained from scratch, not a competitive foundation model. More steps alone do not replace architecture, data scale, data quality or evaluation.
+
+Termux uses a separate compact CPU training profile to reduce heat and RAM pressure. It also collects a fresh public-data snapshot locally and derives its own practical instruction examples. It is not the same model as the Colab checkpoint.
