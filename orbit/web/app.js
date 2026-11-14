@@ -243,17 +243,21 @@ uploadForm?.addEventListener("submit",async e=>{
       }
       if(item.category==="image"){
         const img=document.createElement("img");img.src=item.url;img.alt=item.name;img.loading="lazy";img.className="uploaded-image";card.append(img);
-        const analyze=document.createElement("button");analyze.type="button";analyze.textContent="Ask Orbit to analyse";
+      }
+      if(item.category==="image" || (item.category==="media" && /^(audio|video)\\//.test(item.content_type||""))){
+        const analyze=document.createElement("button");analyze.type="button";
+        analyze.textContent=item.content_type?.startsWith("audio/")?"Transcribe / understand audio":item.content_type?.startsWith("video/")?"Analyse video":"Understand image";
         analyze.addEventListener("click",async()=>{
-          analyze.disabled=true;analyze.textContent="Analysing…";
+          analyze.disabled=true;const original=analyze.textContent;analyze.textContent="Processing locally…";
           try{
-            const response=await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file_id:item.id})});
-            const result=await response.json();if(!response.ok)throw new Error(result.error||"Vision analysis failed");
-            bubble("orbit",result.description);
-          }catch(err){bubble("orbit","Image analysis isn't available: "+err.message,"status");}
-          finally{analyze.disabled=false;analyze.textContent="Ask Orbit to analyse";}
+            const response=await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file_id:item.id,prompt:"Analyse this uploaded media carefully. For audio, transcribe speech and identify language. For video, summarise sampled scenes and available audio. For images, describe visible content and readable text. State uncertainty clearly."})});
+            const result=await response.json();if(!response.ok)throw new Error(result.error||"Media analysis failed");
+            bubble("orbit",result.kind.toUpperCase()+" · "+result.name+"\\n\\n"+result.description);
+          }catch(err){bubble("orbit","Media analysis isn't available: "+err.message,"status");}
+          finally{analyze.disabled=false;analyze.textContent=original;}
         });card.append(analyze);
-      }else{
+      }
+      if(item.category!=="image"){
         const meta=document.createElement("p");meta.textContent=item.category+" · "+item.content_type;card.append(meta);
       }
       if(item.text){
@@ -327,12 +331,15 @@ async function restoreUploads(){
       }
       if(item.category==="image"){
         const img=document.createElement("img");img.src=item.url;img.alt=item.name;img.loading="lazy";img.className="uploaded-image";card.append(img);
-        const analyze=document.createElement("button");analyze.type="button";analyze.textContent="Ask Orbit to analyse";
+      }
+      if(item.category==="image" || (item.category==="media" && /^(audio|video)\\//.test(item.content_type||""))){
+        const analyze=document.createElement("button");analyze.type="button";
+        analyze.textContent=item.content_type?.startsWith("audio/")?"Transcribe / understand audio":item.content_type?.startsWith("video/")?"Analyse video":"Understand image";
         analyze.addEventListener("click",async()=>{
-          analyze.disabled=true;
-          try{const response=await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file_id:item.id})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Vision analysis failed");bubble("orbit",result.description);}
-          catch(err){bubble("orbit","Image analysis isn't available: "+err.message,"status");}
-          finally{analyze.disabled=false;}
+          analyze.disabled=true;const original=analyze.textContent;analyze.textContent="Processing locally…";
+          try{const response=await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file_id:item.id,prompt:"Analyse this uploaded media carefully. For audio, transcribe speech and identify language. For video, summarise sampled scenes and available audio. For images, describe visible content and readable text. State uncertainty clearly."})});const result=await response.json();if(!response.ok)throw new Error(result.error||"Media analysis failed");bubble("orbit",result.kind.toUpperCase()+" · "+result.name+"\\n\\n"+result.description);}
+          catch(err){bubble("orbit","Media analysis isn't available: "+err.message,"status");}
+          finally{analyze.disabled=false;analyze.textContent=original;}
         });card.append(analyze);
       }
       const attach=document.createElement("button");attach.type="button";attach.textContent="Attach to next chat";
