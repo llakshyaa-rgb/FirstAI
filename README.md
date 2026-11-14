@@ -100,6 +100,38 @@ Open [FirstAI_Colab.ipynb](https://colab.research.google.com/github/llakshyaa-rg
 The notebook checks the active PyTorch/CUDA build and reports the attached GPU before GPU tests. Test 2 deliberately stops if CUDA is unavailable; it does not silently claim a CPU run is a T4 test. The workflow uses temporary Colab storage only: no Drive mount and no manual data uploads are required. Runtime files disappear when Colab disconnects, so download checkpoints before ending the session. A free GPU is not guaranteed.
 
 
+
+## Capability-wide real data
+
+FirstAI now has a source registry at `data/real_world_sources.json`. It maps each capability to its public data/training sources, licenses, provenance policy and current integration status.
+
+### Download real training examples for more skills
+
+\`\`\`bash
+pip install datasets
+python download_capability_data.py --max-per-dataset 3000
+\`\`\`
+
+This adds real training examples for:
+- Mathematics: GSM8K worked word problems.
+- Science: AI2 ARC Challenge questions.
+- Reading comprehension: SQuAD passage-grounded answers.
+- Coding: sanitized MBPP programming tasks and tests.
+
+It saves per-dataset JSONL, a combined `data/instructions_capabilities.jsonl` file and a provenance manifest. Only training splits are used; benchmark test splits remain excluded.
+
+Instruction-tune a checkpoint with the new data:
+
+\`\`\`bash
+python finetune_instructions.py --checkpoint checkpoints/firstgpt.best.pt --data data/instructions_capabilities.jsonl --out checkpoints/firstgpt-capabilities.pt
+\`\`\`
+
+### Orbit's additional live knowledge
+
+Orbit's `knowledge_search` tool now routes encyclopedic questions to Wikipedia, scholarly discovery to OpenAlex/arXiv, and programming questions to Stack Exchange. It includes source links, retrieval times, license notes and caveats. Image search has a strict-safe Wikimedia Commons fallback with per-file attribution metadata when Brave is not configured.
+
+The existing live-data APIs remain separate from training. Real data is not automatically written into model weights; collect, inspect, prepare and train deliberately. Audio/video, image understanding, generated media and private memory remain distinct external or private-data capabilities rather than being misrepresented as text training.
+
 ## Real-world training examples
 
 The starter corpus now includes sourced India examples in `data/raw/real_world_examples.txt`; `prepare_corpus.py` includes this file automatically. The matching structured examples, with source links, indicator IDs, years, units and retrieval dates, are in `examples/real_data/seed_examples.jsonl`.
