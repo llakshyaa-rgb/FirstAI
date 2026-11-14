@@ -2,9 +2,11 @@
 from __future__ import annotations
 import json
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
-MAX_FILES = 3
+MAX_FILES = 5
 MAX_BYTES = 48000
 MAX_REPAIRS = 2
 BLOCKED = {".git", ".venv", "venv", "__pycache__", ".env", ".secrets",
@@ -57,8 +59,14 @@ class AutonomousCoder:
                 result.append({"path": relative, "exists": False, "content": ""})
             elif target.stat().st_size <= MAX_BYTES:
                 try:
-                    result.append({"path": relative, "exists": True,
-                                   "content": target.read_text(encoding="utf-8")})
+                    content = target.read_text(encoding="utf-8")
+                    secret_pattern = re.compile(
+                        r"(?i)(?:api[_-]?key|access[_-]?token|secret|password|private[_-]?key)\\s*[:=]\\s*[\"'][^\"']{8,}[\"']"
+                    )
+                    if secret_pattern.search(content):
+                        self.progress("Skipping " + relative + " because it appears to contain credentials.")
+                        continue
+                    result.append({"path": relative, "exists": True, "content": content})
                 except UnicodeDecodeError:
                     self.progress("Skipping non-UTF-8 file " + relative)
             else:
@@ -122,13 +130,25 @@ class AutonomousCoder:
             raise ValueError("No file changes were applied.")
         return changed, str(payload.get("summary") or "Applied targeted changes.")
 
-    def _checks(self):
+    def _checks(self, changed):
         compile_result = self.workspace.compile_project(timeout=120)
+        javascript = []
+        node = shutil.which("node")
+        if node:
+            for item in changed:
+                relative = item.get("path", "")
+                if Path(relative).suffix.lower() in {".js", ".mjs", ".cjs"}:
+                    result = subprocess.run([node, "--check", relative], cwd=self.workspace.root,
+                                            capture_output=True, text=True, timeout=60, check=False)
+                    javascript.append({"path": relative, "passed": result.returncode == 0,
+                                       "output": (result.stdout + "\\n" + result.stderr)[-3000:]})
         tests = None
-        if compile_result.get("passed") and (self.workspace.root / "tests").is_dir():
+        if compile_result.get("passed") and all(item["passed"] for item in javascript) and (self.workspace.root / "tests").is_dir():
             tests = self.workspace.run_project_tests(timeout=180)
-        return {"ok": bool(compile_result.get("passed")) and (tests is None or bool(tests.get("passed"))),
-                "compile": compile_result, "tests": tests}
+        ok = bool(compile_result.get("passed")) and all(item["passed"] for item in javascript) and (
+            tests is None or bool(tests.get("passed"))
+        )
+        return {"ok": ok, "compile": compile_result, "javascript": javascript, "tests": tests}
 
     @staticmethod
     def _failures(checks):
@@ -166,7 +186,7 @@ class AutonomousCoder:
         checks = None
         for attempt in range(MAX_REPAIRS + 1):
             self.progress("Running compile and available project checks, pass " + str(attempt + 1) + ".")
-            checks = self._checks()
+            checks = self._checks(changed)
             if checks["ok"]:
                 self.progress("Implementation checks passed.")
                 return {"status": "completed", "summary": summary, "plan": plan.get("plan", ""),
