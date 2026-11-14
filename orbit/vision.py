@@ -88,6 +88,7 @@ def describe_image(file_id: str, prompt: str = "Describe this image in detail.")
     path = _image_path(file_id)
     provider = os.environ.get("ORBIT_VISION_PROVIDER", "ollama").strip().lower()
     endpoint = os.environ.get("ORBIT_VISION_URL", "http://127.0.0.1:11434/api/generate").strip()
+    _assert_private_endpoint(endpoint, "primary vision endpoint")
     model = os.environ.get("ORBIT_VISION_MODEL", "").strip()
     if not model:
         raise RuntimeError("No vision model is configured. Set ORBIT_VISION_MODEL and ORBIT_VISION_URL.")
