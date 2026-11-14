@@ -40,6 +40,8 @@ def main():
     parser.add_argument("--heads", type=int, default=4)
     parser.add_argument("--width", type=int, default=128)
     parser.add_argument("--vocab-size", type=int, default=512)
+    parser.add_argument("--architecture-version", type=int, choices=(1, 2), default=2, help="New training defaults to v2; use v1 only to reproduce legacy checkpoints.")
+    parser.add_argument("--tokenizer-train-chars", type=int, default=200000, help="Bound BPE training sample size on large corpora.")
     parser.add_argument("--min-frequency", type=int, default=2)
     parser.add_argument("--lr", type=float, default=3e-4)
     parser.add_argument("--seed", type=int, default=1337)
@@ -81,11 +83,12 @@ def main():
             torch.cuda.set_rng_state_all([state.cpu() for state in checkpoint["cuda_rng_state"]])
         print(f"Resuming at optimizer step {start_step}; restored model, tokenizer, optimizer and RNG state")
     else:
-        tokenizer_text = text[:max(1, int(len(text) * 0.9))]
+        tokenizer_text = text[:min(len(text), args.tokenizer_train_chars, max(1, int(len(text) * 0.9)))]
         tokenizer = BPETokenizer.train(tokenizer_text, args.vocab_size, args.min_frequency)
         train_data, val_data = make_splits(text, tokenizer)
         config = GPTConfig(vocab_size=tokenizer.vocab_size, block_size=args.block_size,
-                           n_layer=args.layers, n_head=args.heads, n_embd=args.width)
+                           n_layer=args.layers, n_head=args.heads, n_embd=args.width,
+                           architecture_version=args.architecture_version)
         model = FirstGPT(config).to(device)
         optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
