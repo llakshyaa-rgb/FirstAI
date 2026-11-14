@@ -83,3 +83,8 @@ Base pretraining checkpoints every 250 optimizer steps and resumes only with the
 The Colab T4 profile defaults to 10,000 base steps and 5,000 SFT steps with a 6-layer, width-256, 1,024-token model. This remains a small experimental GPT trained from scratch, not a competitive foundation model. More steps alone do not replace architecture, data scale, data quality or evaluation.
 
 Termux uses a separate compact CPU training profile to reduce heat and RAM pressure. It also collects a fresh public-data snapshot locally and derives its own practical instruction examples. It is not the same model as the Colab checkpoint.
+
+
+## FirstGPT architecture versions
+
+New training runs use architecture v2: RMSNorm, rotary position embeddings (RoPE), SwiGLU feed-forward blocks and PyTorch scaled-dot-product attention. Architecture v1 remains selectable for reproducing historical checkpoints. The checkpoint stores its complete config, so inference reconstructs the matching architecture. V2 is an architectural improvement, not evidence of trained quality; train and compare it on held-out data before replacing deployed checkpoints.
