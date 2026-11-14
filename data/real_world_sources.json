@@ -1,0 +1,255 @@
+{
+  "schema_version": 1,
+  "policy": {
+    "only_use_sources_with_documented_access_and_license": true,
+    "store_source_url_retrieval_time_license_and_dataset_revision": true,
+    "never_treat_forecasts_as_observations": true,
+    "never_treat_missing_values_as_zero": true,
+    "do_not_train_on_private_user_uploads_by_default": true,
+    "do_not_bulk_ingest_copyrighted_code_or_media_without_item_level_rights": true,
+    "training_is_separate_from_live_retrieval": true
+  },
+  "capabilities": {
+    "base_language_model": {
+      "purpose": "Broad language modelling and factual text",
+      "training_sources": [
+        {
+          "id": "wikitext103",
+          "name": "WikiText-103",
+          "dataset": "Salesforce/wikitext",
+          "config": "wikitext-103-raw-v1",
+          "license": "CC-BY-SA-3.0 and GFDL; review dataset card",
+          "url": "https://huggingface.co/datasets/Salesforce/wikitext",
+          "status": "existing-downloader"
+        }
+      ],
+      "live_sources": [
+        {
+          "name": "Wikimedia REST API",
+          "license": "CC-BY-SA content; attribute source",
+          "url": "https://www.mediawiki.org/wiki/API:REST_API"
+        }
+      ]
+    },
+    "instruction_following": {
+      "purpose": "Conversation, task following and response style",
+      "training_sources": [
+        {
+          "id": "dolly15k",
+          "name": "Databricks Dolly 15K",
+          "dataset": "databricks/databricks-dolly-15k",
+          "license": "CC-BY-SA-3.0",
+          "url": "https://huggingface.co/datasets/databricks/databricks-dolly-15k",
+          "status": "existing-downloader"
+        },
+        {
+          "id": "oasst1",
+          "name": "OpenAssistant OASST1",
+          "dataset": "OpenAssistant/oasst1",
+          "license": "Apache-2.0",
+          "url": "https://huggingface.co/datasets/OpenAssistant/oasst1",
+          "status": "catalogued-not-yet-downloaded"
+        }
+      ]
+    },
+    "mathematics_reasoning": {
+      "purpose": "Worked arithmetic and word-problem reasoning",
+      "training_sources": [
+        {
+          "id": "gsm8k",
+          "name": "GSM8K",
+          "dataset": "openai/gsm8k",
+          "config": "main",
+          "license": "MIT",
+          "url": "https://huggingface.co/datasets/openai/gsm8k",
+          "status": "new-downloader"
+        }
+      ]
+    },
+    "science_reasoning": {
+      "purpose": "School science knowledge and evidence-based multiple-choice reasoning",
+      "training_sources": [
+        {
+          "id": "arc_challenge",
+          "name": "AI2 ARC Challenge",
+          "dataset": "allenai/ai2_arc",
+          "config": "ARC-Challenge",
+          "license": "CC-BY-SA-4.0",
+          "url": "https://huggingface.co/datasets/allenai/ai2_arc",
+          "status": "new-downloader"
+        }
+      ]
+    },
+    "reading_comprehension": {
+      "purpose": "Answer from supplied passages and abstain when evidence is absent",
+      "training_sources": [
+        {
+          "id": "squad",
+          "name": "Stanford Question Answering Dataset",
+          "dataset": "rajpurkar/squad",
+          "license": "CC-BY-SA-4.0",
+          "url": "https://huggingface.co/datasets/rajpurkar/squad",
+          "status": "new-downloader"
+        }
+      ]
+    },
+    "general_knowledge": {
+      "purpose": "Entity descriptions, sourced facts and encyclopedic context",
+      "training_sources": [
+        {
+          "id": "wikidata",
+          "name": "Wikidata structured data",
+          "license": "CC0",
+          "url": "https://www.wikidata.org/wiki/Wikidata:Data_access",
+          "status": "live-api-planned"
+        }
+      ],
+      "live_sources": [
+        {
+          "name": "Wikidata API",
+          "license": "CC0 structured data",
+          "url": "https://www.wikidata.org/wiki/Wikidata:Data_access"
+        },
+        {
+          "name": "Wikipedia REST API",
+          "license": "CC-BY-SA; attribute",
+          "url": "https://www.mediawiki.org/wiki/API:REST_API"
+        }
+      ]
+    },
+    "research_and_science": {
+      "purpose": "Discover research papers and scholarly metadata; never imply metadata proves a claim",
+      "live_sources": [
+        {
+          "name": "arXiv API",
+          "license": "Metadata is accessible; article licenses vary",
+          "url": "https://info.arxiv.org/help/api/index.html"
+        },
+        {
+          "name": "OpenAlex API",
+          "license": "Metadata CC0; abstracts/text may have separate rights",
+          "url": "https://docs.openalex.org/"
+        }
+      ]
+    },
+    "coding_and_software": {
+      "purpose": "Find real public repositories, documentation and licensed code examples",
+      "live_sources": [
+        {
+          "name": "GitHub REST API repository search",
+          "license": "Repository content license varies; inspect each repository license before reuse",
+          "url": "https://docs.github.com/en/rest/search/search#search-repositories"
+        },
+        {
+          "name": "Stack Exchange data dumps",
+          "license": "CC-BY-SA; attribution and share-alike obligations apply",
+          "url": "https://archive.org/details/stackexchange"
+        }
+      ]
+    },
+    "image_understanding_and_references": {
+      "purpose": "Find existing media and expose attribution and reuse rights",
+      "live_sources": [
+        {
+          "name": "Wikimedia Commons API",
+          "license": "Per-file license and attribution; verify each file",
+          "url": "https://commons.wikimedia.org/wiki/Commons:API"
+        },
+        {
+          "name": "Openverse API",
+          "license": "Per-item license metadata; verify each file",
+          "url": "https://api.openverse.org/v1/"
+        }
+      ]
+    },
+    "audio_and_speech": {
+      "purpose": "Transcription and speech processing; current Orbit uses an external transcription backend",
+      "live_sources": [
+        {
+          "name": "Mozilla Common Voice",
+          "license": "Check the exact release's dataset card and locale terms before downloading",
+          "url": "https://commonvoice.mozilla.org/"
+        }
+      ],
+      "status": "external-audio-backend; no native audio training in FirstGPT"
+    },
+    "video_and_media": {
+      "purpose": "Extract captions/transcripts and sampled frames from user-provided media",
+      "status": "external-media-processing; no native video training in FirstGPT"
+    },
+    "documents_and_files": {
+      "purpose": "Read user files and create sourced reports; preserve document provenance",
+      "training_sources": [
+        {
+          "id": "squad_passages",
+          "name": "SQuAD passage-context examples",
+          "license": "CC-BY-SA-4.0",
+          "url": "https://huggingface.co/datasets/rajpurkar/squad",
+          "status": "new-downloader"
+        }
+      ]
+    },
+    "economics_and_finance": {
+      "purpose": "Historical indicators and reference currency rates",
+      "live_sources": [
+        {
+          "name": "World Bank Indicators API",
+          "license": "Check API terms and attribute",
+          "url": "https://datahelpdesk.worldbank.org/knowledgebase/articles/889392-about-the-indicators-api-documentation"
+        },
+        {
+          "name": "Frankfurter",
+          "license": "Public reference-rate API; cite source",
+          "url": "https://frankfurter.dev/"
+        }
+      ]
+    },
+    "weather_and_environment": {
+      "purpose": "Clearly labeled forecasts, air-quality estimates and hazard event feeds",
+      "live_sources": [
+        {
+          "name": "Open-Meteo",
+          "license": "Terms/attribution depend on API and use; disclose source",
+          "url": "https://open-meteo.com/en/terms"
+        },
+        {
+          "name": "USGS Earthquake Feeds",
+          "license": "Public USGS data; cite event records",
+          "url": "https://earthquake.usgs.gov/earthquakes/feed/"
+        },
+        {
+          "name": "NASA EONET",
+          "license": "NASA open data; check linked asset rights separately",
+          "url": "https://eonet.gsfc.nasa.gov/"
+        }
+      ]
+    },
+    "geography_and_places": {
+      "purpose": "Country profiles and geographic facts",
+      "live_sources": [
+        {
+          "name": "REST Countries",
+          "license": "Check service terms and data provenance",
+          "url": "https://restcountries.com/"
+        },
+        {
+          "name": "Wikidata",
+          "license": "CC0 structured data",
+          "url": "https://www.wikidata.org/wiki/Wikidata:Data_access"
+        }
+      ]
+    },
+    "memory_and_personal_context": {
+      "purpose": "Store only user-authorized private context; do not harvest public or private personal data for model training",
+      "status": "private-user-data; excluded from public training corpus"
+    },
+    "creative_design_and_generation": {
+      "purpose": "Use real reference metadata and user-provided briefs; do not copy protected artwork or train on unlicensed assets",
+      "status": "prompt-and-template driven; external image backend"
+    },
+    "agent_benchmarks_and_verification": {
+      "purpose": "Use reproducible task definitions and source-backed expected outcomes; keep evaluation splits separate from training",
+      "status": "benchmark_tasks.json exists; more licensed benchmark adapters planned"
+    }
+  }
+}
