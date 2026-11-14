@@ -235,3 +235,6 @@ data/orbit_instructions_full.jsonl
 
 # Private user-uploaded media
 orbit/uploads/
+
+# Per-task specialist snapshots and review artifacts
+.orbit_agent_workspaces/
