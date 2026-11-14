@@ -116,3 +116,8 @@ Run the offline integrity check after generation:
 The validator checks artifact presence, row counts, source metadata and JSON/CSV consistency. It does not certify upstream scientific or financial accuracy.
 
 Review `build_data_lab.py` and its generated manifest for source-specific terms and limitations before commercial reuse. In particular, Open-Meteo's free API terms may restrict commercial use; Frankfurter rates are reference rates, not trading quotes; USGS event parameters can be revised; NASA EONET is a curated feed, not a complete hazard inventory.
+
+
+## Capability seed examples
+
+`capability_seed_examples.jsonl` contains sourced examples for mathematics (GSM8K), school science (AI2 ARC), passage-grounded reading (SQuAD) and Python programming (MBPP). The readable companion `data/raw/capability_seed_examples.txt` is included by `prepare_corpus.py`. The SQuAD passage is a shortened excerpt and the answer is grounded in that excerpt. The MBPP sample is attributed to a mirror row that records the original MBPP source and training split; verify upstream before redistributing. See the per-record metadata for source and license notes.
