@@ -70,7 +70,7 @@ def _convert(name, row, index, source):
         prompt = "Answer only from the passage. If the passage does not support an answer, say so.\n\nPassage:\n" + context + "\n\nQuestion: " + question
         response = answer
     elif name == "mbpp":
-        task = str(row.get("text", "")).strip()
+        task = str(row.get("text") or row.get("prompt") or "").strip()
         code = str(row.get("code", "")).strip()
         if not task or not code:
             return None
