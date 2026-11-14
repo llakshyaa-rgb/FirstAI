@@ -176,101 +176,131 @@ class AutonomousCoder:
     def run(self, goal):
         if not self.runtime.ready:
             raise RuntimeError("A trained FirstGPT checkpoint is required for autonomous coding.")
-        self.progress("Coding agent: mapping the project and choosing targeted files.")
+        self.progress("Coding agent: mapping the project and planning the implementation in phases.")
         overview = self.workspace.inspect_project(".", max_files=80)
         plan = extract_json(self._reply(
-            "Plan a minimal implementation for this goal using only paths in this project map. "
-            "Return ONLY JSON: " + '{"files":["relative/path"],"plan":"ordered short plan"}. '
-            "Choose at most five files. Exclude secrets, dependencies, generated files and lockfiles.\n"
-            "GOAL: " + goal[:2000] + "\nPROJECT MAP: " + json.dumps(overview, ensure_ascii=False)[:9000], 500))
-        paths = self._paths_from_plan(plan)
-        context = self._read(paths)
-        if not context:
-            raise RuntimeError("No safe readable source files were available.")
-        self.progress("Plan: " + str(plan.get("plan", "Implementing targeted changes."))[:600], files=paths)
-        prompt = (
-            "Implement the owner's goal in these files. Preserve unrelated behaviour and interfaces. "
-            "Return ONLY valid JSON: " + '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
-            "For existing files use exact, unique, small patches; never rewrite entire files. Each old anchor must occur exactly once. "
-            "New files may use complete content. Never edit paths outside the supplied list.\nGOAL: " + goal[:2000] +
-            "\nPLAN: " + str(plan.get("plan", ""))[:800] +
-            "\nALLOWED PATHS: " + json.dumps(paths) +
-            "\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:22000])
-        raw = self._reply(prompt, 1500)
-        self.progress("Independent review pass: checking scope, compatibility and likely regressions.")
-        try:
-            review = extract_json(self._reply(
-                "You are Orbit's independent code reviewer. Review the proposed exact patches against the goal and current files. "
-                "Look for incorrect behaviour, unsafe changes, broken interfaces, missing edge cases and unrelated edits. "
-                "Return ONLY JSON: " + '{"approved":true,"issues":["short concrete issue"]}. '
-                "Set approved false only for a concrete material issue.\nGOAL: " + goal[:1400] +
-                "\nPATCH PROPOSAL: " + raw[:10000] +
-                "\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:14000],
-                450
-            ))
-            issues = review.get("issues", [])
-            if not review.get("approved", False) and issues:
-                self.progress("Reviewer found issues. Asking the implementation agent to address them before writing files.",
-                              kind="method_failed", issues=issues[:6])
-                raw = self._reply(
-                    prompt + "\\nREVIEWER FINDINGS TO FIX BEFORE APPLYING: " +
-                    json.dumps(issues[:8], ensure_ascii=False) +
-                    "\\nReturn a corrected exact patch batch.",
-                    1500
-                )
+            "You are the lead engineer. Decompose the owner's goal into a short dependency-ordered plan. "
+            "Return ONLY JSON: " + '{"phases":[{"goal":"one concrete phase outcome","files":["relative/path"]}]}. '
+            "Use at most four phases and at most five files per phase. Use only existing paths from the project map "
+            "or a clearly named new source file. Keep phases small and independently checkable. Exclude secrets, "
+            "dependencies, generated files and lockfiles.\\nOWNER GOAL: " + goal[:2200] +
+            "\\nPROJECT MAP: " + json.dumps(overview, ensure_ascii=False)[:9000], 800))
+        phases = plan.get("phases")
+        if not isinstance(phases, list) or not phases:
+            if isinstance(plan.get("files"), list):
+                phases = [{"goal": plan.get("plan", goal), "files": plan["files"]}]
             else:
-                self.progress("Reviewer found no blocking issue.")
-        except Exception as exc:
-            self.progress("Independent review could not complete (" + type(exc).__name__ +
-                          "). Proceeding to the strict patch and compile checks.", kind="method_failed")
-        for edit_attempt in range(2):
-            try:
-                changed, summary = self._apply(raw, paths)
-                break
-            except Exception as exc:
-                if edit_attempt:
-                    raise
-                self.progress("The proposed patch was rejected (" + type(exc).__name__ + "). Asking the coding agent to correct its patch before touching the files.",
-                              kind="method_failed")
-                raw = self._reply(
-                    prompt + "\\nPREVIOUS PATCH REJECTED: " + type(exc).__name__ + ": " + str(exc)[:1200] +
-                    "\\nReturn a corrected JSON patch. Use exact unique anchors copied from the current files.",
-                    1500
-                )
-        self.progress("Applied changes with automatic backups.", changes=changed)
-        checks = None
-        for attempt in range(MAX_REPAIRS + 1):
-            self.progress("Running compile and available project checks, pass " + str(attempt + 1) + ".")
-            checks = self._checks(changed)
-            if checks["ok"]:
-                self.progress("Implementation checks passed.")
-                return {"status": "completed", "summary": summary, "plan": plan.get("plan", ""),
-                        "changes": changed, "checks": checks, "repair_rounds": attempt}
-            if attempt == MAX_REPAIRS:
-                break
-            self.progress("A check failed. Diagnosing it and preparing a repair.", kind="method_failed")
-            current = self._read(paths)
-            repair = (
-                "Repair the implementation using the actual failure output. Keep the requested behaviour. "
+                raise ValueError("The engineering plan did not contain executable phases.")
+        phases = phases[:4]
+        all_changes, completed_phases, total_repairs = [], [], 0
+        for phase_index, phase in enumerate(phases, 1):
+            if not isinstance(phase, dict):
+                raise ValueError("An implementation phase must be an object.")
+            phase_goal = str(phase.get("goal") or goal)[:1200]
+            paths = self._paths_from_plan({"files": phase.get("files")})
+            context = self._read(paths)
+            if not context:
+                raise RuntimeError("No safe readable files were available for phase " + str(phase_index) + ".")
+            self.progress("Phase " + str(phase_index) + " of " + str(len(phases)) + ": " + phase_goal,
+                          files=paths)
+            prompt = (
+                "Implement this phase of the owner's project goal. Preserve unrelated behaviour and interfaces. "
                 "Return ONLY valid JSON: " + '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
-                "Use exact, unique small patches for existing files; never rewrite them wholesale. Only these paths may change: " + json.dumps(paths) +
-                "\nGOAL: " + goal[:1600] + "\nFAILURES: " + self._failures(checks)[-8500:] +
-                "\nCURRENT FILES: " + json.dumps(current, ensure_ascii=False)[:20000])
-            repair_raw = self._reply(repair, 1500)
-            for repair_attempt in range(2):
+                "For existing files use exact, unique, small patches; never rewrite entire files. Each old anchor must occur exactly once. "
+                "New files may use complete content. Never edit paths outside the supplied list.\\nOWNER GOAL: " + goal[:1800] +
+                "\\nPHASE GOAL: " + phase_goal +
+                "\\nALLOWED PATHS: " + json.dumps(paths) +
+                "\\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:20000])
+            raw = self._reply(prompt, 1500)
+            self.progress("Reviewer pass: checking the proposed changes for scope, compatibility and regressions.")
+            try:
+                review = extract_json(self._reply(
+                    "You are the independent reviewer for this phase. Review the proposed exact patches against "
+                    "the owner's goal and current files. Find concrete correctness, compatibility, security or "
+                    "scope problems. Return ONLY JSON: " +
+                    '{"approved":true,"issues":["short concrete issue"]}. Set approved false only for a material issue.\\n' +
+                    "OWNER GOAL: " + goal[:1200] + "\\nPHASE: " + phase_goal +
+                    "\\nPATCHES: " + raw[:9000] +
+                    "\\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:12000], 450))
+                issues = review.get("issues", [])
+                if not review.get("approved", False) and issues:
+                    self.progress("Reviewer found issues; requesting a corrected implementation before writing.",
+                                  kind="method_failed", issues=issues[:6])
+                    raw = self._reply(prompt + "\\nREVIEW FINDINGS: " +
+                                      json.dumps(issues[:8], ensure_ascii=False) +
+                                      "\\nReturn a corrected exact patch batch.", 1500)
+                else:
+                    self.progress("Reviewer found no blocking issue.")
+            except Exception as exc:
+                self.progress("Reviewer could not complete (" + type(exc).__name__ +
+                              "); strict patch validation and compiler checks remain active.",
+                              kind="method_failed")
+            for edit_attempt in range(2):
                 try:
-                    fixed, summary = self._apply(repair_raw, paths)
+                    phase_changes, summary = self._apply(raw, paths)
                     break
                 except Exception as exc:
-                    if repair_attempt:
+                    if edit_attempt:
                         raise
-                    self.progress("The repair patch was rejected; requesting a corrected repair.", kind="method_failed")
-                    repair_raw = self._reply(
-                        repair + "\\nPREVIOUS REPAIR REJECTED: " + type(exc).__name__ + ": " + str(exc)[:1200] +
-                        "\\nReturn a corrected exact patch.",
-                        1500
-                    )
-            changed.extend(fixed)
-            self.progress("Applied a repair with fresh backups.", changes=fixed)
-        return {"status": "needs_attention", "summary": summary, "plan": plan.get("plan", ""),
-                "changes": changed, "checks": checks, "repair_rounds": MAX_REPAIRS}
+                    self.progress("Patch rejected (" + type(exc).__name__ +
+                                  "); asking the implementation agent to correct it.", kind="method_failed")
+                    raw = self._reply(prompt + "\\nPREVIOUS PATCH REJECTED: " +
+                                      type(exc).__name__ + ": " + str(exc)[:1200] +
+                                      "\\nReturn a corrected exact patch batch.", 1500)
+            all_changes.extend(phase_changes)
+            self.progress("Phase changes applied with automatic backups.", changes=phase_changes)
+            phase_repairs = 0
+            checks = None
+            for repair_round in range(MAX_REPAIRS + 1):
+                self.progress("Validating phase " + str(phase_index) + ", pass " +
+                              str(repair_round + 1) + ".")
+                checks = self._checks(all_changes)
+                if checks["ok"]:
+                    phase_repairs = repair_round
+                    total_repairs += repair_round
+                    completed_phases.append({"phase": phase_index, "goal": phase_goal,
+                                             "files": paths, "summary": summary})
+                    self.progress("Phase " + str(phase_index) + " passed its available checks.")
+                    break
+                if repair_round == MAX_REPAIRS:
+                    total_repairs += repair_round
+                    return {
+                        "status": "needs_attention", "summary": summary,
+                        "plan": plan, "completed_phases": completed_phases,
+                        "failed_phase": phase_index, "changes": all_changes,
+                        "checks": checks, "repair_rounds": total_repairs,
+                    }
+                self.progress("A check failed. Diagnosing the output and preparing a repair.",
+                              kind="method_failed", phase=phase_index, round=repair_round + 1)
+                current = self._read(paths)
+                repair_prompt = (
+                    "Repair this implementation phase using the actual compiler or test failure. "
+                    "Preserve the owner's requested behaviour. Return ONLY valid JSON: " +
+                    '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
+                    "Use exact, unique small patches for existing files; never rewrite them wholesale. "
+                    "Only these paths may change: " + json.dumps(paths) +
+                    "\\nOWNER GOAL: " + goal[:1400] + "\\nPHASE: " + phase_goal +
+                    "\\nFAILURES: " + self._failures(checks)[-8000:] +
+                    "\\nCURRENT FILES: " + json.dumps(current, ensure_ascii=False)[:18000])
+                repair_raw = self._reply(repair_prompt, 1500)
+                for repair_attempt in range(2):
+                    try:
+                        fixed, summary = self._apply(repair_raw, paths)
+                        break
+                    except Exception as exc:
+                        if repair_attempt:
+                            raise
+                        self.progress("Repair patch rejected; requesting a corrected repair.",
+                                      kind="method_failed")
+                        repair_raw = self._reply(
+                            repair_prompt + "\\nPREVIOUS REPAIR REJECTED: " +
+                            type(exc).__name__ + ": " + str(exc)[:1200] +
+                            "\\nReturn a corrected exact patch.", 1500)
+                all_changes.extend(fixed)
+                self.progress("Repair applied with fresh backups.", changes=fixed)
+        return {
+            "status": "completed", "summary": "Completed all planned implementation phases.",
+            "plan": plan, "completed_phases": completed_phases,
+            "changes": all_changes, "checks": checks,
+            "repair_rounds": total_repairs,
+        }
