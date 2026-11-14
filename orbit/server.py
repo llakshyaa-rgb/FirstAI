@@ -354,7 +354,7 @@ class OrbitApplication:
                     "Changed files: " + (", ".join(x.get("path", "") for x in changes) or "none"),
                     "Automatic backups: " + (", ".join(x.get("backup", "new file") for x in changes) or "none"),
                     "Compile check: " + ("passed" if compile_info.get("passed") else "failed"),
-                    "Application build: " + ("not run (opt-in)" if build_info is None and not build_enabled else ("not applicable (no build script)" if build_info and build_info.get("skipped") else ("passed" if build_info and build_info.get("passed") else "failed"))),
+                    "Application build: " + ("not run (opt-in)" if build_info is None and not build_enabled else (("skipped: " + str(build_info.get("reason", "not applicable"))) if build_info and build_info.get("skipped") else ("passed" if build_info and build_info.get("passed") else "failed")),
                     "Project tests: " + ("not run (opt-in)" if test_info is None and not coding_result.get("checks", {}).get("tests_enabled") else ("not present" if test_info is None else ("passed" if test_info.get("passed") else "failed"))),
                     "Repair rounds: " + str(coding_result.get("repair_rounds", 0)),
                     "Specialist workspace: " + str(coding_result.get("agent_workspace", "not created")),
