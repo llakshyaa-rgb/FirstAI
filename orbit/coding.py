@@ -90,13 +90,34 @@ class AutonomousCoder:
         for edit in edits[:MAX_FILES]:
             if not isinstance(edit, dict) or edit.get("path") not in paths:
                 raise PermissionError("The model attempted an unplanned file edit.")
-            relative, content = edit["path"], edit.get("content")
-            if not isinstance(content, str) or not content.strip() or len(content.encode("utf-8")) > MAX_BYTES:
-                raise ValueError("Invalid or oversized replacement for " + relative)
-            if self._path(relative).exists():
-                changed.append(self.workspace.update_file(relative, content))
-            else:
+            relative = edit["path"]
+            target = self._path(relative)
+            if not target.exists():
+                content = edit.get("content")
+                if not isinstance(content, str) or not content.strip() or len(content.encode("utf-8")) > MAX_BYTES:
+                    raise ValueError("New files require complete, bounded text content.")
                 changed.append(self.workspace.create_file(relative, content))
+                continue
+            if "patches" in edit:
+                patches = edit["patches"]
+                if not isinstance(patches, list) or not patches:
+                    raise ValueError("A file patch must contain exact replacements.")
+                content = target.read_text(encoding="utf-8")
+                for patch in patches[:12]:
+                    if not isinstance(patch, dict) or not isinstance(patch.get("old"), str) or not patch["old"]:
+                        raise ValueError("A patch needs a non-empty exact old-text anchor.")
+                    new = patch.get("new")
+                    if not isinstance(new, str):
+                        raise ValueError("Patch replacement text must be a string.")
+                    occurrences = content.count(patch["old"])
+                    if occurrences != 1:
+                        raise ValueError("Patch anchor for " + relative + " matched " + str(occurrences) + " times; refusing an ambiguous edit.")
+                    content = content.replace(patch["old"], new, 1)
+                if len(content.encode("utf-8")) > MAX_BYTES:
+                    raise ValueError("Patched file exceeds the safe file-size limit.")
+                changed.append(self.workspace.update_file(relative, content))
+                continue
+            raise ValueError("Existing files must be changed with exact, targeted patches rather than full-file rewrites.")
         if not changed:
             raise ValueError("No file changes were applied.")
         return changed, str(payload.get("summary") or "Applied targeted changes.")
