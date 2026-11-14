@@ -119,6 +119,17 @@ class PreviewManager:
         selected = max(ranked, key=lambda row: (row[0], row[1]))[2]
         return selected.relative_to(self.root).as_posix() or "."
 
+    def logs(self, limit=12000):
+        try:
+            raw = self.log_path.read_text(encoding="utf-8", errors="replace")[-max(1000, min(int(limit), 16000)):]
+        except OSError:
+            raw = ""
+        # Avoid echoing common credential-shaped values from noisy build output.
+        import re
+        raw = re.sub(r"(?i)(api[_-]?key|access[_-]?token|secret|password)(\\s*[:=]\\s*)[^\\s,;]+",
+                     r"\\1\\2[redacted]", raw)
+        return {"available": bool(raw), "text": raw}
+
     def status(self):
         running = self.process is not None and self.process.poll() is None
         return {"running": running, "url": "http://127.0.0.1:" + str(self.port) if running else None,
