@@ -10,10 +10,17 @@ proot-distro login debian -- bash -lc '
 set -euo pipefail
 cd /root/FirstAI
 mkdir -p checkpoints workspace
-if [ ! -f checkpoints/firstgpt.best.pt ] && [ -f /sdcard/Download/firstgpt.best.pt ]; then
-  cp /sdcard/Download/firstgpt.best.pt checkpoints/firstgpt.best.pt
-  echo "Imported checkpoint from Android Downloads."
-fi
+for name in orbit-instruct.pt firstgpt.best.pt; do
+  if [ ! -f "checkpoints/$name" ]; then
+    for source in "/sdcard/Download/$name" "/storage/emulated/0/Download/$name"; do
+      if [ -f "$source" ]; then
+        cp "$source" "checkpoints/$name"
+        echo "Imported $name from Android Downloads."
+        break
+      fi
+    done
+  fi
+done
 if [ ! -f checkpoints/firstgpt.best.pt ] && [ ! -f checkpoints/orbit-instruct.pt ]; then
   echo "No trained checkpoint found."
   echo "Download firstgpt.best.pt from Colab to Android Downloads, then run this command again."
