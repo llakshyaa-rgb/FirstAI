@@ -7,7 +7,7 @@ from __future__ import annotations
 import json
 
 MAX_STEPS = 5
-AUTO_TOOLS = {"calculate", "web_search", "live_data", "list_files", "read_file", "search_files"}
+AUTO_TOOLS = {"calculate", "web_search", "live_data", "knowledge_search", "list_files", "read_file", "search_files"}
 
 def parse_tool_plan(raw: str, registry):
     if not isinstance(raw, str):
