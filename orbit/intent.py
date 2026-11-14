@@ -66,10 +66,12 @@ def classify_request(message: str) -> dict:
         route["capabilities"].append("research")
     code_action = _has(lower, ("implement", "code", "coding", "debug", "fix", "refactor",
                                "modify", "edit the repo", "change the project", "build the app",
-                               "add a feature", "integrate", "review this code"))
+                               "add a feature", "integrate", "review this code", "improve",
+                               "upgrade", "write code", "create", "make"))
     code_subject = _has(lower, ("project", "repo", "repository", "codebase", "code", "app",
                                 "application", "software", "script", "function", "bug", "error",
-                                "website", "web app", "api", "backend", "frontend", "templateforge"))
+                                "website", "web app", "api", "backend", "frontend", "templateforge",
+                                "agent", "agents", "autonomous"))
     if code_action and code_subject:
         route["capabilities"].append("coding")
         if _has(lower, ("implement", "build", "create", "add", "fix", "debug", "refactor",
