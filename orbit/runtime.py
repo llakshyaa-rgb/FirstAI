@@ -172,7 +172,7 @@ class OrbitRuntime:
         if not self.ready:
             return ""
         safe = [item for item in tool_descriptions
-                if item.get("name") in {"calculate", "web_search", "list_files", "read_file", "search_files"}
+                if item.get("name") in {"calculate", "web_search", "live_data", "list_files", "read_file", "search_files"}
                 and not item.get("requires_confirmation", True)]
         instruction = (
             "You are Orbit's tool planner. Decide whether a listed read-only tool is needed. "
