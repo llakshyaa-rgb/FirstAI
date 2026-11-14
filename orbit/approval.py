@@ -11,7 +11,7 @@ class ApprovalGate:
         self._lock = threading.RLock()
         self._pending = {}
 
-    def request(self, task_id, summary, files):
+    def request(self, task_id, summary, files, proposal_preview=None):
         approval_id = uuid.uuid4().hex
         event = threading.Event()
         record = {"event": event, "decision": None}
@@ -21,6 +21,7 @@ class ApprovalGate:
             task_id, "approval_required",
             "Orbit is ready to modify its software. Explicit owner approval is required before these files are changed.",
             approval_id=approval_id, summary=str(summary), files=list(files),
+            proposal_preview=str(proposal_preview or "")[:16000],
             expires_in_seconds=self.timeout_seconds,
         )
         accepted = event.wait(self.timeout_seconds)
