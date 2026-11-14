@@ -1,0 +1,27 @@
+REAL-WORLD DATA EXAMPLES — INDIA
+Source: World Bank World Development Indicators.
+Snapshot checked: 2026-11-14.
+These are published annual statistical estimates, not live measurements. Preserve the year and unit. Missing values must never be interpreted as zero.
+
+Question: What was India's population in 2025 according to the World Bank?
+Answer: The World Bank reports India's 2025 population as 1,463,865,525 people (about 1.464 billion). This is an annual population estimate, not a live headcount.
+Indicator: Population, total (SP.POP.TOTL). Unit: people. Year: 2025.
+Source: https://databank.worldbank.org/reports.aspx?country=IND&source=2
+
+Question: What was India's GDP in current US dollars in 2025?
+Answer: The World Bank reports India's 2025 GDP at approximately USD 3,956,067.12 million (about USD 3.956 trillion) in current US dollars. Current-dollar GDP is not inflation-adjusted.
+Indicator: GDP (current US$) (NY.GDP.MKTP.CD). Unit: current US dollars. Year: 2025.
+Source: https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?locations=IN
+
+Question: What was India's life expectancy at birth in 2024?
+Answer: The World Bank reports India's life expectancy at birth at 72.235 years for 2024. This is a population-level statistical indicator, not a prediction of an individual's lifespan.
+Indicator: Life expectancy at birth, total (SP.DYN.LE00.IN). Unit: years. Year: 2024.
+Source: https://data.worldbank.org/country/in
+
+DATA QUALITY RULES
+- Always attach the year and unit to a statistic.
+- Distinguish annual estimates from real-time observations and forecasts.
+- Do not describe current US dollar GDP as inflation-adjusted GDP.
+- Do not treat missing values as zero.
+- Do not infer causation from descriptive indicators.
+- Re-check source data before answering time-sensitive questions.
