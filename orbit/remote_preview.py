@@ -9,7 +9,7 @@ import json
 import os
 import re
 from urllib.error import HTTPError, URLError
-from urllib.parse import parse_qsl, quote, unquote, urlsplit, urlunsplit
+from urllib.parse import unquote, urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
 
 MAX_REQUEST_BYTES = 2 * 1024 * 1024
@@ -85,10 +85,12 @@ def proxy(handler, method):
     if "text/html" in content_type.lower():
         page = payload.decode("utf-8", errors="replace")
         base_tag = '<base href="/remote-preview/">'
-        if re.search(r"<head(?:\\s[^>]*)?>", page, flags=re.I):
-            page = re.sub(r"(<head(?:\\s[^>]*)?>)", r"\\1" + base_tag, page, count=1, flags=re.I)
+        if re.search(r"<head(?:\s[^>]*)?>", page, flags=re.I):
+            page = re.sub(r"(<head(?:\s[^>]*)?>)", r"\1" + base_tag, page, count=1, flags=re.I)
         else:
             page = base_tag + page
+        # Rewrite root-relative HTML resources so they remain inside this proxy path.
+        page = re.sub(r'((?:src|href|action)=["\'])/(?!/)', r'\1/remote-preview/', page, flags=re.I)
         payload = page.encode("utf-8")
         content_type = "text/html; charset=utf-8"
     handler.send_response(status)
