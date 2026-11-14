@@ -183,8 +183,9 @@ class AutonomousCoder:
             "Return ONLY JSON: " + '{"phases":[{"goal":"one concrete phase outcome","files":["relative/path"]}]}. '
             "Use at most four phases and at most five files per phase. Use only existing paths from the project map "
             "or a clearly named new source file. Keep phases small and independently checkable. Exclude secrets, "
-            "dependencies, generated files and lockfiles.\\nOWNER GOAL: " + goal[:2200] +
-            "\\nPROJECT MAP: " + json.dumps(overview, ensure_ascii=False)[:9000], 800))
+            "dependencies, generated files and lockfiles.\nPROJECT MAP: " +
+            json.dumps(overview, ensure_ascii=False)[:9000] +
+            "\nOWNER GOAL: " + goal[:2200], 800))
         phases = plan.get("phases")
         if not isinstance(phases, list) or not phases:
             if isinstance(plan.get("files"), list):
@@ -207,10 +208,10 @@ class AutonomousCoder:
                 "Implement this phase of the owner's project goal. Preserve unrelated behaviour and interfaces. "
                 "Return ONLY valid JSON: " + '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
                 "For existing files use exact, unique, small patches; never rewrite entire files. Each old anchor must occur exactly once. "
-                "New files may use complete content. Never edit paths outside the supplied list.\\nCURRENT FILES: " +
+                "New files may use complete content. Never edit paths outside the supplied list.\nCURRENT FILES: " +
                 json.dumps(context, ensure_ascii=False)[:15000] +
-                "\\nALLOWED PATHS: " + json.dumps(paths) +
-                "\\nPHASE GOAL: " + phase_goal + "\\nOWNER GOAL: " + goal[:1800])
+                "\nALLOWED PATHS: " + json.dumps(paths) +
+                "\nPHASE GOAL: " + phase_goal + "\nOWNER GOAL: " + goal[:1800])
             raw = self._reply(prompt, 1500)
             self.progress("Reviewer pass: checking the proposed changes for scope, compatibility and regressions.")
             try:
@@ -218,17 +219,17 @@ class AutonomousCoder:
                     "You are the independent reviewer for this phase. Review the proposed exact patches against "
                     "the owner's goal and current files. Find concrete correctness, compatibility, security or "
                     "scope problems. Return ONLY JSON: " +
-                    '{"approved":true,"issues":["short concrete issue"]}. Set approved false only for a material issue.\\n' +
+                    '{"approved":true,"issues":["short concrete issue"]}. Set approved false only for a material issue.\n' +
                     "CURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:8000] +
-                    "\\nPATCHES: " + raw[:5000] +
-                    "\\nPHASE: " + phase_goal + "\\nOWNER GOAL: " + goal[:1200], 450))
+                    "\nPATCHES: " + raw[:5000] +
+                    "\nPHASE: " + phase_goal + "\nOWNER GOAL: " + goal[:1200], 450))
                 issues = review.get("issues", [])
                 if not review.get("approved", False) and issues:
                     self.progress("Reviewer found issues; requesting a corrected implementation before writing.",
                                   kind="method_failed", issues=issues[:6])
-                    raw = self._reply(prompt + "\\nREVIEW FINDINGS: " +
+                    raw = self._reply(prompt + "\nREVIEW FINDINGS: " +
                                       json.dumps(issues[:8], ensure_ascii=False) +
-                                      "\\nReturn a corrected exact patch batch.", 1500)
+                                      "\nReturn a corrected exact patch batch.", 1500)
                 else:
                     self.progress("Reviewer found no blocking issue.")
             except Exception as exc:
@@ -244,9 +245,9 @@ class AutonomousCoder:
                         raise
                     self.progress("Patch rejected (" + type(exc).__name__ +
                                   "); asking the implementation agent to correct it.", kind="method_failed")
-                    raw = self._reply(prompt + "\\nPREVIOUS PATCH REJECTED: " +
+                    raw = self._reply(prompt + "\nPREVIOUS PATCH REJECTED: " +
                                       type(exc).__name__ + ": " + str(exc)[:1200] +
-                                      "\\nReturn a corrected exact patch batch.", 1500)
+                                      "\nReturn a corrected exact patch batch.", 1500)
             all_changes.extend(phase_changes)
             self.progress("Phase changes applied with automatic backups.", changes=phase_changes)
             phase_repairs = 0
@@ -279,9 +280,9 @@ class AutonomousCoder:
                     '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
                     "Use exact, unique small patches for existing files; never rewrite them wholesale. "
                     "Only these paths may change: " + json.dumps(paths) +
-                    "\\nCURRENT FILES: " + json.dumps(current, ensure_ascii=False)[:10000] +
-                    "\\nFAILURES: " + self._failures(checks)[-6000:] +
-                    "\\nPHASE: " + phase_goal + "\\nOWNER GOAL: " + goal[:1400])
+                    "\nCURRENT FILES: " + json.dumps(current, ensure_ascii=False)[:10000] +
+                    "\nFAILURES: " + self._failures(checks)[-6000:] +
+                    "\nPHASE: " + phase_goal + "\nOWNER GOAL: " + goal[:1400])
                 repair_raw = self._reply(repair_prompt, 1500)
                 for repair_attempt in range(2):
                     try:
@@ -293,9 +294,9 @@ class AutonomousCoder:
                         self.progress("Repair patch rejected; requesting a corrected repair.",
                                       kind="method_failed")
                         repair_raw = self._reply(
-                            repair_prompt + "\\nPREVIOUS REPAIR REJECTED: " +
+                            repair_prompt + "\nPREVIOUS REPAIR REJECTED: " +
                             type(exc).__name__ + ": " + str(exc)[:1200] +
-                            "\\nReturn a corrected exact patch.", 1500)
+                            "\nReturn a corrected exact patch.", 1500)
                 all_changes.extend(fixed)
                 self.progress("Repair applied with fresh backups.", changes=fixed)
         return {
