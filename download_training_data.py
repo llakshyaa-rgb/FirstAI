@@ -7,6 +7,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from datetime import datetime, timezone
 
 
 def download_wikitext(output, config="wikitext-103-raw-v1", max_chars=5_000_000):
@@ -31,6 +32,14 @@ def download_wikitext(output, config="wikitext-103-raw-v1", max_chars=5_000_000)
             written += len(text) + 2
     if written < 20_000:
         raise RuntimeError(f"Downloaded corpus is unexpectedly small: {written} characters")
+    manifest = {
+        "dataset": "Salesforce/wikitext", "config": config, "split": "train",
+        "license": "CC-BY-SA-3.0 and GFDL (verify current dataset card)",
+        "source_url": "https://huggingface.co/datasets/Salesforce/wikitext",
+        "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
+        "characters_written": written, "max_chars": max_chars,
+    }
+    target.with_suffix(target.suffix + ".manifest.json").write_text(json.dumps(manifest, indent=2) + "\\n", encoding="utf-8")
     print(f"WikiText saved: {target} | {written:,} characters | config={config}")
     return target
 
@@ -77,6 +86,15 @@ def download_dolly(output, max_examples=15_000, extra_examples=None):
                         count += 1
     if count < 4:
         raise RuntimeError("Instruction dataset download produced too few examples")
+    manifest = {
+        "dataset": "databricks/databricks-dolly-15k", "split": "train",
+        "license": "CC-BY-SA-3.0",
+        "source_url": "https://huggingface.co/datasets/databricks/databricks-dolly-15k",
+        "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
+        "total_examples_including_extra": count,
+        "note": "Orbit extra examples are appended after Dolly; inspect their individual metadata/source file.",
+    }
+    target.with_suffix(target.suffix + ".manifest.json").write_text(json.dumps(manifest, indent=2) + "\\n", encoding="utf-8")
     print(f"Instruction data saved: {target} | {count:,} examples")
     return target
 
