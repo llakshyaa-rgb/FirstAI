@@ -104,10 +104,12 @@ def main():
         if saved.get("instruction_data_sha256") != digest:
             raise ValueError("Instruction dataset changed since checkpoint; use a new --out path or start fresh.")
         start_step = int(saved.get("instruction_tuning_steps", 0))
+        base_checkpoint_step = int(saved.get("base_checkpoint_step", int(saved.get("step", 0)) - start_step))
         best = float(saved.get("best_validation_loss", float("inf")))
     else:
         saved = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
         start_step, best = 0, float("inf")
+        base_checkpoint_step = int(saved.get("step", 0))
     tokenizer = BPETokenizer.from_dict(saved["tokenizer"])
     config = GPTConfig(**saved["config"])
     train_rows = encode_examples(train_raw, tokenizer, config.block_size)
@@ -157,7 +159,8 @@ def main():
             payload = dict(saved)
             payload.update({
                 "model": model.state_dict(), "optimizer": optimizer.state_dict(),
-                "step": int(saved.get("step", 0)) + (completed - start_step),
+                "step": base_checkpoint_step + completed,
+                "base_checkpoint_step": base_checkpoint_step,
                 "best_validation_loss": min(best, val),
                 "instruction_data_sha256": digest,
                 "instruction_tuning_steps": completed,
