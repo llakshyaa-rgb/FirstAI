@@ -107,10 +107,10 @@ FirstAI now has a source registry at `data/real_world_sources.json`. It maps eac
 
 ### Download real training examples for more skills
 
-\`\`\`bash
+```bash
 pip install datasets
 python download_capability_data.py --max-per-dataset 3000
-\`\`\`
+```
 
 The repository already contains small real sourced seed examples across economics, mathematics, science, reading comprehension and coding. The larger download adds up to 3,000 examples per source by default. This adds real training examples for:
 - Mathematics: GSM8K worked word problems.
@@ -122,9 +122,9 @@ It saves per-dataset JSONL, a combined `data/instructions_capabilities.jsonl` fi
 
 Instruction-tune a checkpoint with the new data:
 
-\`\`\`bash
+```bash
 python finetune_instructions.py --checkpoint checkpoints/firstgpt.best.pt --data data/instructions_capabilities.jsonl --out checkpoints/firstgpt-capabilities.pt
-\`\`\`
+```
 
 ### Orbit's additional live knowledge
 
