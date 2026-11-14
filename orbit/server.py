@@ -621,7 +621,8 @@ def make_handler(app):
                     status = self.preview.status()
                     if not status.get("running") or not status.get("url"):
                         return self._json(409, {"error": "Start a local preview before inspecting it."})
-                    return self._json(200, inspect_preview(status["url"]))                if route == "/api/tasks/retry":
+                    return self._json(200, inspect_preview(status["url"]))
+                if route == "/api/tasks/retry":
                     task_id = payload.get("task_id")
                     if not isinstance(task_id, str) or not task_id:
                         return self._json(400, {"error": "task_id is required"})
