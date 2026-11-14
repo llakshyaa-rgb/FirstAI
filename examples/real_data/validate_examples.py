@@ -45,11 +45,13 @@ def validate(root: Path = ROOT) -> dict:
         raise ValueError("CSV and JSON row counts differ.")
 
     seen_years = set()
+    year_order = []
     for index, (json_row, csv_row) in enumerate(zip(records, csv_rows), 1):
         year = json_row.get("year")
         if type(year) is not int or year in seen_years:
             raise ValueError(f"Invalid or duplicate year in row {index}.")
         seen_years.add(year)
+        year_order.append(year)
         if json_row.get("country_code") != manifest.get("country_code"):
             raise ValueError(f"Country code mismatch in row {index}.")
         for key in INDICATORS:
@@ -61,7 +63,7 @@ def validate(root: Path = ROOT) -> dict:
                 raise ValueError(f"CSV changed a missing value for {key} in row {index}.")
             if value is not None and float(csv_value) != float(value):
                 raise ValueError(f"CSV/JSON value mismatch for {key} in row {index}.")
-    if seen_years != set(sorted(seen_years)):
+    if year_order != sorted(year_order):
         raise ValueError("Year ordering is inconsistent.")
     dashboard = (root / "dashboard.html").read_text(encoding="utf-8")
     report = (root / "research_report.md").read_text(encoding="utf-8")
