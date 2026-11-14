@@ -50,7 +50,7 @@ class ModelTests(unittest.TestCase):
 
     def test_v2_requires_even_rotary_head_dimension(self):
         with self.assertRaises(ValueError):
-            GPTConfig(vocab_size=32, n_embd=18, n_head=3,
+            GPTConfig(vocab_size=32, n_embd=18, n_head=2,
                       architecture_version=2)
 
 
