@@ -82,6 +82,8 @@ footer{text-align:center;padding:14px 0 0}
 .preview-toolbar strong{font-size:13px;color:#e0e8ef}
 .preview-toolbar small{font-size:11px;color:#91a1af}
 .preview-actions{display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+#preview-project-path{width:min(220px,45vw);min-width:130px;padding:8px 9px;border:1px solid #354554;border-radius:7px;background:#0c1218;color:#e0e8ef;font-size:11px}
+#preview-project-path::placeholder{color:#8292a0}
 .preview-actions button{padding:9px 12px;font-size:11px}
 #preview-stop{background:#303b46;color:#e0e8ef}
 #preview-open{font-size:11px;color:#c4d3e0}
