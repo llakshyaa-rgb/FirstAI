@@ -112,7 +112,7 @@ def describe_image(file_id: str, prompt: str = "Describe this image in detail.")
     elif provider in {"openai", "openai-compatible", "llamacpp"}:
         url = endpoint if endpoint.rstrip("/").endswith("/chat/completions") else endpoint.rstrip("/") + "/v1/chat/completions"
         content = [
-            {"type": "text", "text": question},
+            {"type": "text", "text": user_question},
             {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{encoded}"}},
         ]
         payload = {"model": model, "messages": [{"role": "user", "content": content}], "stream": False, "max_tokens": 1200}
