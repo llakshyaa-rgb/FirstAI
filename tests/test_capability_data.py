@@ -1,7 +1,10 @@
 import unittest
+from unittest.mock import patch
 
 from download_capability_data import SOURCES, _convert
 from orbit.knowledge import _search_term
+from orbit.intent import classify_request
+from orbit.media import search_web_images
 
 
 class CapabilityDataTests(unittest.TestCase):
@@ -44,6 +47,17 @@ class CapabilityDataTests(unittest.TestCase):
     def test_knowledge_query_prefixes_are_removed(self):
         self.assertEqual(_search_term("What is quantum computing?"), "quantum computing")
         self.assertEqual(_search_term("Who is Ada Lovelace?"), "Ada Lovelace")
+
+    def test_automatic_routing_selects_knowledge_and_live_data(self):
+        self.assertIn("knowledge", classify_request("Who is Ada Lovelace?")["capabilities"])
+        self.assertIn("knowledge", classify_request("Research papers about transformers")["capabilities"])
+        self.assertIn("live_data", classify_request("weather in Patna")["capabilities"])
+
+    @patch.dict("os.environ", {}, clear=True)
+    @patch("orbit.media._search_commons_images", return_value=[{"source": "Wikimedia Commons"}])
+    def test_safe_image_search_falls_back_to_commons_without_brave_key(self, commons):
+        self.assertEqual(search_web_images("solar system", safesearch="strict")[0]["source"], "Wikimedia Commons")
+        commons.assert_called_once_with("solar system", 12)
 
 
 if __name__ == "__main__":
