@@ -558,3 +558,26 @@ If automatic checkpoint import does not find the file, copy it into Debian's `/r
 | Interactive project preview | Yes, while Colab runs | Yes, local loopback |
 
 The Termux setup script installs the core runtime and document-export dependencies only. It deliberately does not install heavyweight image, audio, video or browser models on the phone.
+
+
+## Independent end-to-end training profiles
+
+Colab and Termux are independent installations with their own checkpoints, SQLite memory, workspace, settings and server. Neither requires the other to be running.
+
+### Colab T4: full sourced training
+
+Open [FirstAI_Orbit_Full_Training.ipynb](https://colab.research.google.com/github/llakshyaa-rgb/FirstAI/blob/main/FirstAI_Orbit_Full_Training.ipynb) and run its cells in order. It downloads WikiText/Dolly plus GSM8K, ARC-Challenge, SQuAD and sanitized MBPP training splits; retrieves a fresh public-data snapshot from World Bank, Open-Meteo, USGS, Frankfurter, REST Countries and NASA EONET; creates practical examples from those exact records; trains FirstGPT from random initialization; then instruction-tunes the balanced dataset. Download `orbit-instruct.pt` before disconnecting. No Drive mount or private-file upload is used.
+
+Equivalent command: `bash scripts/train_colab_full.sh`. It requires CUDA and a T4-class runtime.
+
+### Termux: independent compact local training
+
+After `bash scripts/setup_termux.sh`, run `bash scripts/train_termux_local.sh`. It downloads WikiText-2 directly, includes repository seed examples, trains a smaller model on the phone's CPU and creates `checkpoints/orbit-mobile-instruct.pt`. It does not need Colab or a transferred checkpoint. This compact model is not equivalent in capability to the larger T4 model.
+
+Android GPU acceleration is not claimed: the current Debian PyTorch wheel does not automatically use the Android Adreno GPU. Run `bash scripts/probe_android_gpu.sh` before choosing a compatible Android-side inference backend.
+
+### Data integrity
+
+Live public records are retrieved at data-build time. Practical examples (currency calculations, population density, weather planning, air-quality interpretation and earthquake-field explanations) are derived from those exact records and retain source URL, retrieval time, units and caveats. These are refreshed snapshots, not timeless facts. Dataset licenses and attribution metadata are retained. Private uploads are not included in training by default.
+
+Committing the pipeline does not train model weights. The training commands must actually run. FirstGPT remains a small experimental from-scratch model and must be evaluated on held-out data before relying on its answers.
