@@ -95,7 +95,7 @@ def proxy(handler, method):
         content_type = "text/html; charset=utf-8"
     elif "text/css" in content_type.lower():
         css = payload.decode("utf-8", errors="replace")
-        css = re.sub(r"url\((['"]?)/(?!/)", r"url(\1/remote-preview/", css, flags=re.I)
+        css = re.sub(r"url\(([\"']?)/(?!/)", r"url(\1/remote-preview/", css, flags=re.I)
         payload = css.encode("utf-8")
     handler.send_response(status)
     location = response_headers.get("Location")
