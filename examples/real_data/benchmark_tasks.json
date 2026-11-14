@@ -141,6 +141,17 @@
         "Record provenance, units, timestamp and caveats.",
         "Add JSON/CSV output and validator coverage."
       ]
+    },
+    {
+      "id": "country-001",
+      "category": "reference-data",
+      "prompt": "Build a country profile comparison from REST Countries and World Bank data.",
+      "acceptance": [
+        "Keep source and update timing separate.",
+        "Show currencies, languages, area and population with field labels.",
+        "Do not assume the reference profile and World Bank indicators share the same observation date.",
+        "Preserve original source URLs."
+      ]
     }
   ],
   "source_pack": "examples/real_data/build_data_lab.py"
