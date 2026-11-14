@@ -63,6 +63,14 @@
           "license": "MIT",
           "url": "https://huggingface.co/datasets/openai/gsm8k",
           "status": "new-downloader"
+        },
+        {
+          "id": "gsm8k",
+          "name": "GSM8K",
+          "dataset": "openai/gsm8k",
+          "license": "MIT (declared by dataset card)",
+          "url": "https://huggingface.co/datasets/openai/gsm8k",
+          "status": "download adapter added"
         }
       ]
     },
@@ -77,6 +85,15 @@
           "license": "CC-BY-SA-4.0",
           "url": "https://huggingface.co/datasets/allenai/ai2_arc",
           "status": "new-downloader"
+        },
+        {
+          "id": "arc_challenge",
+          "name": "AI2 ARC Challenge",
+          "dataset": "allenai/ai2_arc",
+          "config": "ARC-Challenge",
+          "license": "CC-BY-SA-4.0",
+          "url": "https://huggingface.co/datasets/allenai/ai2_arc",
+          "status": "download adapter added"
         }
       ]
     },
@@ -90,6 +107,14 @@
           "license": "CC-BY-SA-4.0",
           "url": "https://huggingface.co/datasets/rajpurkar/squad",
           "status": "new-downloader"
+        },
+        {
+          "id": "squad",
+          "name": "Stanford Question Answering Dataset",
+          "dataset": "rajpurkar/squad",
+          "license": "CC-BY-SA-4.0",
+          "url": "https://huggingface.co/datasets/rajpurkar/squad",
+          "status": "download adapter added"
         }
       ]
     },
@@ -114,6 +139,12 @@
           "name": "Wikipedia REST API",
           "license": "CC-BY-SA; attribute",
           "url": "https://www.mediawiki.org/wiki/API:REST_API"
+        },
+        {
+          "name": "Wikipedia REST API",
+          "license": "CC-BY-SA; attribute",
+          "url": "https://www.mediawiki.org/wiki/API:REST_API",
+          "status": "connected to Orbit knowledge_search"
         }
       ]
     },
@@ -129,6 +160,18 @@
           "name": "OpenAlex API",
           "license": "Metadata CC0; abstracts/text may have separate rights",
           "url": "https://docs.openalex.org/"
+        },
+        {
+          "name": "OpenAlex API",
+          "license": "CC0 metadata; abstract/full text rights separate",
+          "url": "https://docs.openalex.org/",
+          "status": "connected to Orbit knowledge_search"
+        },
+        {
+          "name": "arXiv API",
+          "license": "article licenses vary",
+          "url": "https://info.arxiv.org/help/api/index.html",
+          "status": "connected to Orbit knowledge_search"
         }
       ]
     },
@@ -144,6 +187,23 @@
           "name": "Stack Exchange data dumps",
           "license": "CC-BY-SA; attribution and share-alike obligations apply",
           "url": "https://archive.org/details/stackexchange"
+        },
+        {
+          "name": "Stack Exchange API",
+          "license": "CC BY-SA; follow attribution requirements",
+          "url": "https://api.stackexchange.com/docs",
+          "status": "connected to Orbit knowledge_search"
+        }
+      ],
+      "training_sources": [
+        {
+          "id": "mbpp",
+          "name": "Mostly Basic Python Problems",
+          "dataset": "google-research-datasets/mbpp",
+          "config": "sanitized",
+          "license": "CC-BY-4.0 (declared by dataset card)",
+          "url": "https://huggingface.co/datasets/google-research-datasets/mbpp",
+          "status": "download adapter added"
         }
       ]
     },
@@ -159,6 +219,12 @@
           "name": "Openverse API",
           "license": "Per-item license metadata; verify each file",
           "url": "https://api.openverse.org/v1/"
+        },
+        {
+          "name": "Wikimedia Commons API",
+          "license": "Per-file license/attribution required",
+          "url": "https://commons.wikimedia.org/wiki/Commons:API",
+          "status": "connected as no-key strict-safe fallback"
         }
       ]
     },
