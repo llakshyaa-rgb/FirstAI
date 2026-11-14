@@ -66,6 +66,17 @@ class CapabilityDataTests(unittest.TestCase):
             self.assertEqual(report["examples"], 2)
             self.assertEqual(report["duplicate_prompt_response_pairs_removed"], 1)
             self.assertTrue(output.with_suffix(".manifest.json").is_file())
+            structured = root / "structured.jsonl"
+            structured.write_text(json.dumps({
+                "instruction": "Use the source record.", "input": "What happened?",
+                "output": "The sourced answer.", "metadata": {"dataset_id": "real_data"},
+            }) + "\n", encoding="utf-8")
+            structured_output = root / "structured_merged.jsonl"
+            structured_report = merge([structured], structured_output, per_source_cap=5)
+            self.assertEqual(structured_report["examples"], 1)
+            merged_row = json.loads(structured_output.read_text(encoding="utf-8").splitlines()[0])
+            self.assertIn("What happened?", merged_row["prompt"])
+            self.assertEqual(merged_row["response"], "The sourced answer.")
 
     def test_knowledge_query_prefixes_are_removed(self):
         self.assertEqual(_search_term("What is quantum computing?"), "quantum computing")
