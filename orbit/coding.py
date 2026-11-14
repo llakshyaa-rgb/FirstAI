@@ -202,7 +202,11 @@ class AutonomousCoder:
         project_root = self._project_root_for_changes(changed)
         build = None
         build_enabled = os.environ.get("ORBIT_AUTORUN_BUILD", "").strip().lower() in {"1", "true", "yes"}
-        if build_enabled and project_root is not None and compile_result.get("passed") and all(item["passed"] for item in javascript):
+        if build_enabled and project_root is None:
+            build = {"passed": True, "skipped": True, "reason": "No changed runnable package project was detected."}
+        elif build_enabled and project_root is not None and not (compile_result.get("passed") and all(item["passed"] for item in javascript)):
+            build = {"passed": True, "skipped": True, "reason": "Skipped because an earlier compile or JavaScript check failed."}
+        elif build_enabled and project_root is not None:
             package = project_root / "package.json"
             try:
                 package_data = json.loads(package.read_text(encoding="utf-8"))
