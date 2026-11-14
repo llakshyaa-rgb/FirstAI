@@ -29,8 +29,8 @@ def load_examples(path):
         if not isinstance(prompt, str) or not prompt.strip() or not isinstance(response, str) or not response.strip():
             raise ValueError(f"Line {line_no} needs non-empty string fields 'prompt' and 'response'")
         examples.append((prompt.strip(), response.strip()))
-    if len(examples) < 4:
-        raise ValueError("At least four instruction examples are required for train/validation splitting")
+    if len(examples) < 10:
+        raise ValueError("At least ten instruction examples are required for a stable train/validation split")
     return examples
 
 
@@ -84,6 +84,7 @@ def main():
     parser.add_argument("--eval-interval", type=int, default=100)
     parser.add_argument("--lr", type=float, default=1e-4)
     parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--resume", action="store_true", help="Resume model and optimizer from --out.")
     args = parser.parse_args()
     if min(args.steps, args.batch_size, args.eval_interval) < 1 or not math.isfinite(args.lr) or args.lr <= 0:
         parser.error("steps, batch-size, eval-interval and lr must be positive")
@@ -93,10 +94,20 @@ def main():
     examples = load_examples(args.data)
     digest = hashlib.sha256(Path(args.data).read_bytes()).hexdigest()
     random.shuffle(examples)
-    split = max(2, min(len(examples) - 2, int(len(examples) * 0.9)))
+    split = max(4, min(len(examples) - 4, int(len(examples) * 0.9)))
     train_raw, val_raw = examples[:split], examples[split:]
 
-    saved = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
+    if args.resume:
+        if not Path(args.out).is_file():
+            raise FileNotFoundError(f"Cannot resume: {args.out} does not exist")
+        saved = torch.load(args.out, map_location="cpu", weights_only=True)
+        if saved.get("instruction_data_sha256") != digest:
+            raise ValueError("Instruction dataset changed since checkpoint; use a new --out path or start fresh.")
+        start_step = int(saved.get("instruction_tuning_steps", 0))
+        best = float(saved.get("best_validation_loss", float("inf")))
+    else:
+        saved = torch.load(args.checkpoint, map_location="cpu", weights_only=True)
+        start_step, best = 0, float("inf")
     tokenizer = BPETokenizer.from_dict(saved["tokenizer"])
     config = GPTConfig(**saved["config"])
     train_rows = encode_examples(train_raw, tokenizer, config.block_size)
@@ -105,6 +116,8 @@ def main():
     model = FirstGPT(config).to(device)
     model.load_state_dict(saved["model"])
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
+    if args.resume and saved.get("optimizer"):
+        optimizer.load_state_dict(saved["optimizer"])
     model.train()
 
     @torch.no_grad()
@@ -121,10 +134,11 @@ def main():
         model.train()
         return sum(values) / len(values)
 
-    best = float("inf")
     target = Path(args.out)
+    best_path = target.with_name(target.stem + ".best" + target.suffix)
+    print(f"Device: {device}; examples: {len(examples):,} (train {len(train_raw):,}, validation {len(val_raw):,}); starting step: {start_step}")
     target.parent.mkdir(parents=True, exist_ok=True)
-    for step in range(1, args.steps + 1):
+    for step in range(start_step, start_step + args.steps):
         x, y = make_batch(train_rows, args.batch_size, config.block_size, device)
         optimizer.zero_grad(set_to_none=True)
         logits, _ = model(x)
@@ -136,22 +150,30 @@ def main():
         loss.backward()
         torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
-        if step == 1 or step % args.eval_interval == 0 or step == args.steps:
+        completed = step + 1
+        if completed % args.eval_interval == 0 or completed == start_step + args.steps:
             val = evaluate()
-            print(f"Step {step:>6} | train {loss.item():.4f} | validation {val:.4f}")
+            print(f"Step {completed:>6} | train {loss.item():.4f} | validation {val:.4f}")
+            payload = dict(saved)
+            payload.update({
+                "model": model.state_dict(), "optimizer": optimizer.state_dict(),
+                "step": int(saved.get("step", 0)) + completed,
+                "best_validation_loss": min(best, val),
+                "instruction_data_sha256": digest,
+                "instruction_tuning_steps": completed,
+                "instruction_examples": len(examples),
+            })
+            temporary = target.with_suffix(target.suffix + ".tmp")
+            torch.save(payload, temporary)
+            temporary.replace(target)
             if val < best:
                 best = val
-                payload = dict(saved)
-                payload.update({
-                    "model": model.state_dict(),
-                    "optimizer": optimizer.state_dict(),
-                    "step": int(saved.get("step", 0)) + step,
-                    "best_validation_loss": best,
-                    "instruction_data_sha256": digest,
-                    "instruction_tuning_steps": step,
-                })
-                temporary = target.with_suffix(target.suffix + ".tmp")
-                torch.save(payload, temporary)
-                temporary.replace(target)
-    print(f"Instruction-tuned checkpoint: {args.out}")
+                payload["best_validation_loss"] = best
+                best_tmp = best_path.with_suffix(best_path.suffix + ".tmp")
+                torch.save(payload, best_tmp)
+                best_tmp.replace(best_path)
+                print(f"  saved best checkpoint: {best_path}")
+            saved = payload
+    print(f"Latest resumable SFT checkpoint: {args.out}")
+    print(f"Best validation checkpoint: {best_path}")
     print(f"Device: {device}; examples: {len(examples)}; parameters: {sum(p.numel() for p in model.parameters()):,}")
