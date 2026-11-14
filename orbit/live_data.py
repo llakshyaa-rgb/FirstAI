@@ -136,7 +136,7 @@ def _rates(query):
     lower = query.casefold()
     found = []
     for key, code in pairs.items():
-        match = re.search(r"\\b" + re.escape(key) + r"\\b", lower)
+        match = re.search(r"\b" + re.escape(key) + r"\b", lower)
         if match and code not in [item[1] for item in found]:
             found.append((match.start(), code))
     codes = [code for _, code in sorted(found)]
