@@ -81,6 +81,31 @@ async function follow(taskId,afterStart=0){
         else livePartial.textContent=event.message;
         conversation.scrollTop=conversation.scrollHeight;
       }
+      else if(event.kind==="approval_required"){
+        const details=event.details||{};
+        const node=document.createElement("article");node.className="bubble orbit approval-card";
+        const label=document.createElement("strong");label.textContent="Orbit · Approval required";
+        const summary=document.createElement("p");summary.textContent=details.summary||event.message||"Orbit proposes a software change.";
+        const files=document.createElement("small");files.textContent="Files: "+((details.files||[]).join(", ")||"Not specified");
+        const preview=document.createElement("pre");preview.className="approval-preview";
+        preview.textContent=details.proposal_preview||"No patch preview was supplied. Review the file list and phase summary carefully.";
+        const actions=document.createElement("div");actions.className="approval-actions";
+        const approve=document.createElement("button");approve.type="button";approve.textContent="Approve this phase";
+        const deny=document.createElement("button");deny.type="button";deny.textContent="Deny";
+        const status=document.createElement("small");status.textContent="No files will be changed until you approve.";
+        async function decide(approved){
+          approve.disabled=true;deny.disabled=true;status.textContent=approved?"Sending approval…":"Sending denial…";
+          try{
+            const response=await fetch("/api/coding/approval",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({approval_id:details.approval_id,approved})});
+            const result=await response.json();if(!response.ok)throw new Error(result.error||"Decision failed");
+            status.textContent=approved?"Approved. Orbit may now apply this phase.":"Denied. Orbit will not apply this phase.";
+          }catch(error){status.textContent="Decision wasn't confirmed: "+error.message;approve.disabled=false;deny.disabled=false;}
+        }
+        approve.addEventListener("click",()=>decide(true));
+        deny.addEventListener("click",()=>decide(false));
+        actions.append(approve,deny);node.append(label,summary,files,preview,actions,status);
+        conversation.append(node);conversation.scrollTop=conversation.scrollHeight;
+      }
       else if(event.kind==="code_change"){
         const change=event.details.change||{};
         const node=document.createElement("article");node.className="bubble orbit code-change";
