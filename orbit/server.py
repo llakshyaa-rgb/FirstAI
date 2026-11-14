@@ -338,7 +338,7 @@ class OrbitApplication:
                     "Changed files: " + (", ".join(x.get("path", "") for x in changes) or "none"),
                     "Automatic backups: " + (", ".join(x.get("backup", "new file") for x in changes) or "none"),
                     "Compile check: " + ("passed" if compile_info.get("passed") else "failed"),
-                    "Project tests: " + ("not present" if test_info is None else ("passed" if test_info.get("passed") else "failed")),
+                    "Project tests: " + ("not run (opt-in)" if test_info is None and not coding_result.get("checks", {}).get("tests_enabled") else ("not present" if test_info is None else ("passed" if test_info.get("passed") else "failed"))),
                     "Repair rounds: " + str(coding_result.get("repair_rounds", 0)),
                 ]
                 if not check_ok:
