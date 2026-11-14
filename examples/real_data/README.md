@@ -13,7 +13,27 @@ Sources:
 - https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?locations=IN
 - https://data.worldbank.org/country/in
 
-The generated builder below can refresh the four-indicator dataset and generate additional grounded Q&A examples from the latest non-null values. Generated examples remain separate from `data/raw` so they can be reviewed before adding them to training.
+The World Bank builder below can refresh the four-indicator dataset and generate additional grounded Q&A examples from the latest non-null values.
+
+## Build a multi-domain training set from actual retrieved records
+
+First collect the seven-domain dataset, then turn its real rows into question/answer examples:
+
+```bash
+python examples/real_data/build_data_lab.py
+python examples/real_data/build_training_examples.py
+python prepare_corpus.py
+```
+
+The converter creates:
+- `data/raw/real_world_data_lab.txt` — automatically included by the normal FirstGPT corpus preparation.
+- `examples/real_data/generated/data_lab_qa_examples.jsonl` — structured examples retaining the exact source, retrieval timestamp, units, caveats and source record.
+
+It generates examples from whatever providers succeeded in that collection: historical economy indicators, weather forecasts, air-quality forecasts, earthquakes, reference exchange rates, country profiles and NASA natural events. It never fabricates a missing provider or missing value. The text file is a training-oriented rendering; JSONL is the auditable provenance companion.
+
+After reviewing the corpus, train/resume FirstGPT using the normal training command and the corpus/checkpoint rules in the root README. Refreshing records does not update an existing checkpoint by itself.
+
+
 
 
 These are generated from published World Bank observations, not placeholder numbers.
