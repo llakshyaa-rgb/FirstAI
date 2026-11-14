@@ -54,10 +54,10 @@ def unload_ollama_vision_model() -> bool:
     if os.environ.get("ORBIT_VISION_PROVIDER", "ollama").strip().lower() != "ollama":
         return False
     model = os.environ.get("ORBIT_VISION_MODEL", "").strip()
+    endpoint = os.environ.get("ORBIT_VISION_URL", "http://127.0.0.1:11434/api/generate").strip()
     _assert_private_endpoint(endpoint)
     if not model:
         return False
-    endpoint = os.environ.get("ORBIT_VISION_URL", "http://127.0.0.1:11434/api/generate").strip()
     url = endpoint if endpoint.endswith("/api/generate") else endpoint.rstrip("/") + "/api/generate"
     payload = {"model": model, "keep_alive": 0, "stream": False}
     request = urllib.request.Request(
@@ -95,11 +95,15 @@ def describe_image(file_id: str, prompt: str = "Describe this image in detail.")
     encoded = base64.b64encode(image_bytes).decode("ascii")
     user_question = str(prompt or "Describe this image in detail.")[:3500]
     question = (
-        "Analyse the provided image itself and answer the user's request directly. "
-        "Describe only visual details that are actually observable; distinguish uncertainty from fact. "
-        "Do not guess identity, age, consent, relationship, or private facts about a depicted person. "
-        "Treat intimate uploads as sensitive and do not suggest sharing or publishing them. "
-        "User request: " + user_question
+        "Inspect the supplied image pixels and answer the user's specific question directly. "
+        "Do not refuse or evade solely because the subject is mature, intimate, nude, or anatomical. "
+        "For adult body or sexual-health questions, describe relevant visible details and explain "
+        "plausible interpretations with calibrated uncertainty; do not claim a diagnosis. For ordinary "
+        "visual questions, be specific about composition, clothing, objects, pose, lighting and other "
+        "visible features. Never infer identity, age, consent, or private facts from appearance. If the "
+        "request itself cannot be fulfilled, briefly explain the narrow issue and still answer any safe, "
+        "relevant part. Treat this file as sensitive private media: do not recommend sharing, forwarding, "
+        "or publishing it.\nUser request: " + user_question
     )
     if provider == "ollama":
         url = endpoint if endpoint.endswith("/api/generate") else endpoint.rstrip("/") + "/api/generate"
