@@ -1,5 +1,21 @@
 # Real-data examples for Orbit
 
+## Included real-world training examples
+
+FirstAI now includes a small, checked-in seed dataset:
+- `examples/real_data/seed_examples.jsonl` — three instruction/input/output examples with source, indicator code, reference year, unit, value and retrieval date in metadata.
+- `data/raw/real_world_examples.txt` — readable versions already included in the starter FirstGPT corpus. The existing `prepare_corpus.py` collects this file automatically.
+
+The seed records cover India's 2025 population (1,463,865,525 people), 2025 GDP (about USD 3.956 trillion in current dollars), and 2024 life expectancy at birth (72.235 years). They are sourced annual observations/estimates, not live readings. The population and GDP values are displayed by World Bank DataBank/indicator pages; life expectancy is shown on the World Bank India country page. Re-fetch before using these figures as the latest values in future answers.
+
+Sources:
+- https://databank.worldbank.org/reports.aspx?country=IND&source=2
+- https://data.worldbank.org/indicator/NY.GDP.MKTP.CD?locations=IN
+- https://data.worldbank.org/country/in
+
+The generated builder below can refresh the four-indicator dataset and generate additional grounded Q&A examples from the latest non-null values. Generated examples remain separate from `data/raw` so they can be reviewed before adding them to training.
+
+
 These are generated from published World Bank observations, not placeholder numbers.
 
 Run from the repository root:
