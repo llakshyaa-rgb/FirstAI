@@ -207,10 +207,10 @@ class AutonomousCoder:
                 "Implement this phase of the owner's project goal. Preserve unrelated behaviour and interfaces. "
                 "Return ONLY valid JSON: " + '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
                 "For existing files use exact, unique, small patches; never rewrite entire files. Each old anchor must occur exactly once. "
-                "New files may use complete content. Never edit paths outside the supplied list.\\nOWNER GOAL: " + goal[:1800] +
-                "\\nPHASE GOAL: " + phase_goal +
+                "New files may use complete content. Never edit paths outside the supplied list.\\nCURRENT FILES: " +
+                json.dumps(context, ensure_ascii=False)[:15000] +
                 "\\nALLOWED PATHS: " + json.dumps(paths) +
-                "\\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:20000])
+                "\\nPHASE GOAL: " + phase_goal + "\\nOWNER GOAL: " + goal[:1800])
             raw = self._reply(prompt, 1500)
             self.progress("Reviewer pass: checking the proposed changes for scope, compatibility and regressions.")
             try:
@@ -219,9 +219,9 @@ class AutonomousCoder:
                     "the owner's goal and current files. Find concrete correctness, compatibility, security or "
                     "scope problems. Return ONLY JSON: " +
                     '{"approved":true,"issues":["short concrete issue"]}. Set approved false only for a material issue.\\n' +
-                    "OWNER GOAL: " + goal[:1200] + "\\nPHASE: " + phase_goal +
-                    "\\nPATCHES: " + raw[:9000] +
-                    "\\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:12000], 450))
+                    "CURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:8000] +
+                    "\\nPATCHES: " + raw[:5000] +
+                    "\\nPHASE: " + phase_goal + "\\nOWNER GOAL: " + goal[:1200], 450))
                 issues = review.get("issues", [])
                 if not review.get("approved", False) and issues:
                     self.progress("Reviewer found issues; requesting a corrected implementation before writing.",
@@ -279,9 +279,9 @@ class AutonomousCoder:
                     '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
                     "Use exact, unique small patches for existing files; never rewrite them wholesale. "
                     "Only these paths may change: " + json.dumps(paths) +
-                    "\\nOWNER GOAL: " + goal[:1400] + "\\nPHASE: " + phase_goal +
-                    "\\nFAILURES: " + self._failures(checks)[-8000:] +
-                    "\\nCURRENT FILES: " + json.dumps(current, ensure_ascii=False)[:18000])
+                    "\\nCURRENT FILES: " + json.dumps(current, ensure_ascii=False)[:10000] +
+                    "\\nFAILURES: " + self._failures(checks)[-6000:] +
+                    "\\nPHASE: " + phase_goal + "\\nOWNER GOAL: " + goal[:1400])
                 repair_raw = self._reply(repair_prompt, 1500)
                 for repair_attempt in range(2):
                     try:
