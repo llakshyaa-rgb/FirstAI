@@ -1,6 +1,7 @@
 """Bounded autonomous coding workflow: plan, edit with backups, check, repair."""
 from __future__ import annotations
 import json
+import os
 import re
 import shutil
 import subprocess
