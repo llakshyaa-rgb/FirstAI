@@ -29,6 +29,7 @@ from .media_processing import process_upload
 from .planner import execute_tool_plan
 from .agents import AgentTeam
 from .coding import AutonomousCoder
+from .approval import ApprovalGate
 from .preview import PreviewManager
 from .preview_inspector import inspect_preview
 from .remote_preview import start_proxy_server
@@ -50,6 +51,7 @@ class OrbitApplication:
         self._diffusion_backend_lock = threading.Lock()
         self.store = TaskStore(state_path)
         self.memory = MemoryStore(state_path)
+        self.approvals = ApprovalGate(self.store)
         self._threads = set()
         self._lock = threading.Lock()
         worker_count = max(1, min(4, int(os.environ.get('ORBIT_TASK_WORKERS', '3'))))
@@ -346,7 +348,19 @@ class OrbitApplication:
 
             if "autonomous_coding" in route.get("capabilities", []):
                 self.store.emit(task_id, "status", "Orbit's autonomous coding team is planning and implementing the requested project changes.")
-                coder = AutonomousCoder(self.runtime, agent.workspace, progress=emit_progress)
+                def request_owner_approval(phase_goal, paths):
+                    emit_progress(
+                        "Waiting for your approval before changing any software files.",
+                        kind="approval_wait",
+                        files=paths,
+                        phase_goal=phase_goal,
+                    )
+                    return self.approvals.request(task_id, phase_goal, paths)
+
+                coder = AutonomousCoder(
+                    self.runtime, agent.workspace, progress=emit_progress,
+                    approval_required=request_owner_approval,
+                )
                 coding_result = coder.run(message)
                 changes = coding_result.get("changes", [])
                 coding_result["suggested_preview_path"] = self.preview.suggest_project(changes)
@@ -605,7 +619,7 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry", "/api/preview/start", "/api/preview/stop", "/api/preview/inspect"):
+            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry", "/api/coding/approval", "/api/preview/start", "/api/preview/stop", "/api/preview/inspect"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -633,6 +647,14 @@ def make_handler(app):
                     if not status.get("running") or not status.get("url"):
                         return self._json(409, {"error": "Start a local preview before inspecting it."})
                     return self._json(200, inspect_preview(status["url"]))
+                if route == "/api/coding/approval":
+                    approval_id = payload.get("approval_id")
+                    approved = payload.get("approved")
+                    try:
+                        decision = app.approvals.decide(approval_id, approved)
+                    except KeyError:
+                        return self._json(404, {"error": "Approval is unknown, expired, or already resolved."})
+                    return self._json(200, decision)
                 if route == "/api/tasks/retry":
                     task_id = payload.get("task_id")
                     if not isinstance(task_id, str) or not task_id:
