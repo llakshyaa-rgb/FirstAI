@@ -134,18 +134,18 @@ class OrbitRuntime:
         """Budget context deliberately: current owner request always has priority."""
         limit = self.model.config.block_size
         system = self.tokenizer.encode(build_compact_system_prompt() + "\n")
-        system = system[:min(48, max(12, limit // 5))]
+        system = system[:min(96, max(24, limit // 5))]
         prefs = []
         if owner_preferences:
-            prefs = self.tokenizer.encode("Preferences: " + str(owner_preferences)[:300] + "\n")
-            prefs = prefs[:min(8, max(0, limit // 12))]
+            prefs = self.tokenizer.encode("Relevant owner preferences and saved context: " + str(owner_preferences)[:1800] + "\n")
+            prefs = prefs[:min(180, max(0, limit // 5))]
         fixed = system + prefs
         message_ids = self.tokenizer.encode(f"Owner: {message.strip()}\nOrbit:")
         history_ids = []
         available_for_history = max(0, limit - len(fixed) - len(message_ids))
         if available_for_history:
-            history_budget = min(18, available_for_history)
-            for item in reversed((history or [])[-4:]):
+            history_budget = min(max(24, limit // 4), available_for_history)
+            for item in reversed((history or [])[-8:]):
                 role = "Owner" if item.get("role") == "user" else "Orbit"
                 part = self.tokenizer.encode(f"{role}: {str(item.get('content', ''))}\n")
                 take = min(len(part), history_budget - len(history_ids))
