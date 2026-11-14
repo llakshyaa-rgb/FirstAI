@@ -30,7 +30,7 @@ from .planner import execute_tool_plan
 from .agents import AgentTeam
 from .coding import AutonomousCoder
 from .preview import PreviewManager
-from .remote_preview import proxy as proxy_remote_preview
+from .remote_preview import proxy as proxy_remote_preview, configured_base
 from .intent import classify_request
 from .browser import BrowserTools
 from .design_studio import create_artifact, SUPPORTED, THEMES
@@ -451,7 +451,12 @@ def make_handler(app):
         def do_GET(self):
             parsed = urlparse(self.path)
             if parsed.path == "/api/preview/status":
-                return self._json(200, self.preview.status())
+                status = self.preview.status()
+                try:
+                    status["remote_preview_url"] = "/remote-preview/" if configured_base() else None
+                except ValueError:
+                    status["remote_preview_error"] = "ORBIT_REMOTE_PREVIEW_URL is invalid; use a public HTTPS tunnel URL."
+                return self._json(200, status)
             if parsed.path == "/api/preview/logs":
                 return self._json(200, self.preview.logs())
             if parsed.path.startswith("/remote-preview/"):
