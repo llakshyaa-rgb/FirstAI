@@ -379,12 +379,15 @@ const previewCloudOpen=document.querySelector("#preview-cloud-open");
 const previewLogOutput=document.querySelector("#preview-log-output");
 function showPreview(data){
   const running=!!data.running;
-  previewState.textContent=running?"Running on this device · "+data.port:"No project running";
+  const cloud=!!data.remote_preview_url;
+  previewState.textContent=running?"Running on this device · "+data.port:(cloud?"Connected to configured cloud preview":"No project running");
   previewStart.disabled=running;previewStop.disabled=!running;
   previewOpen.hidden=!running;
-  if(previewCloudOpen){previewCloudOpen.hidden=!data.remote_preview_url;previewCloudOpen.href=data.remote_preview_url||"#";}
-  if(running){previewFrame.hidden=false;if(previewFrame.src!==data.url+"/")previewFrame.src=data.url+"/";previewOpen.href=data.url;}
-  else{previewFrame.hidden=true;previewFrame.src="about:blank";previewOpen.removeAttribute("href");}
+  if(previewCloudOpen){previewCloudOpen.hidden=!cloud;previewCloudOpen.href=data.remote_preview_url||"#";}
+  const target=running?data.url+"/":(cloud?data.remote_preview_url:"");
+  if(target){previewFrame.hidden=false;if(previewFrame.src!==new URL(target,location.href).href)previewFrame.src=target;}
+  else{previewFrame.hidden=true;previewFrame.src="about:blank";}
+  if(running)previewOpen.href=data.url;else previewOpen.removeAttribute("href");
   if(data.remote_preview_error)previewState.textContent=data.remote_preview_error;
 }
 async function refreshPreview(){
@@ -408,3 +411,4 @@ previewStop?.addEventListener("click",async()=>{
   }catch(err){previewState.textContent=err.message;previewStop.disabled=false;}
 });
 refreshPreview();
+setInterval(refreshPreview, 4000);
