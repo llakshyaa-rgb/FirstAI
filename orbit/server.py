@@ -354,6 +354,7 @@ class OrbitApplication:
                     "Compile check: " + ("passed" if compile_info.get("passed") else "failed"),
                     "Project tests: " + ("not run (opt-in)" if test_info is None and not coding_result.get("checks", {}).get("tests_enabled") else ("not present" if test_info is None else ("passed" if test_info.get("passed") else "failed"))),
                     "Repair rounds: " + str(coding_result.get("repair_rounds", 0)),
+                    "Specialist workspace: " + str(coding_result.get("agent_workspace", "not created")),
                 ]
                 if not check_ok:
                     summary_lines.append("The task was not marked successful. Review the preserved failure output and backups.")
