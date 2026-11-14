@@ -348,14 +348,15 @@ class OrbitApplication:
 
             if "autonomous_coding" in route.get("capabilities", []):
                 self.store.emit(task_id, "status", "Orbit's autonomous coding team is planning and implementing the requested project changes.")
-                def request_owner_approval(phase_goal, paths):
+                def request_owner_approval(phase_goal, paths, proposal_preview=""):
                     emit_progress(
-                        "Waiting for your approval before changing any software files.",
+                        "Review the proposed patch and approve or deny before any project files are changed.",
                         kind="approval_wait",
                         files=paths,
                         phase_goal=phase_goal,
+                        proposal_preview=str(proposal_preview)[:16000],
                     )
-                    return self.approvals.request(task_id, phase_goal, paths)
+                    return self.approvals.request(task_id, phase_goal, paths, proposal_preview)
 
                 coder = AutonomousCoder(
                     self.runtime, agent.workspace, progress=emit_progress,
