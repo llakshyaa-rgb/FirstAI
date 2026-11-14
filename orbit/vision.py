@@ -9,6 +9,7 @@ import json
 import mimetypes
 import os
 import urllib.request
+from urllib.parse import urlsplit
 from pathlib import Path
 from .media import UPLOAD_DIR, IMAGE_EXTENSIONS
 
@@ -53,6 +54,7 @@ def unload_ollama_vision_model() -> bool:
     if os.environ.get("ORBIT_VISION_PROVIDER", "ollama").strip().lower() != "ollama":
         return False
     model = os.environ.get("ORBIT_VISION_MODEL", "").strip()
+    _assert_private_endpoint(endpoint)
     if not model:
         return False
     endpoint = os.environ.get("ORBIT_VISION_URL", "http://127.0.0.1:11434/api/generate").strip()
@@ -67,6 +69,19 @@ def unload_ollama_vision_model() -> bool:
             return True
     except Exception:
         return False
+
+
+def _assert_private_endpoint(endpoint: str, label: str = "vision endpoint") -> None:
+    """Keep private media on-device unless the owner explicitly opts out."""
+    if os.environ.get("ORBIT_PRIVATE_MEDIA_ONLY", "true").strip().lower() not in {"1", "true", "yes", "on"}:
+        return
+    parsed = urlsplit(endpoint)
+    host = (parsed.hostname or "").lower()
+    if parsed.scheme not in {"http", "https"} or host not in {"localhost", "127.0.0.1", "::1"}:
+        raise PermissionError(
+            f"Private-media protection blocked the remote {label}. Use a local Ollama/OpenAI-compatible endpoint, "
+            "or explicitly set ORBIT_PRIVATE_MEDIA_ONLY=false only if you accept sending images to that provider."
+        )
 
 
 def describe_image(file_id: str, prompt: str = "Describe this image in detail.") -> str:
@@ -109,6 +124,8 @@ def describe_image(file_id: str, prompt: str = "Describe this image in detail.")
             result = json.loads(response.read(4_000_000).decode("utf-8"))
     except Exception as primary_error:
         fallback_endpoint = os.environ.get("ORBIT_VISION_FALLBACK_URL", "").strip()
+        if fallback_endpoint:
+            _assert_private_endpoint(fallback_endpoint, "fallback vision endpoint")
         if not fallback_endpoint or fallback_endpoint == endpoint:
             raise
         fallback_model = os.environ.get("ORBIT_VISION_FALLBACK_MODEL", model).strip()
