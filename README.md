@@ -412,6 +412,20 @@ The exporter dependencies are optional. Install them with `pip install -r requir
 
 The AI writer currently produces a bounded single-pass draft. Very long books, complex spreadsheets with formulas, charts, and multi-page brand systems still need iterative authoring and richer layout components. The SVG renderer is a simple vector poster, not a full illustration editor. Generated files are saved locally and served through Orbit's generated-file route.
 
+### Multimodal workspace UI and private media
+
+The Orbit web interface includes one chat plus visible upload and processing controls:
+- **Vision:** upload an image and choose Understand image; the configured vision model analyses the actual image pixels.
+- **Audio:** upload an audio file and choose Transcribe / understand audio; optional faster-whisper runs locally and returns detected language and transcript.
+- **Video:** upload a video and choose Analyse video; ffmpeg samples up to six frames and the local vision/Whisper backends analyse available visual and audio content.
+- **Creative Studio:** use the visible form to create PDF, DOCX, PPTX, XLSX, CSV, JSON, HTML, SVG, Markdown or TXT deliverables with selectable themes.
+
+These are tool-backed capabilities, not capabilities learned natively by FirstGPT. Image understanding needs a configured vision model; audio/video need their optional local dependencies. Video analysis samples frames rather than understanding every frame continuously. Creative Studio uses FirstGPT to draft content and local exporters to create files.
+
+**Private-media default:** `ORBIT_PRIVATE_MEDIA_ONLY=true` is the default. The vision adapter rejects non-loopback endpoints, including remote hosted vision APIs, while this setting is enabled. Audio transcription and video frame extraction run locally. Uploads, generated files, SQLite conversation history and owner preferences are stored on the device running Orbit; the app does not automatically publish or sync them to a public service. Orbit also binds to loopback by default and rejects a non-loopback host unless the explicit remote-access override is set.
+
+This is local-by-default, not end-to-end encryption: files are not encrypted at rest by Orbit, other apps/processes with access to the device account may be able to read them, and enabling a remote vision endpoint or exposing the server changes the privacy boundary. Keep the server on loopback, use device security, and do not set `ORBIT_PRIVATE_MEDIA_ONLY=false` for sensitive uploads. Do not expose the prototype to a public network; it does not include user authentication.
+
 ### Images, files and image search
 
 Uploads are limited to 20 MB per batch. Orbit previews common images (JPG/JPEG, PNG, WEBP, GIF, BMP, TIFF, AVIF and HEIC/HEIF) and can pass their actual pixels to a configured vision model. FirstGPT itself has not been trained with a vision encoder.
