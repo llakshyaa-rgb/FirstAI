@@ -126,8 +126,8 @@ class PreviewManager:
             raw = ""
         # Avoid echoing common credential-shaped values from noisy build output.
         import re
-        raw = re.sub(r"(?i)(api[_-]?key|access[_-]?token|secret|password)(\\s*[:=]\\s*)[^\\s,;]+",
-                     r"\\1\\2[redacted]", raw)
+        raw = re.sub(r"(?i)(api[_-]?key|access[_-]?token|secret|password)(\s*[:=]\s*)[^\s,;]+",
+                     r"\1\2[redacted]", raw)
         return {"available": bool(raw), "text": raw}
 
     def status(self):
