@@ -260,6 +260,10 @@ class OrbitApplication:
         def emit_progress(message, kind="status", **details):
             if kind == "method_failed":
                 execution_failures.append(str(message))
+            for change in details.get("changes", []) if isinstance(details.get("changes"), list) else []:
+                if isinstance(change, dict):
+                    self.store.emit(task_id, "code_change",
+                                    "Updated " + change.get("path", "project file"), change=change)
             self.store.emit(task_id, kind, message, **details)
 
         try:
@@ -325,9 +329,6 @@ class OrbitApplication:
                 coder = AutonomousCoder(self.runtime, agent.workspace, progress=emit_progress)
                 coding_result = coder.run(message)
                 changes = coding_result.get("changes", [])
-                for change in changes:
-                    self.store.emit(task_id, "code_change", "Updated " + change.get("path", "project file"),
-                                    change=change)
                 check_ok = coding_result.get("status") == "completed"
                 compile_info = coding_result.get("checks", {}).get("compile", {})
                 test_info = coding_result.get("checks", {}).get("tests")
