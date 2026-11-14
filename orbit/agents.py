@@ -27,7 +27,7 @@ SPECIALISTS = (
     Specialist("knowledge_researcher", "Retrieve encyclopedic, scholarly and programming knowledge with citations", ("knowledge", "academic", "research paper", "arxiv", "who is", "what is"), "knowledge_search"),
     Specialist("image_researcher", "Find existing image references and return source links",
                ("image_search", "image", "picture", "photo"), "image_search"),
-    Specialist("code_scout", "Map project files, imports, definitions and entrypoints",
+    Specialist("workspace", "Map project files, imports, definitions and entrypoints",
                ("project", "repository", "repo", "codebase", "workspace", "file", "code", "bug", "error",
                 "build", "implement", "create", "add", "fix", "debug", "modify", "refactor", "integrate"), "inspect_project"),
     Specialist("debugger", "Trace likely fault locations and related references",
@@ -58,7 +58,7 @@ class AgentTeam:
         if name == "image_researcher":
             match = re.search(r"(?:find images|find image|find pictures|find picture|find a photo|find photos|search images|search pictures|search for images|search for pictures|search for photos|show me images|show images|look for images|look up photos)\s+(.+)", text, re.I)
             return (match.group(1) if match else text)[:350]
-        if name == "code_scout":
+        if name == "workspace":
             topics = ("image", "vision", "agent", "gpu", "memory", "training", "video", "audio",
                       "pdf", "browser", "tool", "server", "model", "chat", "ui", "task", "file",
                       "auth", "api", "database", "frontend", "backend", "template")
@@ -111,9 +111,16 @@ class AgentTeam:
             explicit_mature = any(term in message.casefold() for term in ("mature", "adult", "nsfw", "18+", "nude", "nudity", "naked", "intimate"))
             return search_web_images(query, count=8, safesearch="off" if explicit_mature else "strict")
         if specialist.tool_name == "inspect_project":
-            overview = self.registry.call("inspect_project", {"relative": ".", "max_files": 80})
-            matches = self.registry.call("search_files", {"query": query}) if query else []
-            return {"architecture": overview, "matching_lines": matches[:80],
+            # Older/minimal registries may expose list_files but not the richer
+            # inspect_project tool. Keep the workspace specialist useful in both.
+            if "inspect_project" in self.registry._tools:
+                overview = self.registry.call("inspect_project", {"relative": ".", "max_files": 80})
+            elif "list_files" in self.registry._tools:
+                overview = self.registry.call("list_files", {"relative": "."})
+            else:
+                overview = []
+            matches = self.registry.call("search_files", {"query": query}) if query and "search_files" in self.registry._tools else []
+            return {"project_files": overview, "matching_lines": matches[:80],
                     "search_term": query,
                     "guidance": "Identify entrypoints, dependencies, definitions and affected call sites before proposing a targeted change."}
         if specialist.tool_name == "search_files":
@@ -144,7 +151,7 @@ class AgentTeam:
                     ("research", "search the web", "search web", "fact check", "find sources"))
                 ))
                 or (specialist.name == "image_researcher" and "image_search" in requested)
-                or (specialist.name == "code_scout" and ("coding" in requested or "code_scout" in requested))
+                or (specialist.name == "workspace" and ("coding" in requested or "workspace" in requested))
                 or (specialist.name == "debugger" and "coding" in requested and any(x in lower for x in ("bug", "error", "debug", "crash", "fails", "failure", "exception")))
                 or (specialist.name == "code_reviewer" and ("coding" in requested and any(x in lower for x in ("review", "refactor", "security", "performance", "architecture"))))
                 or (specialist.name == "analyst" and ("analysis" in requested or any(x in lower for x in ("calculate", "compute", "equation", "percentage", "average", "total")) and any(ch.isdigit() for ch in text)))
