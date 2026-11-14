@@ -37,10 +37,13 @@ def extract_json(raw):
 
 
 class AutonomousCoder:
-    def __init__(self, runtime, workspace, progress=None):
+    def __init__(self, runtime, workspace, progress=None, approval_required=None):
         self.runtime = runtime
         self.workspace = workspace
         self.progress = progress or (lambda message, **details: None)
+        self.approval_required = approval_required
+        if not callable(self.approval_required):
+            raise ValueError("Autonomous coding requires an explicit owner-approval callback.")
 
     def _reply(self, prompt, tokens=1200):
         return self.runtime.reply(prompt, history=[], owner_preferences="",
@@ -372,6 +375,9 @@ class AutonomousCoder:
                 self.progress("Reviewer could not complete (" + type(exc).__name__ +
                               "); strict patch validation and compiler checks remain active.",
                               kind="method_failed")
+            # Never write project files until the owner explicitly approves this exact phase.
+            if not self.approval_required(phase_goal, paths):
+                raise PermissionError("Owner denied or did not provide approval. No changes were applied for this phase.")
             for edit_attempt in range(2):
                 try:
                     phase_changes, summary = self._apply(raw, paths)
