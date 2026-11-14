@@ -94,3 +94,17 @@ footer{text-align:center;padding:14px 0 0}
 .preview-logs summary{cursor:pointer}
 .preview-logs pre{max-height:220px;overflow:auto;white-space:pre-wrap;overflow-wrap:anywhere;background:#0b1118;border:1px solid #253342;border-radius:8px;padding:10px;color:#b8c8d6;font-size:11px}
 .preview-actions a{color:#86cfff;text-decoration:none;border:1px solid #354554;border-radius:7px;padding:8px 10px;font-size:11px}
+
+/* Multimodal Creative Studio */
+.design-panel{margin:0 0 14px;padding:14px;border:1px solid #3c4854;border-radius:14px;background:linear-gradient(145deg,#1a222b,#121820)}
+.design-panel summary{cursor:pointer;color:#e6d5b6;font-weight:650;font-size:14px}
+.design-panel summary span{float:right;color:#91a0ad;font-size:10px;font-weight:400}
+.design-panel>p{color:#aab7c3;font-size:12px;line-height:1.55}
+.design-form{display:flex;flex-direction:column;gap:10px;align-items:stretch;border:0;padding-top:8px}
+.design-form input,.design-form textarea,.design-form select{width:100%;min-width:0;padding:11px;border:1px solid #394754;border-radius:9px;background:#101820;color:#edf2f7;font:inherit}
+.design-form textarea{min-height:110px;max-height:320px;resize:vertical}
+.design-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.design-options label{display:flex;flex-direction:column;gap:6px;color:#aebbc7;font-size:11px}
+.design-form button{align-self:flex-end;background:#d8c29a;color:#171b20}
+.upload-card>button{margin:8px 7px 0 0;padding:9px 12px;font-size:11px;background:#263541;color:#e4edf5}
+@media(max-width:520px){.design-options{grid-template-columns:1fr}.design-panel summary span{float:none;display:block;margin-top:4px}}
