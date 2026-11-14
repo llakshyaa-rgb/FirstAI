@@ -93,7 +93,19 @@ def proxy(handler, method):
         page = re.sub(r'((?:src|href|action)=["\'])/(?!/)', r'\1/remote-preview/', page, flags=re.I)
         payload = page.encode("utf-8")
         content_type = "text/html; charset=utf-8"
+    elif "text/css" in content_type.lower():
+        css = payload.decode("utf-8", errors="replace")
+        css = re.sub(r"url\((['"]?)/(?!/)", r"url(\1/remote-preview/", css, flags=re.I)
+        payload = css.encode("utf-8")
     handler.send_response(status)
+    location = response_headers.get("Location")
+    if location:
+        location_parts = urlsplit(location)
+        if location.startswith("/") and not location.startswith("//"):
+            handler.send_header("Location", "/remote-preview/" + location.lstrip("/"))
+        elif location_parts.netloc == base_parts.netloc and location_parts.scheme in {"", "https"}:
+            handler.send_header("Location", "/remote-preview/" + location_parts.path.lstrip("/") +
+                                (("?" + location_parts.query) if location_parts.query else ""))
     handler.send_header("Content-Type", content_type)
     handler.send_header("Content-Length", str(len(payload)))
     handler.send_header("Cache-Control", "no-store")
