@@ -72,6 +72,9 @@ def classify_request(message: str) -> dict:
                                 "website", "web app", "api", "backend", "frontend", "templateforge"))
     if code_action and code_subject:
         route["capabilities"].append("coding")
+        if _has(lower, ("implement", "build", "create", "add", "fix", "debug", "refactor",
+                        "modify", "edit", "write code", "change the project", "integrate")):
+            route["capabilities"].append("autonomous_coding")
     if _has(lower, ("calculate", "compute", "equation", "percentage", "average", "total")) and re.search(r"\d", lower):
         route["capabilities"].append("analysis")
     if _has(lower, ("run tests", "test the project", "verify project", "validate project", "compile project")):
