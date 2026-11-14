@@ -71,7 +71,11 @@ async function follow(taskId,afterStart=0){
     const d=await r.json();
     for(const event of d.events){
       after=Math.max(after,event.seq);
-      if(event.kind==="message"){if(livePartial){livePartial.textContent=event.message;livePartial=null;}else bubble("orbit",event.message);}
+      if(event.kind==="message"){
+        const suggested=event.details?.coding_result?.suggested_preview_path;
+        if(suggested&&previewProjectPath)previewProjectPath.value=suggested==="."?"":suggested;
+        if(livePartial){livePartial.textContent=event.message;livePartial=null;}else bubble("orbit",event.message);
+      }
       else if(event.kind==="partial"){
         if(!livePartial)livePartial=bubble("orbit",event.message,"partial");
         else livePartial.textContent=event.message;
