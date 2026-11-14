@@ -28,11 +28,27 @@ def _get_json(url: str):
 
 
 def _result(title, source, source_url, api_url, records, caveats=(), units=None, kind="current data"):
+    retrieved = datetime.now(timezone.utc).isoformat()
+    preview_rows = records[:3]
+    compact_rows = []
+    for row in preview_rows:
+        if isinstance(row, dict):
+            compact_rows.append("; ".join(
+                str(key) + "=" + (json.dumps(value, ensure_ascii=False) if isinstance(value, (dict, list)) else str(value))
+                for key, value in list(row.items())[:8] if value is not None
+            )[:420])
+    assistant_context = (
+        title + " (" + kind + "). Retrieved " + retrieved + ". "
+        + "Records: " + str(len(records)) + ". "
+        + "Latest records: " + " | ".join(compact_rows)
+        + ". Source: " + source + " — " + source_url
+        + ". Caveats: " + " ".join(caveats[:2])
+    )[:1800]
     return {
-        "title": title, "data_type": kind,
-        "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
+        "title": title, "data_type": kind, "retrieved_at_utc": retrieved,
         "source": source, "source_url": source_url, "api_url": api_url,
         "units": units or {}, "caveats": list(caveats), "records": records,
+        "assistant_context": assistant_context,
     }
 
 
