@@ -35,7 +35,7 @@ def main():
     parser.add_argument("--eval-batches", type=int, default=20)
     parser.add_argument("--batch-size", type=int, default=32)
     parser.add_argument("--grad-accum-steps", type=int, default=1)
-    parser.add_argument("--block-size", type=int, default=256)
+    parser.add_argument("--block-size", type=int, default=1024, help="Maximum training context tokens; larger values require more GPU memory.")
     parser.add_argument("--layers", type=int, default=4)
     parser.add_argument("--heads", type=int, default=4)
     parser.add_argument("--width", type=int, default=128)
