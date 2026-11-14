@@ -15,12 +15,18 @@ DEFAULT_HISTORY = HERE / "generated" / "data_lab_history"
 
 
 def digest(path: Path) -> str:
-    hasher = hashlib.sha256()
-    with path.open("rb") as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            hasher.update(chunk)
-    return hasher.hexdigest()
-
+    # Compare actual records, not volatile retrieval timestamps or manifest metadata.
+    try:
+        bundle = json.loads(path.read_text(encoding="utf-8"))
+        payload = bundle.get("records", bundle) if isinstance(bundle, dict) else bundle
+        stable = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+        return hashlib.sha256(stable).hexdigest()
+    except (OSError, ValueError, TypeError):
+        hasher = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(1024 * 1024), b""):
+                hasher.update(chunk)
+        return hasher.hexdigest()
 
 def read_manifest(folder: Path):
     path = folder / "manifest.json"
@@ -96,11 +102,14 @@ def main():
     current.mkdir(parents=True, exist_ok=False)
     previous = None
     for candidate in sorted(history.iterdir(), reverse=True):
-        if candidate.is_dir() and candidate != current and (candidate / "manifest.json").is_file():
-            previous = candidate / "data"
-            if not previous.is_dir():
+        if candidate.is_dir() and candidate != current:
+            nested = candidate / "data"
+            if (nested / "manifest.json").is_file():
+                previous = nested
+                break
+            if (candidate / "manifest.json").is_file():
                 previous = candidate
-            break
+                break
 
     data_dir = current / "data"
     command = [
