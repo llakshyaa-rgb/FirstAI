@@ -23,6 +23,7 @@ class Specialist:
 SPECIALISTS = (
     Specialist("researcher", "Find current public information and source links",
                ("research", "search the web", "search web", "look up", "latest", "current", "sources", "fact check"), "web_search"),
+    Specialist("live_data", "Fetch current weather, air quality, exchange rates, events and public indicators", ("weather", "air quality", "earthquake", "exchange rate", "currency", "gdp", "inflation", "country profile", "natural events"), "live_data"),
     Specialist("image_researcher", "Find existing image references and return source links",
                ("image_search", "image", "picture", "photo"), "image_search"),
     Specialist("code_scout", "Map project files, imports, definitions and entrypoints",
@@ -99,6 +100,9 @@ class AgentTeam:
         query = self._query_for(specialist.name, message)
         if specialist.tool_name == "web_search":
             return self.registry.call("web_search", {"query": query, "count": 8})
+        if specialist.tool_name == "live_data":
+            self.progress("Fetching current records from the relevant public data source.")
+            return self.registry.call("live_data", {"query": message})
         if specialist.tool_name == "image_search":
             explicit_mature = any(term in message.casefold() for term in ("mature", "adult", "nsfw", "18+", "nude", "nudity", "naked", "intimate"))
             return search_web_images(query, count=8, safesearch="off" if explicit_mature else "strict")
@@ -129,7 +133,8 @@ class AgentTeam:
         selected = []
         for specialist in SPECIALISTS:
             choose = (
-                (specialist.name == "researcher" and ("research" in requested or any(x in lower for x in ("research", "search the web", "search web", "look up", "latest", "current", "fact check"))))
+                (specialist.name == "live_data" and "live_data" in requested)
+                or                 (specialist.name == "researcher" and ("research" in requested or any(x in lower for x in ("research", "search the web", "search web", "look up", "latest", "current", "fact check"))))
                 or (specialist.name == "image_researcher" and "image_search" in requested)
                 or (specialist.name == "code_scout" and ("coding" in requested or "code_scout" in requested))
                 or (specialist.name == "debugger" and "coding" in requested and any(x in lower for x in ("bug", "error", "debug", "crash", "fails", "failure", "exception")))
