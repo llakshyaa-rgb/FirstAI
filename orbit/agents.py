@@ -143,19 +143,19 @@ class AgentTeam:
         requested = set(capabilities or ())
         selected = []
         for specialist in SPECIALISTS:
+            keyword_match = any(word in lower for word in specialist.keywords)
+            auto_research = specialist.name == "researcher" and any(x in lower for x in ("research", "search the web", "search web", "latest", "current", "fact check", "find sources"))
+            auto_workspace = specialist.name == "workspace" and any(x in lower for x in ("search the project", "search project", "project", "repository", "repo", "workspace", "codebase", "code", "build", "implement", "fix", "debug"))
             choose = (
-                (specialist.name == "live_data" and "live_data" in requested)
-                or (specialist.name == "knowledge_researcher" and "knowledge" in requested)
-                or (specialist.name == "researcher" and "research" in requested and (
-                    "live_data" not in requested or any(x in lower for x in
-                    ("research", "search the web", "search web", "fact check", "find sources"))
-                ))
-                or (specialist.name == "image_researcher" and "image_search" in requested)
-                or (specialist.name == "workspace" and ("coding" in requested or "workspace" in requested))
+                (specialist.name == "live_data" and ("live_data" in requested or (not requested and keyword_match)))
+                or (specialist.name == "knowledge_researcher" and ("knowledge" in requested or (not requested and keyword_match)))
+                or (specialist.name == "researcher" and ("research" in requested or (not requested and auto_research)) and ("live_data" not in requested or any(x in lower for x in ("research", "search the web", "search web", "fact check", "find sources"))))
+                or (specialist.name == "image_researcher" and ("image_search" in requested or (not requested and keyword_match)))
+                or (specialist.name == "workspace" and ("coding" in requested or "workspace" in requested or (not requested and auto_workspace)))
                 or (specialist.name == "debugger" and "coding" in requested and any(x in lower for x in ("bug", "error", "debug", "crash", "fails", "failure", "exception")))
-                or (specialist.name == "code_reviewer" and ("coding" in requested and any(x in lower for x in ("review", "refactor", "security", "performance", "architecture"))))
-                or (specialist.name == "analyst" and ("analysis" in requested or any(x in lower for x in ("calculate", "compute", "equation", "percentage", "average", "total")) and any(ch.isdigit() for ch in text)))
-                or (specialist.name == "verifier" and ("verification" in requested or any(x in lower for x in ("verify project", "validate project", "run project tests", "test the project"))))
+                or (specialist.name == "code_reviewer" and "coding" in requested and any(x in lower for x in ("review", "refactor", "security", "performance", "architecture")))
+                or (specialist.name == "analyst" and ("analysis" in requested or (not requested and any(x in lower for x in ("calculate", "compute", "equation", "percentage", "average", "total")) and any(ch.isdigit() for ch in text))))
+                or (specialist.name == "verifier" and ("verification" in requested or (not requested and any(x in lower for x in ("verify project", "validate project", "run project tests", "test the project"))))
             )
             if choose:
                 selected.append(specialist)
