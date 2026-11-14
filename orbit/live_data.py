@@ -43,7 +43,7 @@ def _result(title, source, source_url, api_url, records, caveats=(), units=None,
         + "Latest records: " + " | ".join(compact_rows)
         + ". Source: " + source + " — " + source_url
         + ". Caveats: " + " ".join(caveats[:2])
-    )[:1800]
+    )[:850]
     return {
         "title": title, "data_type": kind, "retrieved_at_utc": retrieved,
         "source": source, "source_url": source_url, "api_url": api_url,
@@ -133,11 +133,13 @@ def _rates(query):
         "yen": "JPY", "aud": "AUD", "cad": "CAD", "sgd": "SGD",
         "inr": "INR", "rupee": "INR",
     }
-    codes = []
     lower = query.casefold()
+    found = []
     for key, code in pairs.items():
-        if re.search(r"\b" + re.escape(key) + r"\b", lower) and code not in codes:
-            codes.append(code)
+        match = re.search(r"\\b" + re.escape(key) + r"\\b", lower)
+        if match and code not in [item[1] for item in found]:
+            found.append((match.start(), code))
+    codes = [code for _, code in sorted(found)]
     if len(codes) < 2:
         raise ValueError("Specify two currencies, e.g. 'USD to INR exchange rate'.")
     base, quote = codes[0], codes[1]
@@ -242,10 +244,10 @@ def fetch_live_data(query: str) -> dict:
         return _earthquakes()
     if any(term in lower for term in ("exchange rate", "currency", " to inr", " usd", " eur", " gbp")):
         return _rates(text)
-    if any(term in lower for term in ("country profile", "capital of", "population of", "country data")):
+    if any(term in lower for term in ("country profile", "capital of", "country data")):
         return _country(text)
     if any(term in lower for term in ("natural event", "wildfire", "volcano", "flood event", "hurricane", "cyclone", "eonet")):
         return _nasa_events()
-    if any(term in lower for term in ("gdp", "inflation", "unemployment", "life expectancy", "world bank")):
+    if any(term in lower for term in ("gdp", "inflation", "unemployment", "life expectancy", "world bank", "population")):
         return _world_bank(text)
     raise ValueError("I can fetch weather, air quality, earthquakes, currency reference rates, country profiles, NASA natural-event catalogs, and World Bank indicators. Specify the place, country or currencies.")
