@@ -53,7 +53,9 @@ def validate(root: Path = ROOT) -> dict:
         seen_years.add(year)
         year_order.append(year)
         if json_row.get("country_code") != manifest.get("country_code"):
-            raise ValueError(f"Country code mismatch in row {index}.")
+            raise ValueError(f"Country code mismatch in JSON row {index}.")
+        if csv_row.get("country_code") != json_row.get("country_code") or csv_row.get("year") != str(year):
+            raise ValueError(f"CSV/JSON country or year mismatch in row {index}.")
         for key in INDICATORS:
             value = json_row.get(key)
             if value is not None and (isinstance(value, bool) or not isinstance(value, (int, float))):
