@@ -30,6 +30,7 @@ from .planner import execute_tool_plan
 from .agents import AgentTeam
 from .coding import AutonomousCoder
 from .preview import PreviewManager
+from .remote_preview import proxy as proxy_remote_preview
 from .intent import classify_request
 from .browser import BrowserTools
 from .design_studio import create_artifact, SUPPORTED, THEMES
@@ -451,6 +452,10 @@ def make_handler(app):
             parsed = urlparse(self.path)
             if parsed.path == "/api/preview/status":
                 return self._json(200, self.preview.status())
+            if parsed.path == "/api/preview/logs":
+                return self._json(200, self.preview.logs())
+            if parsed.path.startswith("/remote-preview/"):
+                return proxy_remote_preview(self, "GET")
             if parsed.path == "/api/health":
                 image_backend = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
                 workflow_configured = bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file()
@@ -570,6 +575,8 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
+            if route.startswith("/remote-preview/"):
+                return proxy_remote_preview(self, "POST")
             if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry", "/api/preview/start", "/api/preview/stop"):
                 return self._json(404, {"error": "Not found"})
             try:
