@@ -11,6 +11,8 @@ import re
 from urllib.error import HTTPError, URLError
 from urllib.parse import unquote, urlsplit, urlunsplit
 from urllib.request import HTTPRedirectHandler, Request, build_opener
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from threading import Thread
 
 MAX_REQUEST_BYTES = 2 * 1024 * 1024
 MAX_RESPONSE_BYTES = 8 * 1024 * 1024
@@ -112,3 +114,47 @@ def proxy(handler, method):
     handler.send_header("X-Content-Type-Options", "nosniff")
     handler.end_headers()
     handler.wfile.write(payload)
+
+
+_proxy_server = None
+_proxy_thread = None
+
+
+def start_proxy_server():
+    """Start an isolated loopback origin for remote preview content."""
+    global _proxy_server, _proxy_thread
+    if not configured_base():
+        return None
+    if _proxy_server is None:
+        class RemoteHandler(BaseHTTPRequestHandler):
+            server_version = "OrbitRemotePreview/0.1"
+
+            def log_message(self, fmt, *args):
+                pass
+
+            def _json(self, status, payload):
+                body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                self.send_response(status)
+                self.send_header("Content-Type", "application/json; charset=utf-8")
+                self.send_header("Content-Length", str(len(body)))
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                self.wfile.write(body)
+
+            def do_GET(self):
+                if self.path.startswith("/remote-preview/"):
+                    return proxy(self, "GET")
+                return self._json(404, {"error": "Not found"})
+
+            def do_POST(self):
+                if self.path.startswith("/remote-preview/"):
+                    return proxy(self, "POST")
+                return self._json(404, {"error": "Not found"})
+
+        _proxy_server = ThreadingHTTPServer(("127.0.0.1", 0), RemoteHandler)
+        _proxy_server.daemon_threads = True
+        _proxy_thread = Thread(target=_proxy_server.serve_forever,
+                               name="orbit-remote-preview", daemon=True)
+        _proxy_thread.start()
+    port = _proxy_server.server_address[1]
+    return "http://localhost:" + str(port) + "/remote-preview/"
