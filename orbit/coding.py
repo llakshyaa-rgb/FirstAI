@@ -10,6 +10,16 @@ from pathlib import Path
 MAX_FILES = 2
 MAX_BYTES = 48000
 MAX_REPAIRS = 2
+ENGINEERING_ROLES = {
+    "architect": "Own architecture, dependencies, interfaces and implementation order. Prefer small compatible changes.",
+    "designer": "Own user experience, information hierarchy, accessibility, responsive behaviour and visual consistency.",
+    "frontend": "Own browser UI, state, interactions, validation, accessibility and responsive layouts.",
+    "backend": "Own API routes, data models, persistence, error handling and service boundaries.",
+    "data": "Own data ingestion, schemas, provenance, validation, missing values and export correctness.",
+    "security": "Own trust boundaries, input validation, path safety, secret handling and least privilege.",
+    "qa": "Own acceptance criteria, regression risks and observable correctness; do not claim checks were run unless they were.",
+    "implementation": "Implement the assigned scoped change while preserving existing interfaces and behaviour.",
+}
 BLOCKED = {".git", ".venv", "venv", "__pycache__", ".env", ".secrets",
            ".orbit_backups", "node_modules", "dist", "build"}
 
@@ -188,8 +198,9 @@ class AutonomousCoder:
         }
         plan = extract_json(self._reply(
             "You are the lead engineer. Decompose the owner's goal into a short dependency-ordered plan. "
-            "Return ONLY JSON: " + '{"phases":[{"goal":"one concrete phase outcome","files":["relative/path"]}]}. '
-            "Use at most six phases and at most two files per phase. Use only existing paths from the project map "
+            "Return ONLY JSON: " + '{"phases":[{"role":"architect|designer|frontend|backend|data|security|qa|implementation","goal":"one concrete phase outcome","files":["relative/path"]}]}. '
+            "Use up to six phases and at most two files per phase. Assign the most relevant specialist role to each phase; "
+            "separate UI, backend, data, security and QA concerns when they are genuinely distinct. Use only existing paths from the project map "
             "or a clearly named new source file. Keep phases small and independently checkable. Exclude secrets, "
             "dependencies, generated files and lockfiles.\nPROJECT MAP: " +
             json.dumps(map_summary, ensure_ascii=False)[:6500] +
@@ -206,13 +217,18 @@ class AutonomousCoder:
             if not isinstance(phase, dict):
                 raise ValueError("An implementation phase must be an object.")
             phase_goal = str(phase.get("goal") or goal)[:1200]
+            phase_role = str(phase.get("role") or "implementation").strip().lower()
+            if phase_role not in ENGINEERING_ROLES:
+                phase_role = "implementation"
+            role_guidance = ENGINEERING_ROLES[phase_role]
             paths = self._paths_from_plan({"files": phase.get("files")})
             context = self._read(paths)
             if not context:
                 raise RuntimeError("No safe readable files were available for phase " + str(phase_index) + ".")
-            self.progress("Phase " + str(phase_index) + " of " + str(len(phases)) + ": " + phase_goal,
-                          files=paths)
+            self.progress("Phase " + str(phase_index) + " of " + str(len(phases)) + " · " +
+                          phase_role.title() + " specialist: " + phase_goal, files=paths, role=phase_role)
             prompt = (
+                "You are Orbit's " + phase_role + " specialist. " + role_guidance + " " +
                 "Implement this phase of the owner's project goal. Preserve unrelated behaviour and interfaces. "
                 "Return ONLY valid JSON: " + '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
                 "For existing files use exact, unique, small patches; never rewrite entire files. Each old anchor must occur exactly once. "
