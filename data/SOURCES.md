@@ -19,3 +19,45 @@ The optional download_training_data.py script downloads these datasets directly 
 - Dataset card and attribution: Databricks, Inc. (2023), Dolly 15K.
 
 These datasets improve the breadth of the training signal but do not guarantee factual accuracy or high assistant quality. WikiText is primarily English Wikipedia text; Dolly is a relatively small instruction dataset. The small FirstGPT architecture and training budget remain important limitations.
+
+## Capability-specific instruction datasets
+
+`download_capability_data.py` downloads only the **training split** of the selected sources and converts them into FirstAI's `prompt`/`response` JSONL format. Every row retains dataset ID, original split, declared license, source URL, purpose and source row index in a metadata object.
+
+| Capability | Dataset | Declared license | Source |
+|---|---|---|---|
+| Mathematics | GSM8K (`openai/gsm8k`) | MIT | https://huggingface.co/datasets/openai/gsm8k |
+| School science | AI2 ARC Challenge (`allenai/ai2_arc`) | CC BY-SA 4.0 | https://huggingface.co/datasets/allenai/ai2_arc |
+| Reading comprehension | SQuAD (`rajpurkar/squad`) | CC BY-SA 4.0 | https://huggingface.co/datasets/rajpurkar/squad |
+| Python coding | MBPP sanitized (`google-research-datasets/mbpp`) | CC BY 4.0 | https://huggingface.co/datasets/google-research-datasets/mbpp |
+
+The downloader deliberately does not fetch test/validation splits. Keep a separate held-out evaluation set; do not train on benchmark answers and then report those same questions as evaluation.
+
+Run:
+
+\`\`\`bash
+pip install datasets
+python download_capability_data.py --max-per-dataset 3000
+\`\`\`
+
+Outputs:
+- `data/capabilities/*_train.jsonl` — per-source records.
+- `data/instructions_capabilities.jsonl` — combined instruction data.
+- `data/capabilities/manifest.json` — provenance manifest.
+
+Instruction-tune an existing checkpoint with:
+
+\`\`\`bash
+python finetune_instructions.py --checkpoint checkpoints/firstgpt.best.pt --data data/instructions_capabilities.jsonl --out checkpoints/firstgpt-capabilities.pt
+\`\`\`
+
+This is a small, capped starter mix, not a claim of professional-grade or comprehensive knowledge. Review each current dataset card and comply with the license's attribution and share-alike terms before redistributing data or model artifacts.
+
+## Live knowledge and reference retrieval
+
+Orbit's `knowledge_search` tool uses Wikipedia REST for general encyclopedic discovery, OpenAlex and arXiv for scholarly discovery, and Stack Exchange for programming question discovery. Results carry retrieval timestamps, source URLs, license notes and caveats. These sources return discovery metadata/excerpts; they do not automatically download entire articles or prove that a claim is correct.
+
+Orbit's existing `live_data` tool remains separate and handles structured public datasets such as weather/air-quality forecasts, USGS earthquakes, reference exchange rates, country profiles, World Bank indicators and NASA natural events.
+
+Image-reference search uses Wikimedia Commons as a keyless strict-safe fallback when Brave image search is not configured. It returns per-file license and attribution metadata where available. Verify the original file page before reusing an image.
+
