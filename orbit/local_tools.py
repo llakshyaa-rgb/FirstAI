@@ -271,4 +271,4 @@ class WorkspaceTools:
             raise TimeoutError(f"Compile check exceeded {timeout} seconds.") from exc
         return {"returncode": result.returncode, "passed": result.returncode == 0,
                 "command": "python -m compileall -q <discovered project Python files>",
-                "output": (result.stdout + "\\n" + result.stderr)[-8000:]}
+                "output": (result.stdout + "\n" + result.stderr)[-8000:]}
