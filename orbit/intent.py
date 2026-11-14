@@ -59,7 +59,7 @@ def classify_request(message: str) -> dict:
     live_data_terms = ("weather", "temperature", "forecast", "rain", "wind",
         "air quality", "aqi", "pm2.5", "pm10", "earthquake", "seismic", "quake",
         "exchange rate", "currency", " to inr", " usd", " eur", " gbp",
-        "country profile", "capital of", "population of", "country data",
+        "country profile", "capital of", "country data", "population",
         "natural event", "wildfire", "volcano", "flood event", "hurricane",
         "cyclone", "eonet", "gdp", "inflation", "unemployment", "life expectancy",
         "world bank")
