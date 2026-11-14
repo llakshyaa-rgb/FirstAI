@@ -324,7 +324,14 @@ class OrbitApplication:
                 for item in findings if item.get("agent") == "live_data"
                 and isinstance(item.get("result"), dict)
             ]
-            other_findings = [item for item in findings if item.get("agent") != "live_data"]
+            knowledge_findings = [
+                item.get("result", {}).get("assistant_context", "")
+                for item in findings if item.get("agent") == "knowledge_researcher"
+                and isinstance(item.get("result"), dict)
+            ]
+            other_findings = [item for item in findings if item.get("agent") not in {"live_data", "knowledge_researcher"}]
+            if knowledge_findings:
+                message += "\n\nSourced knowledge evidence (attribute sources, preserve dates and license caveats; distinguish metadata from verified claims):\n" + "\n".join(knowledge_findings)
             if live_findings:
                 message += "\n\nVerified live-data evidence (use the retrieved timestamp, source and caveats; do not invent missing values):\n" + "\n".join(live_findings)
             if other_findings:
