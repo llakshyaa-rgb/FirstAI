@@ -37,16 +37,18 @@ def extract_json(raw):
 
 
 class AutonomousCoder:
-    def __init__(self, runtime, workspace, progress=None, approval_required=None):
+    def __init__(self, runtime, workspace, progress=None, approval_required=None,
+                 owner_preferences=""):
         self.runtime = runtime
         self.workspace = workspace
         self.progress = progress or (lambda message, **details: None)
+        self.owner_preferences = str(owner_preferences or "")[:4000]
         self.approval_required = approval_required
         if not callable(self.approval_required):
             raise ValueError("Autonomous coding requires an explicit owner-approval callback.")
 
     def _reply(self, prompt, tokens=1200):
-        return self.runtime.reply(prompt, history=[], owner_preferences="",
+        return self.runtime.reply(prompt, history=[], owner_preferences=self.owner_preferences,
             max_new_tokens=tokens,
             on_progress=lambda event: self.progress(event.get("message", "Working…"),
                 kind=event.get("kind", "status"),
@@ -391,6 +393,13 @@ class AutonomousCoder:
                     raw = self._reply(prompt + "\nPREVIOUS PATCH REJECTED: " +
                                       type(exc).__name__ + ": " + str(exc)[:1200] +
                                       "\nReturn a corrected exact patch batch.", 1500)
+                    if not self.approval_required(
+                        "Corrected implementation phase " + str(phase_index) + ": " + phase_goal,
+                        paths, raw[:16000]
+                    ):
+                        raise PermissionError(
+                            "Owner did not approve the corrected implementation patch. No changes were applied."
+                        )
             (role_space / "applied_changes.json").write_text(
                 json.dumps({"summary": summary, "changes": phase_changes},
                            ensure_ascii=False, indent=2), encoding="utf-8")
