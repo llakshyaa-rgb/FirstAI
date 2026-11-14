@@ -224,7 +224,7 @@ def _world_bank(query):
         for item in payload[1] or []:
             if item and item.get("value") is not None:
                 rows.append({"country":name.title(),"indicator":label,"year":item.get("date"),
-                    "value":item.get("value"),"unit":(item.get("unit") or item.get("indicator",{}).get("id"))})
+                    "value":item.get("value"),"unit":item.get("unit"),"indicator_name":(item.get("indicator") or {}).get("value")})
     return _result(name.title()+" "+label+" (World Bank)", "World Bank",
         "https://data.worldbank.org/", url, rows,
         ["Annual indicator data; the newest published year may lag the current date."])
