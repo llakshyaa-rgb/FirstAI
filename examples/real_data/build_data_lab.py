@@ -135,6 +135,44 @@ def weather(city):
     }
 
 
+def air_quality(city):
+    geo_url = "https://geocoding-api.open-meteo.com/v1/search?" + urllib.parse.urlencode({
+        "name": city, "count": 1, "language": "en", "format": "json"
+    })
+    geo = fetch_json(geo_url)
+    results = geo.get("results") or []
+    if not results:
+        raise ValueError("Open-Meteo could not find the requested city for air-quality data.")
+    place = results[0]
+    url = "https://air-quality-api.open-meteo.com/v1/air-quality?" + urllib.parse.urlencode({
+        "latitude": place["latitude"], "longitude": place["longitude"],
+        "hourly": "pm10,pm2_5,european_aqi,us_aqi",
+        "forecast_days": 3, "timezone": "auto",
+    })
+    payload = fetch_json(url)
+    hourly = payload.get("hourly") or {}
+    times = hourly.get("time") or []
+    fields = ("pm10", "pm2_5", "european_aqi", "us_aqi")
+    rows = []
+    for index, stamp in enumerate(times):
+        row = {"time_local": stamp}
+        for field in fields:
+            values = hourly.get(field) or []
+            row[field] = values[index] if index < len(values) else None
+        rows.append(row)
+    return rows, {
+        "source": "Open-Meteo Air Quality API",
+        "source_url": "https://open-meteo.com/en/docs/air-quality-api",
+        "api_url": "https://air-quality-api.open-meteo.com/v1/air-quality",
+        "license_note": "Free Open-Meteo API use is subject to its applicable non-commercial terms; review current terms before commercial use.",
+        "caveats": ["Air-quality values are model estimates/forecasts, not certified ground-station measurements.", "AQI scales differ; European and US AQI values must not be compared as if they were the same scale.", "Not a substitute for official public-health alerts."],
+        "location": {"name": place.get("name"), "country": place.get("country"),
+                     "latitude": place.get("latitude"), "longitude": place.get("longitude"),
+                     "timezone": payload.get("timezone")},
+        "units": payload.get("hourly_units", {}),
+    }
+
+
 def earthquakes():
     url = "https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/4.5_day.geojson"
     payload = fetch_json(url)
@@ -281,6 +319,7 @@ def main():
     collectors = {
         "world_bank_economy": lambda: world_bank(country, args.start_year, args.end_year),
         "weather_forecast": lambda: weather(args.city.strip()),
+        "air_quality_forecast": lambda: air_quality(args.city.strip()),
         "earthquakes_m45_past_day": earthquakes,
         "inr_reference_exchange_rates": exchange_rates,
         "nasa_open_natural_events": natural_events,
