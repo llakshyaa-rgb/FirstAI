@@ -331,10 +331,18 @@ class OrbitApplication:
                 check_ok = coding_result.get("status") == "completed"
                 compile_info = coding_result.get("checks", {}).get("compile", {})
                 test_info = coding_result.get("checks", {}).get("tests")
+                plan_data = coding_result.get("plan", "")
+                if isinstance(plan_data, dict):
+                    plan_summary = " → ".join(
+                        str(item.get("goal", "")) for item in plan_data.get("phases", [])
+                        if isinstance(item, dict) and item.get("goal")
+                    ) or "Phased implementation"
+                else:
+                    plan_summary = str(plan_data)
                 summary_lines = [
                     "Coding task " + ("completed." if check_ok else "needs attention after repair attempts."),
                     str(coding_result.get("summary", "")),
-                    "Plan: " + str(coding_result.get("plan", "")),
+                    "Plan: " + plan_summary,
                     "Changed files: " + (", ".join(x.get("path", "") for x in changes) or "none"),
                     "Automatic backups: " + (", ".join(x.get("backup", "new file") for x in changes) or "none"),
                     "Compile check: " + ("passed" if compile_info.get("passed") else "failed"),
