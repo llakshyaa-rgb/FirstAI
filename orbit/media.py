@@ -216,6 +216,51 @@ def extract_text(path: Path, ext: str | None = None) -> str:
     return ""
 
 
+def _search_commons_images(query: str, count: int = 12) -> list[dict]:
+    """Keyless Wikimedia Commons search with per-file attribution metadata."""
+    params = {
+        "action": "query", "generator": "search",
+        "gsrsearch": "filetype:bitmap " + query,
+        "gsrnamespace": 6, "gsrlimit": max(1, min(int(count), 12)),
+        "prop": "imageinfo", "iiprop": "url|extmetadata",
+        "iiurlwidth": 480, "format": "json", "origin": "*",
+    }
+    url = "https://commons.wikimedia.org/w/api.php?" + urllib.parse.urlencode(params)
+    request = urllib.request.Request(url, headers={
+        "Accept": "application/json", "User-Agent": "FirstAI-Orbit/1.0 (Wikimedia Commons image search)",
+    })
+    with urllib.request.urlopen(request, timeout=20) as response:
+        payload = json.loads(response.read(3_000_000).decode("utf-8"))
+    pages = (payload.get("query") or {}).get("pages") or {}
+    results = []
+    for page in pages.values():
+        info = (page.get("imageinfo") or [{}])[0]
+        meta = info.get("extmetadata") or {}
+        def value(key):
+            item = meta.get(key) or {}
+            return re.sub(r"<[^>]+>", "", str(item.get("value") or "")).strip()[:500]
+        image_url = info.get("url")
+        thumb = info.get("thumburl") or image_url
+        if not image_url or not thumb:
+            continue
+        title = str(page.get("title") or "Wikimedia Commons image")
+        results.append({
+            "title": title.replace("File:", "", 1),
+            "image_url": image_url,
+            "thumbnail_url": thumb,
+            "page_url": "https://commons.wikimedia.org/wiki/" + urllib.parse.quote(title.replace(" ", "_")),
+            "source": "Wikimedia Commons",
+            "width": info.get("width"), "height": info.get("height"),
+            "may_include_mature": False,
+            "license": value("LicenseShortName"),
+            "artist": value("Artist"),
+            "attribution": value("Attribution"),
+            "license_url": value("LicenseUrl"),
+            "description": value("ImageDescription"),
+        })
+    return results
+
+
 def search_web_images(query: str, count: int = 12, safesearch: str = "strict") -> list[dict]:
     query = str(query or "").strip()
     if not query or len(query) > 400:
@@ -224,7 +269,9 @@ def search_web_images(query: str, count: int = 12, safesearch: str = "strict") -
         raise ValueError("safesearch must be 'off' or 'strict'.")
     token = os.environ.get("BRAVE_SEARCH_API_KEY", "").strip()
     if not token:
-        raise RuntimeError("Internet image search is not configured. Set BRAVE_SEARCH_API_KEY to enable Brave image search.")
+        if safesearch == "strict":
+            return _search_commons_images(query, count)
+        raise RuntimeError("Mature image search requires a configured search provider; no unfiltered fallback is used.")
     params = urllib.parse.urlencode({"q": query, "count": max(1, min(int(count), 20)), "safesearch": safesearch})
     request = urllib.request.Request(
         "https://api.search.brave.com/res/v1/images/search?" + params,
