@@ -54,6 +54,25 @@ Defaults: India (IND), New Delhi, and the period 2000 through the current year. 
 
 Each successful source gets JSON and CSV exports with source attribution, retrieval time, units or metadata, and caveats. A failed provider is recorded separately; successful datasets are retained. The generated `dashboard.html` provides a browsable overview.
 
+For repeatable refreshes, keep each run as a timestamped snapshot and compare it with the previous collection:
+
+    python examples/real_data/refresh_data_lab.py
+
+The refresh script saves each run under `examples/real_data/generated/data_lab_history/`, retains collector logs, validates the snapshot, and writes `refresh_report.md` plus `refresh_report.json`. Failed sources are marked unavailable rather than treated as unchanged or as zero. Previous snapshots are not overwritten.
+
+Orbit can also retrieve supported live facts directly in ordinary chat through read-only public APIs. Examples:
+
+- `weather in Patna`
+- `air quality in Delhi`
+- `India GDP`
+- `Japan inflation`
+- `USD to INR exchange rate`
+- `latest magnitude 4.5 earthquakes`
+- `country profile for India`
+- `NASA natural events`
+
+The chat lookup returns source URLs, retrieval time, units where available and caveats. This is separate from training FirstGPT: live records are fetched at request time and are not automatically added to model weights or training data. It works without a Brave API key for the listed structured providers; general web research still needs its configured search provider.
+
 Run the offline integrity check after generation:
 
     python examples/real_data/validate_data_lab.py
