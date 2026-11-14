@@ -5,6 +5,7 @@ import os
 import re
 import shutil
 import subprocess
+import uuid
 from pathlib import Path
 
 MAX_FILES = 2
@@ -212,6 +213,12 @@ class AutonomousCoder:
             else:
                 raise ValueError("The engineering plan did not contain executable phases.")
         phases = phases[:6]
+        team_root = self.workspace.root / ".orbit_agent_workspaces" / uuid.uuid4().hex
+        team_root.mkdir(parents=True, exist_ok=True)
+        (team_root / "task.json").write_text(json.dumps({
+            "goal": goal, "phase_count": len(phases),
+            "note": "Role-scoped task artifacts. Only the lead coding workflow applies patches to the project."
+        }, ensure_ascii=False, indent=2), encoding="utf-8")
         all_changes, completed_phases, total_repairs = [], [], 0
         for phase_index, phase in enumerate(phases, 1):
             if not isinstance(phase, dict):
@@ -225,6 +232,17 @@ class AutonomousCoder:
             context = self._read(paths)
             if not context:
                 raise RuntimeError("No safe readable files were available for phase " + str(phase_index) + ".")
+            # Each role gets its own durable brief and source snapshot. These are
+            # isolated task artifacts; the lead remains the sole project writer.
+            role_space = team_root / ("phase_" + str(phase_index) + "_" + phase_role)
+            role_space.mkdir(parents=True, exist_ok=True)
+            (role_space / "brief.json").write_text(json.dumps({
+                "role": phase_role, "guidance": role_guidance,
+                "phase_goal": phase_goal, "owner_goal": goal,
+                "allowed_paths": paths,
+            }, ensure_ascii=False, indent=2), encoding="utf-8")
+            (role_space / "source_snapshot.json").write_text(
+                json.dumps(context, ensure_ascii=False, indent=2), encoding="utf-8")
             self.progress("Phase " + str(phase_index) + " of " + str(len(phases)) + " · " +
                           phase_role.title() + " specialist: " + phase_goal, files=paths, role=phase_role)
             prompt = (
@@ -237,6 +255,9 @@ class AutonomousCoder:
                 "\nALLOWED PATHS: " + json.dumps(paths) +
                 "\nPHASE GOAL: " + phase_goal + "\nOWNER GOAL: " + goal[:1800])
             raw = self._reply(prompt, 1500)
+            (role_space / "proposal.json").write_text(json.dumps({
+                "raw_proposal": raw, "allowed_paths": paths
+            }, ensure_ascii=False, indent=2), encoding="utf-8")
             self.progress("Reviewer pass: checking the proposed changes for scope, compatibility and regressions.")
             try:
                 review = extract_json(self._reply(
@@ -247,6 +268,8 @@ class AutonomousCoder:
                     "CURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:8000] +
                     "\nPATCHES: " + raw[:5000] +
                     "\nPHASE: " + phase_goal + "\nOWNER GOAL: " + goal[:1200], 450))
+                (role_space / "review.json").write_text(
+                    json.dumps(review, ensure_ascii=False, indent=2), encoding="utf-8")
                 issues = review.get("issues", [])
                 if not review.get("approved", False) and issues:
                     self.progress("Reviewer found issues; requesting a corrected implementation before writing.",
@@ -272,6 +295,9 @@ class AutonomousCoder:
                     raw = self._reply(prompt + "\nPREVIOUS PATCH REJECTED: " +
                                       type(exc).__name__ + ": " + str(exc)[:1200] +
                                       "\nReturn a corrected exact patch batch.", 1500)
+            (role_space / "applied_changes.json").write_text(
+                json.dumps({"summary": summary, "changes": phase_changes},
+                           ensure_ascii=False, indent=2), encoding="utf-8")
             all_changes.extend(phase_changes)
             self.progress("Phase changes applied with automatic backups.", changes=phase_changes)
             phase_repairs = 0
@@ -294,6 +320,7 @@ class AutonomousCoder:
                         "plan": plan, "completed_phases": completed_phases,
                         "failed_phase": phase_index, "changes": all_changes,
                         "checks": checks, "repair_rounds": total_repairs,
+                        "agent_workspace": str(team_root.relative_to(self.workspace.root)),
                     }
                 self.progress("A check failed. Diagnosing the output and preparing a repair.",
                               kind="method_failed", phase=phase_index, round=repair_round + 1)
@@ -328,4 +355,5 @@ class AutonomousCoder:
             "plan": plan, "completed_phases": completed_phases,
             "changes": all_changes, "checks": checks,
             "repair_rounds": total_repairs,
+            "agent_workspace": str(team_root.relative_to(self.workspace.root)),
         }
