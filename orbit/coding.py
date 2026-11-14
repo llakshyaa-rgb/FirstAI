@@ -274,7 +274,7 @@ class AutonomousCoder:
         plan = extract_json(self._reply(
             "You are the lead engineer. Decompose the owner's goal into a short dependency-ordered plan. "
             "Return ONLY JSON: " + '{"phases":[{"role":"architect|designer|frontend|backend|data|security|qa|implementation","goal":"one concrete phase outcome","files":["relative/path"]}]}. '
-            "Use up to six phases and at most two files per phase. Assign the most relevant specialist role to each phase; "
+            "Use up to eight phases and at most four files per phase. Assign the most relevant specialist role to each phase; "
             "separate UI, backend, data, security and QA concerns when they are genuinely distinct. Use only existing paths from the project map "
             "or a clearly named new source file. Keep phases small and independently checkable. Exclude secrets, "
             "dependencies, generated files and lockfiles.\nPROJECT MAP: " +
