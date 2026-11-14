@@ -94,40 +94,48 @@ class AutonomousCoder:
         edits = payload.get("edits")
         if not isinstance(edits, list) or not edits:
             raise ValueError("No file edits were returned.")
-        changed = []
+        prepared, seen = [], set()
         for edit in edits[:MAX_FILES]:
             if not isinstance(edit, dict) or edit.get("path") not in paths:
                 raise PermissionError("The model attempted an unplanned file edit.")
             relative = edit["path"]
+            if relative in seen:
+                raise ValueError("A file may appear only once in an edit batch.")
+            seen.add(relative)
             target = self._path(relative)
             if not target.exists():
                 content = edit.get("content")
                 if not isinstance(content, str) or not content.strip() or len(content.encode("utf-8")) > MAX_BYTES:
                     raise ValueError("New files require complete, bounded text content.")
-                changed.append(self.workspace.create_file(relative, content))
+                prepared.append((relative, content, False))
                 continue
-            if "patches" in edit:
-                patches = edit["patches"]
-                if not isinstance(patches, list) or not patches:
-                    raise ValueError("A file patch must contain exact replacements.")
-                content = target.read_text(encoding="utf-8")
-                for patch in patches[:12]:
-                    if not isinstance(patch, dict) or not isinstance(patch.get("old"), str) or not patch["old"]:
-                        raise ValueError("A patch needs a non-empty exact old-text anchor.")
-                    new = patch.get("new")
-                    if not isinstance(new, str):
-                        raise ValueError("Patch replacement text must be a string.")
-                    occurrences = content.count(patch["old"])
-                    if occurrences != 1:
-                        raise ValueError("Patch anchor for " + relative + " matched " + str(occurrences) + " times; refusing an ambiguous edit.")
-                    content = content.replace(patch["old"], new, 1)
-                if len(content.encode("utf-8")) > MAX_BYTES:
-                    raise ValueError("Patched file exceeds the safe file-size limit.")
+            if "patches" not in edit:
+                raise ValueError("Existing files must use exact, targeted patches rather than full-file rewrites.")
+            patches = edit["patches"]
+            if not isinstance(patches, list) or not patches:
+                raise ValueError("A file patch must contain exact replacements.")
+            content = target.read_text(encoding="utf-8")
+            for patch in patches[:12]:
+                if not isinstance(patch, dict) or not isinstance(patch.get("old"), str) or not patch["old"]:
+                    raise ValueError("A patch needs a non-empty exact old-text anchor.")
+                new = patch.get("new")
+                if not isinstance(new, str):
+                    raise ValueError("Patch replacement text must be a string.")
+                occurrences = content.count(patch["old"])
+                if occurrences != 1:
+                    raise ValueError("Patch anchor for " + relative + " matched " + str(occurrences) + " times; refusing an ambiguous edit.")
+                content = content.replace(patch["old"], new, 1)
+            if len(content.encode("utf-8")) > MAX_BYTES:
+                raise ValueError("Patched file exceeds the safe file-size limit.")
+            prepared.append((relative, content, True))
+        if not prepared:
+            raise ValueError("No valid file edits were supplied.")
+        changed = []
+        for relative, content, existed in prepared:
+            if existed:
                 changed.append(self.workspace.update_file(relative, content))
-                continue
-            raise ValueError("Existing files must be changed with exact, targeted patches rather than full-file rewrites.")
-        if not changed:
-            raise ValueError("No file changes were applied.")
+            else:
+                changed.append(self.workspace.create_file(relative, content))
         return changed, str(payload.get("summary") or "Applied targeted changes.")
 
     def _checks(self, changed):
