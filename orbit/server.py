@@ -30,6 +30,7 @@ from .planner import execute_tool_plan
 from .agents import AgentTeam
 from .coding import AutonomousCoder
 from .preview import PreviewManager
+from .preview_inspector import inspect_preview
 from .remote_preview import start_proxy_server
 from .intent import classify_request
 from .browser import BrowserTools
@@ -590,7 +591,7 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry", "/api/preview/start", "/api/preview/stop"):
+            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry", "/api/preview/start", "/api/preview/stop", "/api/preview/inspect"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -612,7 +613,12 @@ def make_handler(app):
                     return self._json(200, self.preview.start(project_path=project_path))
                 if route == "/api/preview/stop":
                     return self._json(200, self.preview.stop())
-                if route == "/api/tasks/retry":
+
+                if route == "/api/preview/inspect":
+                    status = self.preview.status()
+                    if not status.get("running") or not status.get("url"):
+                        return self._json(409, {"error": "Start a local preview before inspecting it."})
+                    return self._json(200, inspect_preview(status["url"]))                if route == "/api/tasks/retry":
                     task_id = payload.get("task_id")
                     if not isinstance(task_id, str) or not task_id:
                         return self._json(400, {"error": "task_id is required"})
