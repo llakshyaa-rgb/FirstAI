@@ -22,7 +22,7 @@ ENGINEERING_ROLES = {
     "implementation": "Implement the assigned scoped change while preserving existing interfaces and behaviour.",
 }
 BLOCKED = {".git", ".venv", "venv", "__pycache__", ".env", ".secrets",
-           ".orbit_backups", "node_modules", "dist", "build"}
+           ".orbit_backups", ".orbit_agent_workspaces", "node_modules", "dist", "build"}
 
 
 def extract_json(raw):
