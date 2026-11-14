@@ -8,9 +8,9 @@ import subprocess
 import uuid
 from pathlib import Path
 
-MAX_FILES = 4
-MAX_BYTES = 100000
-MAX_REPAIRS = 2
+MAX_FILES = 8
+MAX_BYTES = 180000
+MAX_REPAIRS = 3
 ENGINEERING_ROLES = {
     "architect": "Own architecture, dependencies, interfaces and implementation order. Prefer small compatible changes.",
     "designer": "Own product-quality UX and visual design: establish a coherent design system, strong hierarchy, deliberate typography, spacing, color and component states; make every screen responsive and accessible; avoid generic template layouts; design complete user journeys, empty/loading/error/success states, forms, navigation and realistic content. For adult-oriented products, design for adults with privacy, consent, clear boundaries and age-appropriate access controls.",
@@ -277,8 +277,8 @@ class AutonomousCoder:
         plan = extract_json(self._reply(
             "You are the lead engineer. Decompose the owner's goal into a short dependency-ordered plan. "
             "Return ONLY JSON: " + '{"phases":[{"role":"architect|designer|frontend|backend|data|security|qa|implementation","goal":"one concrete phase outcome","files":["relative/path"]}]}. '
-            "Use up to eight phases and at most four files per phase. Assign the most relevant specialist role to each phase; "
-            "separate UI, backend, data, security and QA concerns when they are genuinely distinct. Use only existing paths from the project map "
+            "Use up to eight phases and at most eight files per phase. Assign the most relevant specialist role to each phase; "
+            "separate architecture, UX, frontend, backend, data, security and QA concerns when genuinely distinct. Plan integration contracts and dependency order. Use only existing paths from the project map "
             "or a clearly named new source file. Keep phases small and independently checkable. Exclude secrets, "
             "dependencies, generated files and lockfiles.\nPROJECT MAP: " +
             json.dumps(map_summary, ensure_ascii=False)[:6500] +
@@ -289,7 +289,7 @@ class AutonomousCoder:
                 phases = [{"goal": plan.get("plan", goal), "files": plan["files"]}]
             else:
                 raise ValueError("The engineering plan did not contain executable phases.")
-        phases = phases[:6]
+        phases = phases[:8]
         team_root = self.workspace.root / ".orbit_agent_workspaces" / uuid.uuid4().hex
         team_root.mkdir(parents=True, exist_ok=True)
         (team_root / "task.json").write_text(json.dumps({
@@ -376,7 +376,8 @@ class AutonomousCoder:
                               "); strict patch validation and compiler checks remain active.",
                               kind="method_failed")
             # Never write project files until the owner explicitly approves this exact phase.
-            if not self.approval_required(phase_goal, paths):
+            proposal_preview = raw[:16000]
+            if not self.approval_required(phase_goal, paths, proposal_preview):
                 raise PermissionError("Owner denied or did not provide approval. No changes were applied for this phase.")
             for edit_attempt in range(2):
                 try:
