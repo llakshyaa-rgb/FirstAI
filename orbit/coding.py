@@ -7,7 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
-MAX_FILES = 5
+MAX_FILES = 2
 MAX_BYTES = 48000
 MAX_REPAIRS = 2
 BLOCKED = {".git", ".venv", "venv", "__pycache__", ".env", ".secrets",
@@ -178,13 +178,21 @@ class AutonomousCoder:
             raise RuntimeError("A trained FirstGPT checkpoint is required for autonomous coding.")
         self.progress("Coding agent: mapping the project and planning the implementation in phases.")
         overview = self.workspace.inspect_project(".", max_files=80)
+        map_summary = {
+            "files": [item.get("path") for item in overview.get("files", [])[:80]],
+            "symbols": [
+                {"path": item.get("path"),
+                 "names": [symbol.get("name") for symbol in item.get("definitions", [])[:12]]}
+                for item in overview.get("python_source_map", []) if item.get("definitions")
+            ][:35],
+        }
         plan = extract_json(self._reply(
             "You are the lead engineer. Decompose the owner's goal into a short dependency-ordered plan. "
             "Return ONLY JSON: " + '{"phases":[{"goal":"one concrete phase outcome","files":["relative/path"]}]}. '
-            "Use at most four phases and at most five files per phase. Use only existing paths from the project map "
+            "Use at most six phases and at most two files per phase. Use only existing paths from the project map "
             "or a clearly named new source file. Keep phases small and independently checkable. Exclude secrets, "
             "dependencies, generated files and lockfiles.\nPROJECT MAP: " +
-            json.dumps(overview, ensure_ascii=False)[:9000] +
+            json.dumps(map_summary, ensure_ascii=False)[:6500] +
             "\nOWNER GOAL: " + goal[:2200], 800))
         phases = plan.get("phases")
         if not isinstance(phases, list) or not phases:
@@ -192,7 +200,7 @@ class AutonomousCoder:
                 phases = [{"goal": plan.get("plan", goal), "files": plan["files"]}]
             else:
                 raise ValueError("The engineering plan did not contain executable phases.")
-        phases = phases[:4]
+        phases = phases[:6]
         all_changes, completed_phases, total_repairs = [], [], 0
         for phase_index, phase in enumerate(phases, 1):
             if not isinstance(phase, dict):
