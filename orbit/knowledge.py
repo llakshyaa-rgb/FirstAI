@@ -29,7 +29,7 @@ def _get(url, accept="application/json"):
 
 
 def _search_term(query):
-    value = re.sub(r"^\s*(?:research|look up|find sources for|explain|what is|who is|tell me about)\s+", "", query, flags=re.I)
+    value = re.sub(r"^\s*(?:research(?:\s+papers?)?(?:\s+(?:about|on))?|papers?\s+(?:about|on)|studies\s+(?:about|on)|look up|find sources for|explain|what is|who is|tell me about)\s+", "", query, flags=re.I)
     return value.strip(" \t\r\n?!.")[:240]
 
 
