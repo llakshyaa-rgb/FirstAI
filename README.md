@@ -112,7 +112,7 @@ pip install datasets
 python download_capability_data.py --max-per-dataset 3000
 \`\`\`
 
-This adds real training examples for:
+The repository already contains small real sourced seed examples across economics, mathematics, science, reading comprehension and coding. The larger download adds up to 3,000 examples per source by default. This adds real training examples for:
 - Mathematics: GSM8K worked word problems.
 - Science: AI2 ARC Challenge questions.
 - Reading comprehension: SQuAD passage-grounded answers.
@@ -134,7 +134,7 @@ The existing live-data APIs remain separate from training. Real data is not auto
 
 ## Real-world training examples
 
-The starter corpus now includes sourced India examples in `data/raw/real_world_examples.txt`; `prepare_corpus.py` includes this file automatically. The matching structured examples, with source links, indicator IDs, years, units and retrieval dates, are in `examples/real_data/seed_examples.jsonl`.
+The starter corpus now includes sourced India examples in `data/raw/real_world_examples.txt` and mathematics, science, reading-comprehension and coding seed examples in `data/raw/capability_seed_examples.txt`; `prepare_corpus.py` includes this file automatically. The matching structured examples, with source links, indicator IDs, years, units and retrieval dates, are in `examples/real_data/seed_examples.jsonl`.
 
 For a larger, refreshed multi-domain set, run:
 
