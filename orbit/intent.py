@@ -69,6 +69,13 @@ def classify_request(message: str) -> dict:
         "world bank")
     if _has(lower, live_data_terms):
         route["capabilities"].append("live_data")
+    knowledge_terms = ("who is ", "what is ", "tell me about ", "explain ",
+        "history of ", "research paper", "scientific paper", "academic paper",
+        "arxiv", "literature review", "studies on ", "papers about ",
+        "stackoverflow", "programming question", "code example", "python error",
+        "javascript error", "encyclopedia", "source-backed", "with sources")
+    if _has(lower, knowledge_terms):
+        route["capabilities"].append("knowledge")
 
     if search_image:
         route["capabilities"].append("image_search")
