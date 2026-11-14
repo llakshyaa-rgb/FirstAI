@@ -210,6 +210,23 @@ python -m playwright install chromium
 The iframe remains the interactive place where you can manually use the app. Browser inspection is read-only and restricted to the exact local preview host and port. Cloud preview still does not support WebSocket/HMR forwarding; refresh the cloud preview manually after changes.
 
 
+## Longer FirstGPT context and owner-approved self-modification
+
+New training runs now default to a 1,024-token context window (previous default: 256). The checkpoint stores its architecture, so an existing checkpoint keeps its original context length. To obtain the longer window, train a new checkpoint with `--block-size 1024` (or resume only from a compatible checkpoint and corpus). Larger context increases GPU memory use; choose a size that fits the available GPU. The current runtime still cannot fit an arbitrarily large prompt into a finite model context, so very long requests may need to be split into focused parts.
+
+Autonomous coding now fails closed unless an owner-approval callback is configured. Orbit prepares and reviews each implementation phase, then emits an `approval_required` task event containing the phase summary, exact file list and approval ID. It waits for an explicit decision before writing that phase. Approve or deny through the local API:
+
+```http
+POST /api/coding/approval
+Content-Type: application/json
+
+{"approval_id":"<id-from-approval_required-event>","approved":true}
+```
+
+Set `approved` to `false` to deny. Each phase requires its own approval; no response expires after 24 hours and does not authorize edits. Pending approvals are held in the running process and expire on restart; a restarted process does not silently approve queued changes. The local UI approval controls are not yet built. Keep the server bound to loopback; this endpoint is not a substitute for network authentication.
+
+The coding agent's design specialist now has stronger requirements for coherent design systems, responsive layouts, accessibility, complete user journeys and realistic loading, empty, error and success states. Adult-oriented app design should be designed for adults with privacy, consent and appropriate age/access safeguards. This improves the engineering brief; it does not guarantee that the current language checkpoint can produce production-quality apps without evaluation.
+
 ## Orbit assistant foundations
 
 The repository now includes an initial Orbit runtime layer:
