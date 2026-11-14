@@ -177,6 +177,34 @@ def exchange_rates():
     }
 
 
+def country_profile(country):
+    url = "https://restcountries.com/v3.1/alpha/" + urllib.parse.quote(country) + "?" + urllib.parse.urlencode({
+        "fields": "name,cca3,capital,region,subregion,population,area,languages,currencies,timezones,flags"
+    })
+    payload = fetch_json(url)
+    if not isinstance(payload, list) or not payload:
+        raise ValueError("REST Countries returned no country profile.")
+    item = payload[0]
+    return [{
+        "country_code": item.get("cca3"),
+        "name": (item.get("name") or {}).get("common"),
+        "official_name": (item.get("name") or {}).get("official"),
+        "capital": ", ".join(item.get("capital") or []),
+        "region": item.get("region"), "subregion": item.get("subregion"),
+        "population": item.get("population"), "area_km2": item.get("area"),
+        "languages": item.get("languages") or {},
+        "currencies": item.get("currencies") or {},
+        "timezones": item.get("timezones") or [],
+        "flag_svg": (item.get("flags") or {}).get("svg"),
+    }], {
+        "source": "REST Countries",
+        "source_url": "https://restcountries.com/",
+        "api_url": url,
+        "license_note": "Review REST Countries project terms and data-source attributions before commercial redistribution.",
+        "caveats": ["Country profile values may be updated independently of the World Bank series.", "Population and area definitions can differ by source and update date."],
+    }
+
+
 def natural_events():
     url = "https://eonet.gsfc.nasa.gov/api/v3/events?" + urllib.parse.urlencode({
         "status": "open", "limit": 100, "days": 30
@@ -256,6 +284,7 @@ def main():
         "earthquakes_m45_past_day": earthquakes,
         "inr_reference_exchange_rates": exchange_rates,
         "nasa_open_natural_events": natural_events,
+        "country_reference_profile": lambda: country_profile(country),
     }
     manifest = {
         "title": "FirstAI multi-domain real-world data lab",
