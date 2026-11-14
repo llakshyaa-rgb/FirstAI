@@ -499,3 +499,62 @@ The GPT training foundation is complete as an engineering baseline, and the init
 - Saved owner preferences are included in the language-model prompt within the available context budget. The current request takes priority over older conversation history; larger model context still depends on the checkpoint's trained architecture.
 - Image understanding requires a configured vision backend. With `ORBIT_PRIVATE_MEDIA_ONLY=true` (the default), primary and fallback vision endpoints must be local loopback endpoints. Setting it to `false` explicitly permits remote image processing and may send private images to that provider. Do not use remote processing for sensitive media unless you understand and accept the provider's handling.
 - Image analysis describes visible evidence and uncertainty; it is not a medical diagnosis. Unsupported formats, unavailable vision models and processing failures are reported rather than silently treated as successful analysis.
+
+## Run Orbit in Google Colab (T4) and Termux (Android)
+
+The two environments have different jobs:
+
+- **Colab T4:** train FirstGPT, run optional GPU vision/image-generation backends, and use the authenticated Colab port proxy while the runtime is connected.
+- **Termux on Android:** host the lightweight local Orbit web app and CPU inference from a checkpoint downloaded from Colab. Android does not provide CUDA to this setup; image generation and large vision models should stay on Colab or another configured machine.
+
+### Colab
+
+1. Open [FirstAI_Colab.ipynb](https://colab.research.google.com/github/llakshyaa-rgb/FirstAI/blob/main/FirstAI_Colab.ipynb).
+2. Select **Runtime → Change runtime type → T4 GPU**, then run cells from the top.
+3. Use the real-text training and instruction-tuning stages if you want a more useful checkpoint. The synthetic Test 3 checkpoint is only an engineering smoke-test artifact.
+4. Run the optional vision, browser, image-generation and Creative Studio cells only when needed. The T4 has finite VRAM; running LLaVA and Diffusers together may exhaust it. Disable one backend if memory errors occur.
+5. Run the Orbit launch cell. It binds to `0.0.0.0` only for the Google Colab port proxy. The proxy URL is temporary and the runtime must remain connected. Do not reuse this remote-bind setting on an unprotected public server.
+6. Download `orbit-instruct.pt` (preferred when instruction tuning completed) or `firstgpt.best.pt` from the notebook's checkpoint-download cell before the Colab runtime disconnects.
+
+No Google Drive mount or manual dataset upload is required by the notebook's built-in pipeline. Colab's temporary disk is erased after the runtime ends.
+
+### Termux / Android
+
+The supported phone path uses **Termux + proot-distro Debian**. This keeps the existing Termux Python installation untouched and installs a separate Debian Python environment where ARM64 PyTorch wheels may be available.
+
+In the Termux app:
+
+```bash
+pkg update -y
+pkg install -y git proot-distro
+git clone https://github.com/llakshyaa-rgb/FirstAI.git
+cd FirstAI
+bash scripts/setup_termux.sh
+```
+
+Grant Android storage permission when prompted. Download the checkpoint from Colab to the phone's Downloads folder, then launch:
+
+```bash
+bash scripts/run_termux.sh
+```
+
+Open `http://127.0.0.1:8767` on the same phone. The launcher binds to loopback only, uses CPU inference, and keeps private-media processing local-only. It never enables remote network access automatically.
+
+If automatic checkpoint import does not find the file, copy it into Debian's `/root/FirstAI/checkpoints/` directory as either `orbit-instruct.pt` or `firstgpt.best.pt`. The launcher prefers `orbit-instruct.pt`.
+
+**Phone resource limits:** an 8 GB physical-RAM Android device may struggle if many apps are open, especially with a larger checkpoint. Close heavy apps first. Virtual RAM is swap-like storage and is not equivalent to physical RAM. If PyTorch ARM64 installation fails for the Debian/Python version available on the device, do not replace the phone's existing Python or Purffle environment; use Colab for inference until a compatible wheel/runtime is available.
+
+### Optional components by environment
+
+| Capability | Colab T4 | Termux phone |
+|---|---|---|
+| Orbit chat + SQLite memory | Yes | Yes, CPU |
+| FirstGPT training | Recommended | Not recommended |
+| Live web/data tools | Yes | Yes, subject to network access |
+| Browser automation | Optional Chromium install | Not installed by default; mobile RAM may be limiting |
+| Image understanding | Optional local Ollama/LLaVA | Not installed by default |
+| Image generation | Optional Diffusers on T4 | Not recommended on phone |
+| PDF/DOCX/PPTX/XLSX exports | Optional exporter install | Included by setup script |
+| Interactive project preview | Yes, while Colab runs | Yes, local loopback |
+
+The Termux setup script installs the core runtime and document-export dependencies only. It deliberately does not install heavyweight image, audio, video or browser models on the phone.
