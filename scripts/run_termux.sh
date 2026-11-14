@@ -9,6 +9,7 @@ set -euo pipefail
 cd /root/FirstAI
 mkdir -p checkpoints workspace
 CHECKPOINT=checkpoints/orbit-instruct.pt
+[ -f "$CHECKPOINT" ] || CHECKPOINT=checkpoints/orbit-mobile-instruct.pt
 [ -f "$CHECKPOINT" ] || CHECKPOINT=checkpoints/firstgpt.best.pt
 [ -f "$CHECKPOINT" ] || CHECKPOINT=checkpoints/firstgpt.pt
 export ORBIT_WORKSPACE_ROOT=/root/FirstAI/workspace
