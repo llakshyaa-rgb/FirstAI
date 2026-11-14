@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate real-data demo artifacts from World Bank Open Data (stdlib only)."""
 from __future__ import annotations
-import argparse, csv, html, json, time
+import argparse, csv, html, json, re, time
 from datetime import datetime, timezone
 from pathlib import Path
 from urllib.request import Request, urlopen
@@ -99,4 +99,7 @@ if __name__ == "__main__":
     parser.add_argument("--country",default="IND",help="ISO-3 country code; default IND")
     parser.add_argument("--output",type=Path,default=Path(__file__).with_name("generated"))
     args=parser.parse_args()
-    print(json.dumps(build(args.country.upper(),args.output),indent=2))
+    country = args.country.upper()
+    if not re.fullmatch(r"[A-Z]{3}", country):
+        parser.error("--country must be a three-letter ISO-3 code, for example IND or USA")
+    print(json.dumps(build(country,args.output),indent=2))
