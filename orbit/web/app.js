@@ -363,3 +363,34 @@ designForm?.addEventListener("submit",async e=>{
   }catch(err){bubble("orbit","I couldn't create that design: "+err.message,"status");}
   finally{busy=false;designSend.disabled=false;presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";}
 });
+
+
+const previewStart=document.querySelector("#preview-start");
+const previewStop=document.querySelector("#preview-stop");
+const previewState=document.querySelector("#preview-state");
+const previewFrame=document.querySelector("#app-preview");
+const previewOpen=document.querySelector("#preview-open");
+function showPreview(data){
+  const running=!!data.running;
+  previewState.textContent=running?"Running on this device · "+data.port:"No project running";
+  previewStart.disabled=running;previewStop.disabled=!running;
+  previewOpen.hidden=!running;
+  if(running){previewFrame.hidden=false;if(previewFrame.src!==data.url+"/")previewFrame.src=data.url+"/";previewOpen.href=data.url;}
+  else{previewFrame.hidden=true;previewFrame.src="about:blank";previewOpen.removeAttribute("href");}
+}
+async function refreshPreview(){
+  try{const r=await fetch("/api/preview/status");if(r.ok)showPreview(await r.json());}catch{}
+}
+previewStart?.addEventListener("click",async()=>{
+  previewStart.disabled=true;previewState.textContent="Starting development server…";
+  try{const r=await fetch("/api/preview/start",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Preview could not start");showPreview(d);
+  }catch(err){previewState.textContent=err.message;previewStart.disabled=false;}
+});
+previewStop?.addEventListener("click",async()=>{
+  previewStop.disabled=true;
+  try{const r=await fetch("/api/preview/stop",{method:"POST",headers:{"Content-Type":"application/json"},body:"{}"});
+    const d=await r.json();if(!r.ok)throw new Error(d.error||"Could not stop preview");showPreview(d);
+  }catch(err){previewState.textContent=err.message;previewStop.disabled=false;}
+});
+refreshPreview();
