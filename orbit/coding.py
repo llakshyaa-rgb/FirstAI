@@ -159,6 +159,34 @@ class AutonomousCoder:
                 changed.append(self.workspace.create_file(relative, content))
         return changed, str(payload.get("summary") or "Applied targeted changes.")
 
+    def _project_root_for_changes(self, changed):
+        candidates = []
+        for item in changed if isinstance(changed, list) else []:
+            relative = item.get("path", "") if isinstance(item, dict) else ""
+            try:
+                target = self._path(relative)
+            except (ValueError, PermissionError):
+                continue
+            parent = target.parent
+            while parent == self.workspace.root or self.workspace.root in parent.parents:
+                package = parent / "package.json"
+                if package.is_file():
+                    try:
+                        data = json.loads(package.read_text(encoding="utf-8"))
+                        scripts = data.get("scripts", {}) if isinstance(data, dict) else {}
+                        if isinstance(scripts, dict) and any(
+                            isinstance(scripts.get(key), str) for key in ("build", "test", "dev", "start")
+                        ):
+                            candidates.append(parent)
+                    except (OSError, ValueError):
+                        pass
+                if parent == self.workspace.root:
+                    break
+                parent = parent.parent
+        if not candidates:
+            return None
+        return max(candidates, key=lambda path: len(path.parts))
+
     def _checks(self, changed):
         compile_result = self.workspace.compile_project(timeout=120)
         javascript = []
@@ -171,15 +199,46 @@ class AutonomousCoder:
                                             capture_output=True, text=True, timeout=60, check=False)
                     javascript.append({"path": relative, "passed": result.returncode == 0,
                                        "output": (result.stdout + "\n" + result.stderr)[-3000:]})
+        project_root = self._project_root_for_changes(changed)
+        build = None
+        build_enabled = os.environ.get("ORBIT_AUTORUN_BUILD", "").strip().lower() in {"1", "true", "yes"}
+        if build_enabled and project_root is not None and compile_result.get("passed") and all(item["passed"] for item in javascript):
+            package = project_root / "package.json"
+            try:
+                package_data = json.loads(package.read_text(encoding="utf-8"))
+                scripts = package_data.get("scripts", {}) if isinstance(package_data, dict) else {}
+                if isinstance(scripts, dict) and isinstance(scripts.get("build"), str):
+                    manager = ("pnpm" if (project_root / "pnpm-lock.yaml").exists() else
+                               "yarn" if (project_root / "yarn.lock").exists() else
+                               "bun" if (project_root / "bun.lockb").exists() or (project_root / "bun.lock").exists() else "npm")
+                    executable = shutil.which(manager)
+                    if not executable:
+                        build = {"passed": False, "output": manager + " is not installed.", "project_root": str(project_root)}
+                    else:
+                        result = subprocess.run([executable, "run", "build"], cwd=project_root,
+                            capture_output=True, text=True, timeout=240, check=False, shell=False)
+                        build = {"passed": result.returncode == 0,
+                                 "output": (result.stdout + "\n" + result.stderr)[-6000:],
+                                 "project_root": str(project_root), "command": manager + " run build"}
+                else:
+                    build = {"passed": True, "skipped": True, "reason": "No package.json build script exists.",
+                             "project_root": str(project_root)}
+            except subprocess.TimeoutExpired:
+                build = {"passed": False, "output": "Build exceeded the 240-second time limit.",
+                         "project_root": str(project_root)}
+            except (OSError, ValueError) as exc:
+                build = {"passed": False, "output": type(exc).__name__ + ": " + str(exc),
+                         "project_root": str(project_root)}
         tests = None
         tests_enabled = os.environ.get("ORBIT_AUTORUN_TESTS", "").strip().lower() in {"1", "true", "yes"}
         if tests_enabled and compile_result.get("passed") and all(item["passed"] for item in javascript) and (self.workspace.root / "tests").is_dir():
             tests = self.workspace.run_project_tests(timeout=180)
         ok = bool(compile_result.get("passed")) and all(item["passed"] for item in javascript) and (
             tests is None or bool(tests.get("passed"))
-        )
-        return {"ok": ok, "compile": compile_result, "javascript": javascript, "tests": tests,
-                "tests_enabled": tests_enabled}
+        ) and (build is None or bool(build.get("passed")))
+        return {"ok": ok, "compile": compile_result, "javascript": javascript, "build": build,
+                "build_enabled": build_enabled, "project_root": str(project_root) if project_root else None,
+                "tests": tests, "tests_enabled": tests_enabled}
 
     @staticmethod
     def _failures(checks):
