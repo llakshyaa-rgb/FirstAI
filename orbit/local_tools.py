@@ -250,13 +250,25 @@ class WorkspaceTools:
                 "output": output[-16000:]}
 
     def compile_project(self, timeout=120):
-        command = [sys.executable, "-m", "compileall", "-q", "firstai", "orbit", "train.py",
-                   "generate.py", "evaluate.py", "finetune_instructions.py", "download_training_data.py"]
+        ignored = _BLOCKED_PARTS | {".pytest_cache", ".mypy_cache", ".ruff_cache",
+                                    "node_modules", "dist", "build", ".next"}
+        sources = []
+        for path in self.root.rglob("*.py"):
+            if path.is_symlink() or any(part in ignored or part.startswith(".env")
+                                        for part in path.relative_to(self.root).parts):
+                continue
+            sources.append(path.relative_to(self.root).as_posix())
+            if len(sources) >= 300:
+                break
+        if not sources:
+            return {"returncode": 0, "passed": True, "command": "no Python files found",
+                    "output": "No Python source files were found; Python compilation was not applicable."}
+        command = [sys.executable, "-m", "compileall", "-q", *sources]
         try:
             result = subprocess.run(command, cwd=self.root, capture_output=True,
                                     text=True, timeout=timeout, check=False)
         except subprocess.TimeoutExpired as exc:
             raise TimeoutError(f"Compile check exceeded {timeout} seconds.") from exc
         return {"returncode": result.returncode, "passed": result.returncode == 0,
-                "command": "python -m compileall -q firstai orbit",
-                "output": (result.stdout + "\n" + result.stderr)[-8000:]}
+                "command": "python -m compileall -q <discovered project Python files>",
+                "output": (result.stdout + "\\n" + result.stderr)[-8000:]}
