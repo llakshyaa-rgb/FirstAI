@@ -163,17 +163,23 @@ class AgentTeam:
             )
             choose = any((
                 specialist.name == "live_data" and
-                    ("live_data" in requested or (not requested and keyword_match)),
+                    ("live_data" in requested or (not requested and keyword_match and not auto_verify)),
                 specialist.name == "knowledge_researcher" and
-                    ("knowledge" in requested or (not requested and keyword_match)),
+                    ("knowledge" in requested or (not requested and keyword_match and not auto_verify)),
                 specialist.name == "researcher" and
-                    ("research" in requested or (not requested and auto_research)) and
+                    ("research" in requested or (not requested and auto_research and not auto_verify)) and
                     ("live_data" not in requested or auto_research),
                 specialist.name == "image_researcher" and
-                    ("image_search" in requested or (not requested and keyword_match)),
+                    ("image_search" in requested or (not requested and any(
+                        phrase in lower for phrase in
+                        ("find images", "find image", "find pictures", "find picture",
+                         "find photos", "find a photo", "search images", "search pictures",
+                         "search for images", "search for pictures", "search for photos",
+                         "show me images", "show images", "look for images", "look up photos")
+                    ))),
                 specialist.name == "workspace" and
                     ("coding" in requested or "workspace" in requested or
-                     (not requested and auto_workspace)),
+                     (not requested and auto_workspace and not auto_verify)),
                 specialist.name == "debugger" and "coding" in requested and
                     any(word in lower for word in
                         ("bug", "error", "debug", "crash", "fails", "failure", "exception")),
@@ -181,7 +187,7 @@ class AgentTeam:
                     any(word in lower for word in
                         ("review", "refactor", "security", "performance", "architecture")),
                 specialist.name == "analyst" and
-                    ("analysis" in requested or (not requested and auto_analysis)),
+                    ("analysis" in requested or (not requested and auto_analysis and not auto_verify)),
                 specialist.name == "verifier" and
                     ("verification" in requested or (not requested and auto_verify)),
             ))
