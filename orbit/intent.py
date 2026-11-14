@@ -55,6 +55,17 @@ def classify_request(message: str) -> dict:
         route["capabilities"].append("creative_studio")
         if _has(lower, ("research", "latest", "current", "recent", "look up", "sources", "fact check")):
             route["capabilities"].append("research")
+    # Prefer structured public APIs for factual domains with dedicated datasets.
+    live_data_terms = ("weather", "temperature", "forecast", "rain", "wind",
+        "air quality", "aqi", "pm2.5", "pm10", "earthquake", "seismic", "quake",
+        "exchange rate", "currency", " to inr", " usd", " eur", " gbp",
+        "country profile", "capital of", "population of", "country data",
+        "natural event", "wildfire", "volcano", "flood event", "hurricane",
+        "cyclone", "eonet", "gdp", "inflation", "unemployment", "life expectancy",
+        "world bank")
+    if _has(lower, live_data_terms):
+        route["capabilities"].append("live_data")
+
         if _has(lower, ("calculate", "compute", "estimate", "compare")):
             route["capabilities"].append("analysis")
         return route
