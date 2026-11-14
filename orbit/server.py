@@ -485,6 +485,7 @@ def make_handler(app):
                     "gpu_memory_fraction": app.runtime.gpu_memory_fraction,
                     "cpu_threads": app.runtime.cpu_threads,
                     "max_new_tokens": app.runtime.max_new_tokens,
+                    "context_window_tokens": app.runtime.model.config.block_size if app.runtime.ready else None,
                     "gpu_memory_policy": "per-process PyTorch allocator ceiling; not a target utilization percentage"
                 })
             if parsed.path == "/api/memory":
