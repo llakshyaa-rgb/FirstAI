@@ -514,6 +514,7 @@ def make_handler(app):
                     "knowledge_sources": ["Wikipedia REST", "OpenAlex", "arXiv API", "Stack Exchange API"],
                     "image_search_fallback": "Wikimedia Commons (strict-safe mode, per-file attribution)",
                     "vision_configured": bool(os.environ.get("ORBIT_VISION_MODEL", "").strip()),
+                    "private_media_only": os.environ.get("ORBIT_PRIVATE_MEDIA_ONLY", "true").strip().lower() in {"1", "true", "yes", "on"},
                     "vision_provider": os.environ.get("ORBIT_VISION_PROVIDER", "ollama"),
                     "agent_workers": max(1, min(4, int(os.environ.get("ORBIT_AGENT_WORKERS", "3")))),
                     "task_workers": max(1, min(4, int(os.environ.get("ORBIT_TASK_WORKERS", "3")))),
@@ -739,6 +740,8 @@ def main():
     args = parser.parse_args()
     if not 1 <= args.port <= 65535:
         parser.error("--port must be between 1 and 65535")
+    if args.host not in {"127.0.0.1", "localhost", "::1"} and os.environ.get("ORBIT_ALLOW_REMOTE_ACCESS", "").strip().lower() not in {"1", "true", "yes"}:
+        parser.error("Orbit is private by default. Bind to loopback, or explicitly set ORBIT_ALLOW_REMOTE_ACCESS=true only after adding network authentication.")
     app = OrbitApplication(args.checkpoint, args.state)
     server = ThreadingHTTPServer((args.host, args.port), make_handler(app))
     print(f"Orbit is listening at http://{args.host}:{args.port}")
