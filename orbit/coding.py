@@ -190,6 +190,32 @@ class AutonomousCoder:
             "\nALLOWED PATHS: " + json.dumps(paths) +
             "\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:22000])
         raw = self._reply(prompt, 1500)
+        self.progress("Independent review pass: checking scope, compatibility and likely regressions.")
+        try:
+            review = extract_json(self._reply(
+                "You are Orbit's independent code reviewer. Review the proposed exact patches against the goal and current files. "
+                "Look for incorrect behaviour, unsafe changes, broken interfaces, missing edge cases and unrelated edits. "
+                "Return ONLY JSON: " + '{"approved":true,"issues":["short concrete issue"]}. '
+                "Set approved false only for a concrete material issue.\nGOAL: " + goal[:1400] +
+                "\nPATCH PROPOSAL: " + raw[:10000] +
+                "\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:14000],
+                450
+            ))
+            issues = review.get("issues", [])
+            if not review.get("approved", False) and issues:
+                self.progress("Reviewer found issues. Asking the implementation agent to address them before writing files.",
+                              kind="method_failed", issues=issues[:6])
+                raw = self._reply(
+                    prompt + "\\nREVIEWER FINDINGS TO FIX BEFORE APPLYING: " +
+                    json.dumps(issues[:8], ensure_ascii=False) +
+                    "\\nReturn a corrected exact patch batch.",
+                    1500
+                )
+            else:
+                self.progress("Reviewer found no blocking issue.")
+        except Exception as exc:
+            self.progress("Independent review could not complete (" + type(exc).__name__ +
+                          "). Proceeding to the strict patch and compile checks.", kind="method_failed")
         for edit_attempt in range(2):
             try:
                 changed, summary = self._apply(raw, paths)
