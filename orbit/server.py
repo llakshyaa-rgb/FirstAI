@@ -318,10 +318,18 @@ class OrbitApplication:
             if context_parts:
                 message += "\n\nAttached material:\n" + "\n\n".join(context_parts)
             findings = [item for item in specialist_results if item.get("ok")]
-            if findings:
+            live_findings = [
+                item.get("result", {}).get("assistant_context", "")
+                for item in findings if item.get("agent") == "live_data"
+                and isinstance(item.get("result"), dict)
+            ]
+            other_findings = [item for item in findings if item.get("agent") != "live_data"]
+            if live_findings:
+                message += "\n\nVerified live-data evidence (use the retrieved timestamp, source and caveats; do not invent missing values):\n" + "\n".join(live_findings)
+            if other_findings:
                 message += "\n\nSpecialist findings (tool output; evaluate relevance and verify claims):\n" + json.dumps(
-                    findings, ensure_ascii=False, default=str
-                )[:16000]
+                    other_findings, ensure_ascii=False, default=str
+                )[:12000]
             failed_agents = [item for item in specialist_results if not item.get("ok")]
             if failed_agents:
                 message += "\n\nSpecialist failures (do not claim these succeeded):\n" + json.dumps(
