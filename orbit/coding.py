@@ -451,6 +451,13 @@ class AutonomousCoder:
                             repair_prompt + "\nPREVIOUS REPAIR REJECTED: " +
                             type(exc).__name__ + ": " + str(exc)[:1200] +
                             "\nReturn a corrected exact patch.", 1500)
+                        if not self.approval_required(
+                            "Corrected repair phase " + str(phase_index) + ": " + phase_goal,
+                            paths, repair_raw[:16000]
+                        ):
+                            raise PermissionError(
+                                "Owner did not approve the corrected repair patch. No repair changes were applied."
+                            )
                 all_changes.extend(fixed)
                 self.progress("Repair applied with fresh backups.", changes=fixed)
         return {
