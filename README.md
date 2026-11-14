@@ -132,6 +132,18 @@ python examples/real_data/refresh_data_lab.py
 
 The refresh utility retains historical snapshots, source logs, validation output and a source-by-source change report under `examples/real_data/generated/data_lab_history/`. It does not overwrite earlier snapshots.
 
+### Inspect a running app in a real browser
+
+The local preview panel now includes **Inspect app**. It uses the optional Playwright Chromium backend to open the running loopback preview and report its page title, headings, buttons, links, form fields, image loading, JavaScript console errors and failed requests. It does not click buttons or submit forms. Install it when you want this browser inspection:
+
+```bash
+pip install -r requirements-browser.txt
+python -m playwright install chromium
+```
+
+The iframe remains the interactive place where you can manually use the app. Browser inspection is read-only and restricted to the exact local preview host and port. Cloud preview still does not support WebSocket/HMR forwarding; refresh the cloud preview manually after changes.
+
+
 ## Orbit assistant foundations
 
 The repository now includes an initial Orbit runtime layer:
