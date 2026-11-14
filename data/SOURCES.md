@@ -61,3 +61,8 @@ Orbit's existing `live_data` tool remains separate and handles structured public
 
 Image-reference search uses Wikimedia Commons as a keyless strict-safe fallback when Brave image search is not configured. It returns per-file license and attribution metadata where available. Verify the original file page before reusing an image.
 
+
+
+## Checked-in real-data seed examples
+
+`data/raw/real_world_examples.txt` and `data/raw/capability_seed_examples.txt` are small source-attributed starter samples. Their structured provenance companions are `examples/real_data/seed_examples.jsonl` and `examples/real_data/capability_seed_examples.jsonl`. These are included by `prepare_corpus.py`; they are not a replacement for full source datasets.
