@@ -157,7 +157,7 @@ def main():
             payload = dict(saved)
             payload.update({
                 "model": model.state_dict(), "optimizer": optimizer.state_dict(),
-                "step": int(saved.get("step", 0)) + completed,
+                "step": int(saved.get("step", 0)) + (completed - start_step),
                 "best_validation_loss": min(best, val),
                 "instruction_data_sha256": digest,
                 "instruction_tuning_steps": completed,
