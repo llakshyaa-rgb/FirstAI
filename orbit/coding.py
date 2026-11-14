@@ -155,9 +155,9 @@ class AutonomousCoder:
         self.progress("Plan: " + str(plan.get("plan", "Implementing targeted changes."))[:600], files=paths)
         prompt = (
             "Implement the owner's goal in these files. Preserve unrelated behaviour and interfaces. "
-            "Return ONLY valid JSON: " + '{"summary":"...","edits":[{"path":"exact path","content":"complete file content"}]}. '
-            "JSON strings must be escaped. Include complete contents for changed files only. "
-            "Never edit paths outside the supplied list.\nGOAL: " + goal[:2000] +
+            "Return ONLY valid JSON: " + '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
+            "For existing files use exact, unique, small patches; never rewrite entire files. Each old anchor must occur exactly once. "
+            "New files may use complete content. Never edit paths outside the supplied list.\nGOAL: " + goal[:2000] +
             "\nPLAN: " + str(plan.get("plan", ""))[:800] +
             "\nALLOWED PATHS: " + json.dumps(paths) +
             "\nCURRENT FILES: " + json.dumps(context, ensure_ascii=False)[:22000])
@@ -177,8 +177,8 @@ class AutonomousCoder:
             current = self._read(paths)
             repair = (
                 "Repair the implementation using the actual failure output. Keep the requested behaviour. "
-                "Return ONLY valid JSON: " + '{"summary":"...","edits":[{"path":"exact path","content":"complete file content"}]}. '
-                "Only these paths may change: " + json.dumps(paths) +
+                "Return ONLY valid JSON: " + '{"summary":"...","edits":[{"path":"existing/path","patches":[{"old":"exact unique text","new":"replacement text"}]},{"path":"new/path","content":"complete new file text"}]}. '
+                "Use exact, unique small patches for existing files; never rewrite them wholesale. Only these paths may change: " + json.dumps(paths) +
                 "\nGOAL: " + goal[:1600] + "\nFAILURES: " + self._failures(checks)[-8500:] +
                 "\nCURRENT FILES: " + json.dumps(current, ensure_ascii=False)[:20000])
             fixed, summary = self._apply(self._reply(repair, 1500), paths)
