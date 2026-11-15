@@ -21,7 +21,7 @@ class InstructionPromptFormatTests(unittest.TestCase):
     def test_specialist_prefix_is_preserved(self):
         tokenizer = RecordingTokenizer()
         encode_examples([("Tool planner: calculate 2+2", '{"steps":[]}')], tokenizer, 128)
-        self.assertEqual(tokenizer.seen[0], "Tool planner: calculate 2+2\nOrbit:")
+        self.assertEqual(tokenizer.seen[0], "Tool planner: calculate 2+2\nJSON:")
 
     def test_plain_instruction_gets_owner_prefix(self):
         tokenizer = RecordingTokenizer()
