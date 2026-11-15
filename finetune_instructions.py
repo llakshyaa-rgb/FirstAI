@@ -64,8 +64,8 @@ def encode_examples(examples, tokenizer, block_size):
         ids = prefix + answer
         if len(ids) >= 2:
             rows.append((ids, len(prefix)))
-    if len(rows) < 2:
-        raise ValueError("Not enough usable examples after applying block_size")
+    if not rows:
+        raise ValueError("No usable examples after applying block_size")
     return rows
 
 
