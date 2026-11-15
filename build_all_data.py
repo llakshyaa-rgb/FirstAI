@@ -42,7 +42,7 @@ def main():
     args = parser.parse_args()
 
     if not args.skip_base_text:
-        run_step("1/6 — Download base text and instruction data", [
+        run_step("1/7 — Download base text and instruction data", [
             "download_training_data.py",
             "--wikitext-out", "data/raw/wikitext_train.txt",
             "--max-chars", str(args.max_base_chars),
