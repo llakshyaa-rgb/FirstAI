@@ -122,6 +122,7 @@ class OrbitRuntime:
     def _generate_once(self, prompt_ids, mode, on_progress=None, max_new_tokens=None):
         input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=self.device)
         generated = []
+        partials_suppressed = False
         with torch.inference_mode():
             for index in range(self.max_new_tokens if max_new_tokens is None else max(1, min(1024, int(max_new_tokens)))):
                 context = input_ids[:, -self.model.config.block_size:]
@@ -146,14 +147,19 @@ class OrbitRuntime:
                 generated.append(token)
                 input_ids = torch.cat((input_ids, next_id), dim=1)
                 decoded_so_far = self.tokenizer.decode(generated)
-                if on_progress and (index + 1) % 8 == 0:
+                if on_progress and not partials_suppressed and (index + 1) % 8 == 0:
                     partial = self.tokenizer.decode(generated).strip()
-                    on_progress({
-                        "kind": "partial",
-                        "message": partial,
-                        "tokens_generated": index + 1,
-                        "strategy": mode,
-                    })
+                    # Never stream obvious token loops into the conversation.
+                    # The completed answer is independently checked in reply().
+                    if self._is_degenerate(partial):
+                        partials_suppressed = True
+                    elif len(partial) >= 3:
+                        on_progress({
+                            "kind": "partial",
+                            "message": partial,
+                            "tokens_generated": index + 1,
+                            "strategy": mode,
+                        })
         return self.tokenizer.decode(generated).strip()
 
     def _build_prompt_ids(self, message, history=None, owner_preferences=None):
@@ -308,7 +314,8 @@ class OrbitRuntime:
                     return answer
                 if answer:
                     first_error = "The model entered a repetitive token loop during greedy decoding."
-                first_error = "The first decoding strategy returned an empty response."
+                else:
+                    first_error = "The first decoding strategy returned an empty response."
             except Exception as exc:
                 first_error = f"{type(exc).__name__}: {exc}"
                 if self.device.startswith("cuda") and isinstance(exc, torch.cuda.OutOfMemoryError):
