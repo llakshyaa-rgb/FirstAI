@@ -76,6 +76,9 @@ async function follow(taskId,afterStart=0){
         if(suggested&&previewProjectPath)previewProjectPath.value=suggested==="."?"":suggested;
         if(livePartial){livePartial.textContent=event.message;livePartial=null;}else bubble("orbit",event.message);
       }
+      else if(event.kind==="partial_reset"){
+        if(livePartial){livePartial.parentElement?.remove();livePartial=null;}
+      }
       else if(event.kind==="partial"){
         if(!livePartial)livePartial=bubble("orbit",event.message,"partial");
         else livePartial.textContent=event.message;
