@@ -175,7 +175,7 @@ form.addEventListener("submit",async e=>{
   livePartial=null;
   bubble("user",message);input.value="";busy=true;send.disabled=true;presence.textContent="Personal AI · Working";
   try{
-    const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,attachments:pendingAttachments.map(x=>x.id)})});
+    const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,attachments:pendingAttachments.map(x=>x.id),conversation_id:activeConversationId})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");
     pendingAttachments=[];renderAttachmentQueue();
     await follow(d.task_id);
@@ -199,9 +199,15 @@ function renderSavedConversation(item){
     const p=document.createElement("p");p.textContent="New chat. What would you like to work on?";
     node.append(label,p);conversation.append(node);
   }else{
-    bubble("user",item.message||item.title||"Saved request");
-    if(item.response)bubble("orbit",item.response);
-    else bubble("orbit",item.status==="failed"?"This task did not finish. You can send the request again.":"This task has no saved response yet.","status");
+    for(const entry of item.messages||[]){
+      bubble(entry.role==="user"?"user":"orbit",entry.content||"");
+    }
+    if(!(item.messages||[]).length){
+      const node=document.createElement("article");node.className="bubble orbit";
+      const label=document.createElement("strong");label.textContent="Orbit";
+      const p=document.createElement("p");p.textContent="Continue this conversation.";
+      node.append(label,p);conversation.append(node);
+    }
   }
   conversation.scrollTop=conversation.scrollHeight;
   for(const button of historyList?.querySelectorAll("[data-conversation-id]")||[]){
@@ -233,14 +239,13 @@ async function loadHistory(selectId=null){
       }
       if(!items.length){const empty=document.createElement("p");empty.className="history-empty";empty.textContent="Your conversations will appear here.";historyList.append(empty);}
     }
-    if(selectId){
-      const item=(d.conversations||[]).find(x=>x.id===selectId);
-      if(item)renderSavedConversation(item);
-    }else if((d.conversations||[]).length){
-      const latest=d.conversations[0];
-      const response=await fetch("/api/history?id="+encodeURIComponent(latest.id));
+    const targetId=selectId||activeConversationId||((d.conversations||[])[0]?.id);
+    if(targetId){
+      const response=await fetch("/api/history?id="+encodeURIComponent(targetId));
       const saved=await response.json();
       if(response.ok&&saved.conversation)renderSavedConversation(saved.conversation);
+    }else if(!activeConversationId){
+      await createNewConversation(false);
     }
     for(const item of d.images||[]){
       const node=document.createElement("article");node.className="bubble orbit";
@@ -252,9 +257,17 @@ async function loadHistory(selectId=null){
     conversation.scrollTop=conversation.scrollHeight;
   }catch{}
 }
-document.querySelector("#new-chat")?.addEventListener("click",()=>{
-  renderSavedConversation(null);
-  input.focus();
+async function createNewConversation(showWelcome=true){
+  const r=await fetch("/api/conversations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:"New chat"})});
+  const d=await r.json();if(!r.ok)throw new Error(d.error||"Could not create a new conversation");
+  activeConversationId=d.conversation_id;
+  renderSavedConversation(showWelcome?{id:activeConversationId,messages:[]}:null);
+  await loadHistory();
+  if(showWelcome)input.focus();
+}
+document.querySelector("#new-chat")?.addEventListener("click",async()=>{
+  try{await createNewConversation(true);}
+  catch(error){bubble("orbit","Couldn't start a new chat: "+error.message,"status");}
 });
 
 health();
