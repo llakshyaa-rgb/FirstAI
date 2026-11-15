@@ -496,14 +496,14 @@ def make_handler(app):
         def do_GET(self):
             parsed = urlparse(self.path)
             if parsed.path == "/api/preview/status":
-                status = self.preview.status()
+                status = app.preview.status()
                 try:
                     status["remote_preview_url"] = start_proxy_server()
                 except ValueError:
                     status["remote_preview_error"] = "ORBIT_REMOTE_PREVIEW_URL is invalid; use a public HTTPS tunnel URL."
                 return self._json(200, status)
             if parsed.path == "/api/preview/logs":
-                return self._json(200, self.preview.logs())
+                return self._json(200, app.preview.logs())
             if parsed.path == "/api/health":
                 image_backend = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
                 workflow_configured = bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file()
@@ -661,12 +661,12 @@ def make_handler(app):
                     project_path = payload.get("project_path")
                     if project_path is not None and (not isinstance(project_path, str) or len(project_path) > 500):
                         return self._json(400, {"error": "project_path must be a relative folder path up to 500 characters"})
-                    return self._json(200, self.preview.start(project_path=project_path))
+                    return self._json(200, app.preview.start(project_path=project_path))
                 if route == "/api/preview/stop":
-                    return self._json(200, self.preview.stop())
+                    return self._json(200, app.preview.stop())
 
                 if route == "/api/preview/inspect":
-                    status = self.preview.status()
+                    status = app.preview.status()
                     if not status.get("running") or not status.get("url"):
                         return self._json(409, {"error": "Start a local preview before inspecting it."})
                     return self._json(200, inspect_preview(status["url"]))
