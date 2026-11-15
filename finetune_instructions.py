@@ -48,7 +48,7 @@ def encode_examples(examples, tokenizer, block_size):
         answer_text = response.strip()
         if answer_text.startswith("Orbit:"):
             answer_text = answer_text[len("Orbit:"):].lstrip()
-        answer = tokenizer.encode(" " + answer_text + "\n")
+        answer = tokenizer.encode(" " + answer_text + "\n", add_eos=True)
         if len(answer) >= block_size:
             answer = answer[-(block_size - 1):]
             prefix = []
