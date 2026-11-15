@@ -43,7 +43,8 @@ def encode_examples(examples, tokenizer, block_size):
         normalized_prompt = prompt.strip()
         if not normalized_prompt.startswith(("Owner:", "Tool planner:")):
             normalized_prompt = "Owner: " + normalized_prompt
-        prefix = tokenizer.encode(normalized_prompt + "\nOrbit:")
+        completion_marker = "\nJSON:" if normalized_prompt.startswith("Tool planner:") else "\nOrbit:"
+        prefix = tokenizer.encode(normalized_prompt + completion_marker)
         answer_text = response.strip()
         if answer_text.startswith("Orbit:"):
             answer_text = answer_text[len("Orbit:"):].lstrip()
