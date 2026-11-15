@@ -16,6 +16,19 @@ class BPETokenizerTests(unittest.TestCase):
         self.assertEqual(restored.encode(text), tokenizer.encode(text))
         self.assertEqual(restored.decode(restored.encode(text)), text)
 
+    def test_eos_round_trip_and_legacy_checkpoint_compatibility(self):
+        tokenizer = BPETokenizer.train("hello world " * 20, vocab_size=300)
+        encoded = tokenizer.encode("hello", add_eos=True)
+        self.assertEqual(encoded[-1], tokenizer.eos_token_id)
+        self.assertEqual(tokenizer.decode(encoded), "hello")
+        restored = BPETokenizer.from_dict(tokenizer.to_dict())
+        self.assertEqual(restored.eos_token_id, tokenizer.eos_token_id)
+        self.assertEqual(restored.vocab_size, tokenizer.vocab_size)
+
+        legacy = BPETokenizer.from_dict({"type": "byte_bpe", "merges": []})
+        self.assertIsNone(legacy.eos_token_id)
+        self.assertEqual(legacy.decode(legacy.encode("old checkpoint")), "old checkpoint")
+
     def test_unknown_unicode_is_still_encodable(self):
         tokenizer = BPETokenizer.train("hello world " * 20, vocab_size=280)
         text = "🛰️漢字"
