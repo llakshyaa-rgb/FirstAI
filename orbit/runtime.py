@@ -194,16 +194,17 @@ class OrbitRuntime:
         remaining = max(0, limit - len(system) - len(message_ids))
 
         prefs = []
-        if owner_preferences and remaining >= 8:
-            prefs_budget = min(24, max(8, limit // 8), remaining)
+        if owner_preferences and remaining >= 16:
+            prefs_budget = min(128, max(48, limit // 2), remaining)
             prefs = self.tokenizer.encode(
-                "Owner preferences: " + str(owner_preferences)[:900] + "\n"
+                "Persistent owner memory (use when relevant; current request wins): " +
+                str(owner_preferences)[:1600] + "\n"
             )[:prefs_budget]
             remaining -= len(prefs)
 
         history_ids = []
-        if history and remaining >= 12:
-            history_budget = min(384, max(32, limit // 3), remaining)
+        if history and remaining >= 24:
+            history_budget = min(96, max(24, limit // 3), remaining)
             for item in reversed((history or [])[-self.max_history_messages:]):
                 role = "Owner" if item.get("role") == "user" else "Orbit"
                 part = self.tokenizer.encode(f"{role}: {str(item.get('content', ''))}\n")
