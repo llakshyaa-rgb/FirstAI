@@ -4,7 +4,7 @@
 set -euo pipefail
 command -v proot-distro >/dev/null || { echo "Install proot-distro first."; exit 1; }
 
-proot-distro login debian -- bash -lc '
+proot-distro login debian -- bash -s <<'DEBIAN'
 set -euo pipefail
 cd /root/FirstAI
 
@@ -82,4 +82,4 @@ print("Instruction examples:",data.get("instruction_examples"))
 print("Parameters:",sum(t.numel() for t in data["model"].values()))
 PY
 echo "Training complete. Use checkpoints/orbit-mobile-instruct.pt for Orbit."
-';
+DEBIAN
