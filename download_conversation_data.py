@@ -68,7 +68,7 @@ def main():
     except ImportError as exc:
         raise SystemExit("Install optional dependency: python -m pip install 'datasets>=3.0'") from exc
     print(f"Loading {DATASET} [{SPLIT}] — training split only", flush=True)
-    dataset = load_dataset(DATASET, split=SPLIT)
+    dataset = load_dataset(DATASET, split=SPLIT, streaming=True)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     written, seen = 0, set()
     with args.output.open("w", encoding="utf-8") as handle:
@@ -93,7 +93,7 @@ def main():
     manifest = {"dataset": DATASET, "split": SPLIT, "license_declared_by_dataset_card": LICENSE,
         "source_url": DATASET_URL, "examples": written, "output": str(args.output),
         "deduplication": "exact prompt/response pairs",
-        "note": "Review current dataset card and terms before redistribution; data is not verified factual ground truth."}
+        "note": "The dataset contains model-generated dialogues; responses are not independently fact-checked. Review the current dataset card and terms before redistribution."}
     args.output.with_suffix(".manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
     print(json.dumps(manifest, indent=2), flush=True)
 
