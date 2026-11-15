@@ -279,7 +279,12 @@ class OrbitApplication:
 
         try:
             self.store.update(task_id, "running")
-            self.store.emit(task_id, "status", "Certainly. I'm considering your request.")
+            learned = self.memory.observe_user_message(message)
+            if learned:
+                self.store.emit(task_id, "memory_saved",
+                                "I saved an explicitly stated preference or project detail to local Orbit memory.",
+                                memories=learned)
+            self.store.emit(task_id, "status", "I'm considering your request.")
             context_parts = []
             specialist_results = []
             agent = LocalAgent(
