@@ -179,6 +179,7 @@ form.addEventListener("submit",async e=>{
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");
     pendingAttachments=[];renderAttachmentQueue();
     await follow(d.task_id);
+    await loadHistory();
   }catch(err){bubble("orbit","I couldn't complete that request: "+err.message);}
   finally{busy=false;send.disabled=false;presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";input.focus();}
 });
