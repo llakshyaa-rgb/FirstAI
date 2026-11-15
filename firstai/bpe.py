@@ -8,18 +8,22 @@ import heapq
 
 
 class BPETokenizer:
-    def __init__(self, merges=None):
+    def __init__(self, merges=None, eos_token_id=None):
         self.merges = [tuple(map(int, pair)) for pair in (merges or [])]
         self.ranks = {pair: rank for rank, pair in enumerate(self.merges)}
-        self.vocab_size = 256 + len(self.merges)
+        expected_eos = 256 + len(self.merges)
+        if eos_token_id is not None and int(eos_token_id) != expected_eos:
+            raise ValueError("EOS token ID must immediately follow the learned BPE vocabulary")
+        self.eos_token_id = expected_eos if eos_token_id is not None else None
+        self.vocab_size = expected_eos + (1 if self.eos_token_id is not None else 0)
 
     @classmethod
-    def train(cls, text, vocab_size=512, min_frequency=2):
-        if vocab_size < 256:
-            raise ValueError("BPE vocab_size must be at least 256")
+    def train(cls, text, vocab_size=512, min_frequency=2, add_eos=True):
+        if vocab_size < 256 + (1 if add_eos else 0):
+            raise ValueError("BPE vocab_size is too small for byte tokens and configured special tokens")
         tokens = list(text.encode("utf-8"))
         merges = []
-        target_merges = vocab_size - 256
+        target_merges = vocab_size - 256 - (1 if add_eos else 0)
 
         for _ in range(target_merges):
             pairs = Counter(zip(tokens, tokens[1:]))
@@ -40,12 +44,15 @@ class BPETokenizer:
                     i += 1
             tokens = merged
             merges.append(pair)
-        return cls(merges)
+        eos_id = 256 + len(merges) if add_eos else None
+        return cls(merges, eos_token_id=eos_id)
 
-    def encode(self, text):
+    def encode(self, text, add_eos=False):
         """Apply learned merges with a priority queue instead of rescanning the full sequence."""
         tokens = list(text.encode("utf-8"))
         if len(tokens) < 2 or not self.merges:
+            if add_eos and self.eos_token_id is not None:
+                tokens.append(self.eos_token_id)
             return tokens
 
         size = len(tokens)
@@ -89,10 +96,15 @@ class BPETokenizer:
         while index >= 0:
             result.append(tokens[index])
             index = following[index]
+        if add_eos and self.eos_token_id is not None:
+            result.append(self.eos_token_id)
         return result
 
     def decode(self, ids):
-        pieces = [bytes([i]) if i < 256 else self._expand(i) for i in ids]
+        pieces = [
+            bytes([i]) if i < 256 else self._expand(i)
+            for i in ids if i != self.eos_token_id
+        ]
         return b"".join(pieces).decode("utf-8", errors="replace")
 
     def _expand(self, token_id):
@@ -102,10 +114,11 @@ class BPETokenizer:
         return self._expand(left) + self._expand(right)
 
     def to_dict(self):
-        return {"type": "byte_bpe", "merges": [list(pair) for pair in self.merges]}
+        return {"type": "byte_bpe", "merges": [list(pair) for pair in self.merges],
+                "eos_token_id": self.eos_token_id}
 
     @classmethod
     def from_dict(cls, data):
         if data.get("type") != "byte_bpe":
             raise ValueError("Checkpoint does not contain a byte BPE tokenizer")
-        return cls(data["merges"])
+        return cls(data["merges"], eos_token_id=data.get("eos_token_id"))
