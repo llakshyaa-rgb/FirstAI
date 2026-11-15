@@ -117,6 +117,20 @@ class OrbitRuntime:
                 repeats = len(value) // width
                 if value[:repeats * width] == pattern * repeats and repeats >= 6:
                     return True
+
+        # Catch semantic-looking loops such as "10.4 miles of 10.4 miles..."
+        # that evade character-level repetition checks.
+        words = [word.lower() for word in __import__("re").findall(r"[a-z0-9]+(?:[.'-][a-z0-9]+)*", str(text))]
+        if len(words) >= 18:
+            for width in range(2, 9):
+                if len(words) < width * 5:
+                    continue
+                counts = {}
+                for start in range(len(words) - width + 1):
+                    gram = tuple(words[start:start + width])
+                    counts[gram] = counts.get(gram, 0) + 1
+                if counts and max(counts.values()) >= 5:
+                    return True
         return False
 
     def _generate_once(self, prompt_ids, mode, on_progress=None, max_new_tokens=None):
