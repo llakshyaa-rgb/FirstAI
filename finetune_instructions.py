@@ -187,3 +187,7 @@ def main():
     print(f"Latest resumable SFT checkpoint: {args.out}")
     print(f"Best validation checkpoint: {best_path}")
     print(f"Device: {device}; examples: {len(examples)}; parameters: {sum(p.numel() for p in model.parameters()):,}")
+
+
+if __name__ == "__main__":
+    main()
