@@ -147,7 +147,8 @@ async function follow(taskId,afterStart=0){
         const link=document.createElement("a");link.href=artifact.url;link.download=artifact.name||"orbit-design";link.textContent="Open / download "+(artifact.name||"file");link.className="file-link";
         node.append(label,p,link);conversation.append(node);conversation.scrollTop=conversation.scrollHeight;
       }
-      else if(event.kind==="memory_saved")bubble("orbit","Memory updated: "+((event.details.memories||[]).map(x=>x.key+": "+x.value).join("; ")),"status");\n      else if(event.kind==="method_failed"||event.kind==="status")bubble("orbit",event.message,"status");
+      else if(event.kind==="memory_saved")bubble("orbit","Memory updated: "+((event.details.memories||[]).map(x=>x.key+": "+x.value).join("; ")),"status");
+      else if(event.kind==="method_failed"||event.kind==="status")bubble("orbit",event.message,"status");
     }
     const status=d.task.status;finalStatus=status;
     if(["completed","failed","needs_input","interrupted"].includes(status))finished=true;
