@@ -141,3 +141,19 @@ body{min-height:100%;min-height:100dvh}
   #composer button{min-height:46px;padding:0 14px}
   .chat-hint{margin:0 0 10px}
 }
+
+
+/* Compact chat viewport: keep the conversation readable without letting it dominate mobile screens. */
+.shell{width:min(700px,100%);padding:16px 16px}
+.conversation{max-height:min(58dvh,560px);padding:16px 0;gap:10px}
+.bubble{max-width:84%;padding:10px 12px;font-size:13px;line-height:1.45}
+.bubble strong{font-size:10px}
+.bubble p{margin-top:5px}
+@media(max-width:520px){
+  .shell{padding:9px 10px max(10px,env(safe-area-inset-bottom))}
+  .conversation{max-height:min(50dvh,430px);min-height:125px;padding:10px 0;gap:8px}
+  .bubble{max-width:92%;padding:9px 10px;font-size:12.5px;line-height:1.4}
+  header{padding:4px 2px 9px}
+  .mark{width:36px;height:36px;font-size:19px}
+  h1{font-size:17px}
+}
