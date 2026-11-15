@@ -4,7 +4,7 @@ import torch
 def make_splits(text, tokenizer, train_fraction=0.9):
     if not 0.0 < train_fraction < 1.0:
         raise ValueError('train_fraction must be between 0 and 1')
-    ids = torch.tensor(tokenizer.encode(text), dtype=torch.long)
+    ids = torch.tensor(tokenizer.encode(text, add_eos=True), dtype=torch.long)
     if len(ids) < 20:
         raise ValueError('Corpus is too short; provide at least 20 tokens')
     split = max(1, int(train_fraction * len(ids)))
