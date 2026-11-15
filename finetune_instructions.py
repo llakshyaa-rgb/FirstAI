@@ -48,7 +48,14 @@ def encode_examples(examples, tokenizer, block_size):
         answer_text = response.strip()
         if answer_text.startswith("Orbit:"):
             answer_text = answer_text[len("Orbit:"):].lstrip()
-        answer = tokenizer.encode(" " + answer_text + "\n", add_eos=True)
+        response_text = " " + answer_text + "\n"
+        # Real BPETokenizer supports EOS; simple tokenizer adapters may not.
+        try:
+            answer = tokenizer.encode(response_text, add_eos=True)
+        except TypeError as exc:
+            if "add_eos" not in str(exc):
+                raise
+            answer = tokenizer.encode(response_text)
         if len(answer) >= block_size:
             answer = answer[-(block_size - 1):]
             prefix = []
