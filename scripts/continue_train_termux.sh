@@ -36,22 +36,37 @@ if len(rows)<10:
     raise SystemExit("Need at least 10 valid instruction rows; refusing to run SFT.")
 PY
 
-echo "=== Continue base pretraining for 2,000 more optimizer steps ==="
-$PY train.py \
-  --data data/input.txt \
-  --out "$BASE" \
-  --resume \
-  --steps 2000 \
-  --eval-interval 100 \
-  --checkpoint-interval 250 \
-  --batch-size 1 \
-  --grad-accum-steps 2 \
-  --block-size 256 \
-  --layers 2 \
-  --heads 2 \
-  --width 64 \
-  --vocab-size 512 \
-  --architecture-version 2
+CAN_RESUME=$($PY - <<'PY'
+import hashlib
+import torch
+from pathlib import Path
+saved=torch.load("checkpoints/firstgpt-mobile.pt",map_location="cpu",weights_only=True)
+digest=hashlib.sha256(Path("data/input.txt").read_bytes()).hexdigest()
+print("yes" if saved.get("corpus_sha256")==digest else "no")
+PY
+)
+
+if [ "$CAN_RESUME" = "yes" ]; then
+  echo "=== Continue base pretraining for 2,000 more optimizer steps ==="
+  $PY train.py \
+    --data data/input.txt \
+    --out "$BASE" \
+    --resume \
+    --steps 2000 \
+    --eval-interval 100 \
+    --checkpoint-interval 250 \
+    --batch-size 1 \
+    --grad-accum-steps 2 \
+    --block-size 256 \
+    --layers 2 \
+    --heads 2 \
+    --width 64 \
+    --vocab-size 512 \
+    --architecture-version 2
+else
+  echo "Corpus hash differs from the existing base checkpoint; safely skipping base resume."
+  echo "The existing best base checkpoint will still receive corrected instruction tuning."
+fi
 
 echo "=== Instruction-tune with inference-aligned prompts ==="
 $PY finetune_instructions.py \
