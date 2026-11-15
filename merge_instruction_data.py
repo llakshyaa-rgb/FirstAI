@@ -75,6 +75,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--inputs", nargs="+", default=[
         "data/orbit_instructions_full.jsonl",
+        "data/instructions_conversations.jsonl",
         "data/orbit_instructions.example.jsonl",
         "data/instructions_capabilities.jsonl",
         "examples/real_data/capability_seed_examples.jsonl",
