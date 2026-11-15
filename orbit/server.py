@@ -74,7 +74,7 @@ class OrbitApplication:
                 self.store.update(task_id, "queued")
                 attachment_events = [event for event in self.store.events(task_id) if event["kind"] == "attachments"]
                 attachments = attachment_events[-1]["details"].get("file_ids", []) if attachment_events else []
-                self._launch_chat(task_id, task["goal"], attachments)
+                self._launch_chat(task_id, task["goal"], attachments, task.get("conversation_id"))
 
     def _submit(self, worker, *args):
         """Queue durable tasks on a bounded pool instead of spawning unbounded threads."""
@@ -88,7 +88,7 @@ class OrbitApplication:
         with self._lock:
             self._threads.discard(future)
 
-    def start_chat(self, message, attachments=None):
+    def start_chat(self, message, attachments=None, conversation_id=None):
         route = classify_request(message)
         # Artifacts and generated images are still submitted from the same chat box.
         if route["kind"] == "image_generation":
@@ -102,10 +102,14 @@ class OrbitApplication:
             elif backend_kind != "diffusers":
                 raise ValueError("ORBIT_IMAGE_BACKEND must be comfyui or diffusers.")
             return self.start_image(message)
-        task_id = self.store.create(message)
+        if conversation_id and not self.store.has_conversation(conversation_id):
+            raise ValueError("That conversation no longer exists. Start a new chat.")
+        if not conversation_id:
+            conversation_id = self.store.create_conversation(message[:90])
+        task_id = self.store.create(message, conversation_id=conversation_id)
         if attachments:
             self.store.emit(task_id, "attachments", "File attachments linked to this task.", file_ids=list(attachments[:5]))
-        self._submit(self._chat_worker, task_id, message, attachments or [])
+        self._submit(self._chat_worker, task_id, message, attachments or [], conversation_id)
         return task_id
 
     def retry_task(self, task_id):
@@ -258,10 +262,10 @@ class OrbitApplication:
         except Exception as exc:
             self.store.update(task_id, "failed", error=f"{type(exc).__name__}: {exc}")
             self.store.emit(task_id, "method_failed", f"Image generation failed: {type(exc).__name__}: {exc}. Check the configured image backend and workflow.")
-    def _launch_chat(self, task_id, message, attachments=None):
-        self._submit(self._chat_worker, task_id, message, attachments or [])
+    def _launch_chat(self, task_id, message, attachments=None, conversation_id=None):
+        self._submit(self._chat_worker, task_id, message, attachments or [], conversation_id)
 
-    def _chat_worker(self, task_id, message, attachments=None):
+    def _chat_worker(self, task_id, message, attachments=None, conversation_id=None):
         execution_failures = []
 
         def emit_progress(message, kind="status", **details):
@@ -449,7 +453,7 @@ class OrbitApplication:
                     message += "\n\nMethods already attempted and their failures (do not claim they succeeded; try an available alternative):\n" + "\n".join("- " + item for item in execution_failures[-8:])
                 answer = self.runtime.reply(
                     message,
-                    history=self.store.recent_history(),
+                    history=self.store.recent_history(conversation_id=conversation_id),
                     owner_preferences=self.memory.prompt_context(),
                     on_progress=lambda event: emit_progress(
                         event["message"], kind=event["kind"],
@@ -626,7 +630,7 @@ def make_handler(app):
 
         def do_POST(self):
             route = urlparse(self.path).path
-            if route not in ("/api/chat", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry", "/api/coding/approval", "/api/preview/start", "/api/preview/stop", "/api/preview/inspect"):
+            if route not in ("/api/chat", "/api/conversations", "/api/memory", "/api/image", "/api/upload", "/api/vision", "/api/design", "/api/tasks/retry", "/api/coding/approval", "/api/preview/start", "/api/preview/stop", "/api/preview/inspect"):
                 return self._json(404, {"error": "Not found"})
             try:
                 length = int(self.headers.get("Content-Length", "0"))
@@ -641,6 +645,13 @@ def make_handler(app):
                 payload = json.loads(self.rfile.read(length).decode("utf-8"))
                 if not isinstance(payload, dict):
                     return self._json(400, {"error": "Request body must be a JSON object"})
+                if route == "/api/conversations":
+                    title = payload.get("title", "New chat")
+                    if not isinstance(title, str) or len(title) > 90:
+                        return self._json(400, {"error": "title must be text up to 90 characters"})
+                    conversation_id = app.store.create_conversation(title)
+                    return self._json(201, {"conversation_id": conversation_id})
+
                 if route == "/api/preview/start":
                     project_path = payload.get("project_path")
                     if project_path is not None and (not isinstance(project_path, str) or len(project_path) > 500):
@@ -731,7 +742,10 @@ def make_handler(app):
                 if not isinstance(attachments, list) or len(attachments) > 5 or any(not isinstance(x, str) for x in attachments):
                     return self._json(400, {"error": "attachments must be a list of up to five uploaded file IDs"})
                 # Deterministic local tools remain available even before a language checkpoint is trained.
-                task_id = app.start_chat(message.strip(), attachments)
+                conversation_id = payload.get("conversation_id")
+                if conversation_id is not None and (not isinstance(conversation_id, str) or len(conversation_id) > 64):
+                    return self._json(400, {"error": "conversation_id must be a valid conversation ID"})
+                task_id = app.start_chat(message.strip(), attachments, conversation_id)
                 return self._json(202, {"task_id": task_id, "status": "queued"})
             except (UnicodeDecodeError, json.JSONDecodeError):
                 return self._json(400, {"error": "Invalid JSON"})
