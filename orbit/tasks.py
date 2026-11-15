@@ -99,6 +99,38 @@ class TaskStore:
             history.append({"role": "assistant", "content": row["result"]})
         return history
 
+    def recent_conversations(self, limit=60):
+        """Return individual persisted chat turns for the history sidebar."""
+        with self._connect() as db:
+            rows = db.execute(
+                "SELECT id, goal, result, status, created_at, updated_at FROM tasks "
+                "WHERE goal NOT LIKE 'Generate image: %' AND goal NOT LIKE 'Design %' "
+                "ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                (max(1, min(200, int(limit))),)
+            ).fetchall()
+        return [{
+            "id": row["id"], "title": row["goal"][:90],
+            "message": row["goal"], "response": row["result"] or "",
+            "status": row["status"], "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        } for row in rows]
+
+    def conversation(self, task_id):
+        """Return one saved chat turn, if it belongs to the chat history."""
+        with self._connect() as db:
+            row = db.execute(
+                "SELECT id, goal, result, status, created_at, updated_at FROM tasks WHERE id=?",
+                (str(task_id),)
+            ).fetchone()
+        if not row or row["goal"].startswith(("Generate image: ", "Design ")):
+            return None
+        return {
+            "id": row["id"], "title": row["goal"][:90],
+            "message": row["goal"], "response": row["result"] or "",
+            "status": row["status"], "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+
     def recent_images(self, limit=20):
         """Return completed image artifacts for restoring the local conversation view."""
         with self._connect() as db:
