@@ -573,9 +573,14 @@ def make_handler(app):
                 self.wfile.write(content)
                 return
             if parsed.path == "/api/history":
+                params = parse_qs(parsed.query)
+                conversation_id = (params.get("id") or [""])[0]
+                selected = app.store.conversation(conversation_id) if conversation_id else None
                 return self._json(200, {
                     "history": app.store.recent_history(limit=40),
                     "images": app.store.recent_images(limit=20),
+                    "conversations": app.store.recent_conversations(limit=80),
+                    "conversation": selected,
                 })
             if parsed.path == "/api/events":
                 params = parse_qs(parsed.query)
