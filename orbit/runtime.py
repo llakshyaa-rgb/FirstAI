@@ -153,7 +153,8 @@ class OrbitRuntime:
                     # The completed answer is independently checked in reply().
                     if self._is_degenerate(partial):
                         partials_suppressed = True
-                    elif len(partial) >= 3:
+                        on_progress({"kind": "partial_reset", "message": ""})
+                    elif len(partial) >= 16:
                         on_progress({
                             "kind": "partial",
                             "message": partial,
