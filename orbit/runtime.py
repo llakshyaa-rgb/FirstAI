@@ -129,8 +129,11 @@ class OrbitRuntime:
                 for start in range(len(words) - width + 1):
                     gram = tuple(words[start:start + width])
                     counts[gram] = counts.get(gram, 0) + 1
-                if counts and max(counts.values()) >= 5:
-                    return True
+                if counts:
+                    repeated = max(counts.values())
+                    total_grams = max(1, len(words) - width + 1)
+                    if repeated >= 5 and repeated / total_grams >= 0.14:
+                        return True
         return False
 
     def _generate_once(self, prompt_ids, mode, on_progress=None, max_new_tokens=None):
