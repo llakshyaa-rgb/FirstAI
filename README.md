@@ -95,6 +95,8 @@ next-token batch alignment, model tensor shapes, causal masking, gradient flow
 and generation.
 
 ## Conversational FirstGPT training profile
+Newly trained tokenizers reserve an explicit end-of-sequence token. Instruction tuning teaches it at the end of every assistant response, and Orbit stops generation when it is emitted. Historical checkpoints without this token remain loadable.
+
 
 The compact 140k-parameter Android checkpoint is a pipeline smoke-test model, not a conversational assistant. For a materially larger from-scratch experiment, use the T4 Colab profile:
 
