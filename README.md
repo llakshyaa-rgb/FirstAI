@@ -101,7 +101,7 @@ The compact 140k-parameter Android checkpoint is a pipeline smoke-test model, no
 1. Open `FirstAI_Orbit_Full_Training.ipynb` and select a T4 GPU.
 2. The data pipeline downloads up to 20,000 multi-turn assistant turns from the training split of [UltraChat 200k](https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k), alongside the existing sourced capability datasets.
 3. Multi-turn examples include preceding Owner/Orbit turns as context and supervise only the assistant response.
-4. The new profile trains a 6-layer, width-384, 6-head model with a 2,048-token BPE vocabulary and 1,024-token context (approximately 11M parameters, depending on the learned vocabulary).
+4. The new profile trains a 8-layer, width-384, 6-head model with a 2,048-token BPE vocabulary and 1,024-token context (approximately 15M parameters, depending on the learned vocabulary).
 5. It runs 12,000 base steps and 6,000 instruction-tuning steps by default, then prints sample conversational replies for manual inspection before download.
 
 The profile is still a small experimental model. It is not expected to match a large pretrained assistant, and a completed loss curve is not a quality guarantee. Inspect the generated replies before replacing the current Orbit checkpoint. T4 availability, runtime duration and Colab session limits are not guaranteed.
