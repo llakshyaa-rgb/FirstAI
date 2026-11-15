@@ -84,20 +84,21 @@ class TaskStore:
         if not isinstance(goal, str) or not goal.strip():
             raise ValueError("Task goal must be a non-empty string")
         task_id, now = uuid.uuid4().hex, _now()
-        if not conversation_id:
+        if not conversation_id and not goal.startswith(("Generate image: ", "Design ")):
             conversation_id = self.create_conversation(goal[:90])
         with self._lock, self._connect() as db:
-            row = db.execute("SELECT title FROM conversations WHERE id=?", (str(conversation_id),)).fetchone()
-            if not row:
-                raise ValueError("Conversation not found. Start a new chat and try again.")
-            if row["title"] == "New chat":
-                db.execute("UPDATE conversations SET title=? WHERE id=?", (goal.strip()[:90], conversation_id))
+            if conversation_id:
+                row = db.execute("SELECT title FROM conversations WHERE id=?", (str(conversation_id),)).fetchone()
+                if not row:
+                    raise ValueError("Conversation not found. Start a new chat and try again.")
+                if row["title"] == "New chat":
+                    db.execute("UPDATE conversations SET title=? WHERE id=?", (goal.strip()[:90], conversation_id))
+                db.execute("UPDATE conversations SET updated_at=? WHERE id=?", (now, str(conversation_id)))
             db.execute(
                 "INSERT INTO tasks(id,goal,status,result,error,created_at,updated_at,conversation_id) "
                 "VALUES (?, ?, 'queued', NULL, NULL, ?, ?, ?)",
-                (task_id, goal.strip(), now, now, str(conversation_id))
+                (task_id, goal.strip(), now, now, str(conversation_id) if conversation_id else None)
             )
-            db.execute("UPDATE conversations SET updated_at=? WHERE id=?", (now, str(conversation_id)))
         self.emit(task_id, "queued", "Task accepted and queued.")
         return task_id
 
