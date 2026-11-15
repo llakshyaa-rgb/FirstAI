@@ -45,6 +45,8 @@ class OrbitRuntime:
         self.model = None
         self.tokenizer = None
         self.load_error = None
+        self.instruction_tuned = False
+        self.instruction_tuning_steps = 0
         self.load()
 
     def load(self):
@@ -54,6 +56,8 @@ class OrbitRuntime:
         try:
             saved = torch.load(self.checkpoint_path, map_location=self.device, weights_only=True)
             tokenizer = BPETokenizer.from_dict(saved["tokenizer"])
+            self.instruction_tuned = bool(saved.get("instruction_data_sha256"))
+            self.instruction_tuning_steps = int(saved.get("instruction_tuning_steps", 0) or 0)
             config = GPTConfig(**saved["config"])
             model = FirstGPT(config).to(self.device)
             model.load_state_dict(saved["model"])
@@ -96,6 +100,25 @@ class OrbitRuntime:
     def ready(self):
         return self.model is not None and self.tokenizer is not None
 
+    @staticmethod
+    def _is_degenerate(text):
+        """Reject obvious token/character loops instead of showing garbage as an answer."""
+        value = "".join(str(text).split())
+        if len(value) < 16:
+            return False
+        counts = {}
+        for char in value:
+            counts[char] = counts.get(char, 0) + 1
+        if max(counts.values(), default=0) / len(value) >= 0.72:
+            return True
+        for width in (1, 2, 3, 4, 5, 6):
+            if len(value) >= width * 6:
+                pattern = value[:width]
+                repeats = len(value) // width
+                if value[:repeats * width] == pattern * repeats and repeats >= 6:
+                    return True
+        return False
+
     def _generate_once(self, prompt_ids, mode, on_progress=None, max_new_tokens=None):
         input_ids = torch.tensor([prompt_ids], dtype=torch.long, device=self.device)
         generated = []
@@ -108,7 +131,10 @@ class OrbitRuntime:
                     logits, _ = self.model(context)
                 next_logits = logits[:, -1, :].float()
                 if mode == "sample":
-                    next_logits = next_logits / 0.85
+                    # Penalize tokens already used in this response context to reduce loops.
+                    counts = torch.bincount(input_ids[0], minlength=next_logits.size(-1)).to(next_logits.dtype)
+                    next_logits = next_logits - torch.clamp(counts, max=8).unsqueeze(0) * 0.12
+                    next_logits = next_logits / 0.90
                     top_k = min(40, next_logits.size(-1))
                     values, _ = torch.topk(next_logits, top_k)
                     next_logits = next_logits.masked_fill(next_logits < values[:, [-1]], -float("inf"))
@@ -278,8 +304,10 @@ class OrbitRuntime:
             first_error = None
             try:
                 answer = self._generate_once(prompt_ids, "greedy", on_progress, max_new_tokens)
-                if answer:
+                if answer and not self._is_degenerate(answer):
                     return answer
+                if answer:
+                    first_error = "The model entered a repetitive token loop during greedy decoding."
                 first_error = "The first decoding strategy returned an empty response."
             except Exception as exc:
                 first_error = f"{type(exc).__name__}: {exc}"
@@ -313,8 +341,10 @@ class OrbitRuntime:
                 })
             try:
                 answer = self._generate_once(prompt_ids, "sample", on_progress, max_new_tokens)
-                if answer:
+                if answer and not self._is_degenerate(answer):
                     return answer
+                if answer:
+                    raise RuntimeError("FirstGPT produced repetitive token loops with both decoding strategies. The checkpoint needs better instruction tuning/training; no junk response was shown.")
                 raise RuntimeError("The alternate decoding strategy also returned an empty response.")
             except Exception as second_error:
                 raise RuntimeError(
