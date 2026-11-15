@@ -119,3 +119,25 @@ footer{text-align:center;padding:14px 0 0}
 .approval-actions button{padding:9px 12px}
 .approval-actions button:first-child{background:#d8c29a;color:#171b20}
 .approval-actions button:last-child{background:#343b43;color:#e7edf3}
+
+/* Chat-first mobile layout and collapsed preview safety */
+html{height:100%;background:#0d1117}
+body{min-height:100%;min-height:100dvh}
+.shell{min-height:100vh;min-height:100dvh}
+.conversation{flex:1 1 auto;min-height:180px;max-height:calc(100dvh - 230px);overscroll-behavior:contain;scrollbar-width:thin}
+#composer.chat-composer{position:sticky;bottom:0;z-index:5;display:flex;align-items:flex-end;gap:8px;margin:0;padding:12px 0 max(10px,env(safe-area-inset-bottom));border-top:1px solid #354452;background:linear-gradient(180deg,rgba(13,17,23,.94),#111820 24%);backdrop-filter:blur(14px)}
+#composer textarea{min-width:0;min-height:48px;max-height:132px;resize:vertical;line-height:1.4}
+#composer button{min-height:48px;padding:0 17px;white-space:nowrap}
+.chat-hint{margin:2px 0 12px;color:#8292a0;font-size:11px;text-align:center}
+#app-preview[hidden]{display:none!important}
+.preview-drawer{margin:0 0 12px}
+@media(max-width:520px){
+  .shell{width:100%;padding:10px 12px max(12px,env(safe-area-inset-bottom))}
+  header{padding:5px 2px 12px}
+  .conversation{min-height:150px;max-height:calc(100dvh - 205px);padding:14px 0;gap:10px}
+  .bubble{max-width:94%;padding:11px 12px}
+  #composer.chat-composer{gap:7px;padding-top:9px}
+  #composer textarea{font-size:16px;min-height:46px;padding:11px}
+  #composer button{min-height:46px;padding:0 14px}
+  .chat-hint{margin:0 0 10px}
+}
