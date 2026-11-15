@@ -141,7 +141,7 @@ class OrbitApplication:
         attachments = attachment_events[-1]["details"].get("file_ids", []) if attachment_events else []
         self.store.update(task_id, "queued", result=None, error=None)
         self.store.emit(task_id, "queued", "Chat task queued for another attempt.")
-        self._submit(self._chat_worker, task_id, goal, attachments)
+        self._submit(self._chat_worker, task_id, goal, attachments, task.get("conversation_id"))
         return task_id
 
     def start_design(self, title, brief, file_format="pdf", theme="midnight"):
@@ -418,7 +418,7 @@ class OrbitApplication:
                     "label assumptions. Do not explain what you would do."
                 )
                 draft = self.runtime.reply(
-                    prompt, history=self.store.recent_history(limit=4),
+                    prompt, history=self.store.recent_history(limit=4, conversation_id=conversation_id),
                     owner_preferences=self.memory.prompt_context(),
                     max_new_tokens=max(self.runtime.max_new_tokens, min(512, int(os.environ.get("ORBIT_DESIGN_MAX_TOKENS", "384")))),
                     on_progress=lambda event: emit_progress(event["message"], kind=event["kind"],
