@@ -34,6 +34,9 @@ def main():
     parser.add_argument("--skip-capability-datasets", action="store_true",
                         help="Skip GSM8K/ARC/SQuAD/MBPP downloads; reuse existing JSONL.")
     parser.add_argument("--per-source-cap", type=int, default=10000)
+    parser.add_argument("--skip-conversations", action="store_true",
+                        help="Skip multi-turn conversation download; reuse an existing JSONL.")
+    parser.add_argument("--conversation-limit", type=int, default=20000)
     parser.add_argument("--skip-live-data", action="store_true",
                         help="Skip live public data collection; reuse an existing data-lab snapshot.")
     args = parser.parse_args()
@@ -46,22 +49,26 @@ def main():
             "--instructions-out", "data/orbit_instructions_full.jsonl",
         ])
     if not args.skip_capability_datasets:
-        run_step("2/6 — Download mathematics, science, reading and coding data", [
+        run_step("2/7 — Download mathematics, science, reading and coding data", [
             "download_capability_data.py",
             "--max-per-dataset", str(args.max_per_dataset),
         ])
+    if not args.skip_conversations:
+        run_step("3/7 — Download multi-turn assistant conversations", [
+            "download_conversation_data.py", "--limit", str(args.conversation_limit),
+        ])
     if not args.skip_live_data:
-        run_step("3/6 — Collect live public data across seven domains", [
+        run_step("4/7 — Collect live public data across seven domains", [
             "examples/real_data/build_data_lab.py",
             "--country", args.country, "--city", args.city,
         ])
-    run_step("4/6 — Convert retrieved real records into sourced examples", [
+    run_step("5/7 — Convert retrieved real records into sourced examples", [
         "examples/real_data/build_training_examples.py",
     ])
-    run_step("5/6 — Prepare deduplicated base-language corpus", [
+    run_step("6/7 — Prepare deduplicated base-language corpus", [
         "prepare_corpus.py",
     ])
-    run_step("6/6 — Merge and balance instruction sources", [
+    run_step("7/7 — Merge and balance instruction sources", [
         "merge_instruction_data.py", "--per-source-cap", str(args.per_source_cap),
     ])
 
