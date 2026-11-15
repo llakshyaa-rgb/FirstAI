@@ -42,7 +42,6 @@ def convert_conversation(messages, source_index, max_context_chars=6000):
             prompt = "\n".join(lines)
             if len(prompt) > max_context_chars:
                 prompt = prompt[-max_context_chars:]
-            prompt += "\nOrbit:"
             if len(text) > 1800:
                 prior.append((role, text))
                 continue
