@@ -25,7 +25,7 @@ def _messages(row):
             role = "user"
         elif role in {"assistant", "gpt"}:
             role = "assistant"
-        elif role != "system":
+        else:
             continue
         if isinstance(text, str) and text.strip():
             cleaned.append((role, text.strip()))
