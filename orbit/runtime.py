@@ -203,7 +203,7 @@ class OrbitRuntime:
 
         history_ids = []
         if history and remaining >= 12:
-            history_budget = min(32, max(8, limit // 6), remaining)
+            history_budget = min(384, max(32, limit // 3), remaining)
             for item in reversed((history or [])[-self.max_history_messages:]):
                 role = "Owner" if item.get("role") == "user" else "Orbit"
                 part = self.tokenizer.encode(f"{role}: {str(item.get('content', ''))}\n")
