@@ -182,11 +182,65 @@ form.addEventListener("submit",async e=>{
   }catch(err){bubble("orbit","I couldn't complete that request: "+err.message);}
   finally{busy=false;send.disabled=false;presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";input.focus();}
 });
-async function loadHistory(){
+let activeConversationId=null;
+const historyList=document.querySelector("#history-list");
+const historyCount=document.querySelector("#history-count");
+function clearConversation(){
+  conversation.textContent="";
+  livePartial=null;
+}
+function renderSavedConversation(item){
+  clearConversation();
+  activeConversationId=item?.id||null;
+  if(!item){
+    const node=document.createElement("article");node.className="bubble orbit";
+    const label=document.createElement("strong");label.textContent="Orbit";
+    const p=document.createElement("p");p.textContent="New chat. What would you like to work on?";
+    node.append(label,p);conversation.append(node);
+  }else{
+    bubble("user",item.message||item.title||"Saved request");
+    if(item.response)bubble("orbit",item.response);
+    else bubble("orbit",item.status==="failed"?"This task did not finish. You can send the request again.":"This task has no saved response yet.","status");
+  }
+  conversation.scrollTop=conversation.scrollHeight;
+  for(const button of historyList?.querySelectorAll("[data-conversation-id]")||[]){
+    button.classList.toggle("active",button.dataset.conversationId===activeConversationId);
+  }
+}
+async function loadHistory(selectId=null){
   try{
     const r=await fetch("/api/history");if(!r.ok)return;
     const d=await r.json();
-    for(const item of d.history||[])bubble(item.role==="user"?"user":"orbit",item.content);
+    if(historyList){
+      historyList.textContent="";
+      const items=d.conversations||[];
+      if(historyCount)historyCount.textContent=items.length+" saved";
+      for(const item of items){
+        const button=document.createElement("button");button.type="button";button.className="history-item";
+        button.dataset.conversationId=item.id;
+        const title=document.createElement("span");title.className="history-title";title.textContent=item.title||"Untitled chat";
+        const meta=document.createElement("small");meta.textContent=(item.status==="completed"?"Completed":item.status==="failed"?"Failed":item.status==="running"?"In progress":"Saved")+" · "+new Date(item.created_at).toLocaleDateString();
+        button.append(title,meta);
+        button.addEventListener("click",async()=>{
+          try{
+            const response=await fetch("/api/history?id="+encodeURIComponent(item.id));
+            const saved=await response.json();if(!response.ok||!saved.conversation)throw new Error("Saved chat unavailable");
+            renderSavedConversation(saved.conversation);
+          }catch(error){bubble("orbit","Couldn't open that saved chat: "+error.message,"status");}
+        });
+        historyList.append(button);
+      }
+      if(!items.length){const empty=document.createElement("p");empty.className="history-empty";empty.textContent="Your conversations will appear here.";historyList.append(empty);}
+    }
+    if(selectId){
+      const item=(d.conversations||[]).find(x=>x.id===selectId);
+      if(item)renderSavedConversation(item);
+    }else if((d.conversations||[]).length){
+      const latest=d.conversations[0];
+      const response=await fetch("/api/history?id="+encodeURIComponent(latest.id));
+      const saved=await response.json();
+      if(response.ok&&saved.conversation)renderSavedConversation(saved.conversation);
+    }
     for(const item of d.images||[]){
       const node=document.createElement("article");node.className="bubble orbit";
       const label=document.createElement("strong");label.textContent="Orbit · Image";
@@ -197,6 +251,11 @@ async function loadHistory(){
     conversation.scrollTop=conversation.scrollHeight;
   }catch{}
 }
+document.querySelector("#new-chat")?.addEventListener("click",()=>{
+  renderSavedConversation(null);
+  input.focus();
+});
+
 health();
 loadHistory();
 
