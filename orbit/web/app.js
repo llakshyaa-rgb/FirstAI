@@ -261,7 +261,7 @@ async function createNewConversation(showWelcome=true){
   const r=await fetch("/api/conversations",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({title:"New chat"})});
   const d=await r.json();if(!r.ok)throw new Error(d.error||"Could not create a new conversation");
   activeConversationId=d.conversation_id;
-  renderSavedConversation(showWelcome?{id:activeConversationId,messages:[]}:null);
+  renderSavedConversation({id:activeConversationId,messages:[]});
   await loadHistory();
   if(showWelcome)input.focus();
 }
