@@ -43,6 +43,9 @@ def convert_conversation(messages, source_index, max_context_chars=6000):
             if len(prompt) > max_context_chars:
                 prompt = prompt[-max_context_chars:]
             prompt += "\nOrbit:"
+            if len(text) > 1800:
+                prior.append((role, text))
+                continue
             response = "Orbit: " + text
             digest = hashlib.sha256((prompt + "\0" + response).encode("utf-8")).hexdigest()
             yield {"prompt": prompt, "response": response, "metadata": {
@@ -57,7 +60,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=30000)
     parser.add_argument("--output", type=Path, default=Path("data/instructions_conversations.jsonl"))
-    parser.add_argument("--max-context-chars", type=int, default=6000)
+    parser.add_argument("--max-context-chars", type=int, default=2500)
     args = parser.parse_args()
     if args.limit < 100 or args.max_context_chars < 256:
         parser.error("--limit must be >=100 and --max-context-chars >=256")
