@@ -26,6 +26,7 @@ class ConversationDataTests(unittest.TestCase):
         self.assertIn("Owner: My project is called Nebula.", rows[0]["prompt"])
         self.assertIn("Owner: What is it called?", rows[1]["prompt"])
         self.assertIn("Orbit: Got it — Nebula.", rows[1]["prompt"])
+        self.assertFalse(rows[1]["prompt"].endswith("\\nOrbit:"))
         self.assertEqual(rows[1]["response"], "Orbit: Your project is called Nebula.")
         self.assertEqual(rows[1]["metadata"]["source_record_index"], 7)
 
