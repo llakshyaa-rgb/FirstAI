@@ -37,7 +37,13 @@ def load_examples(path):
 def encode_examples(examples, tokenizer, block_size):
     rows = []
     for prompt, response in examples:
-        prefix = tokenizer.encode(prompt + "\nOrbit:")
+        # Training prompts must match OrbitRuntime's inference format. Most
+        # checked-in examples already include "Owner:" or a specialised role
+        # prefix (for example "Tool planner:"); never prepend a second Owner.
+        normalized_prompt = prompt.strip()
+        if not normalized_prompt.startswith(("Owner:", "Tool planner:")):
+            normalized_prompt = "Owner: " + normalized_prompt
+        prefix = tokenizer.encode(normalized_prompt + "\nOrbit:")
         answer_text = response.strip()
         if answer_text.startswith("Orbit:"):
             answer_text = answer_text[len("Orbit:"):].lstrip()
