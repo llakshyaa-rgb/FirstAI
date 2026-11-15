@@ -39,6 +39,24 @@ class TaskStore:
                 kind TEXT NOT NULL, message TEXT NOT NULL, timestamp TEXT NOT NULL,
                 details TEXT NOT NULL
             )""")
+            db.execute("""CREATE TABLE IF NOT EXISTS conversations (
+                id TEXT PRIMARY KEY, title TEXT NOT NULL,
+                created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+            )""")
+            columns = {row["name"] for row in db.execute("PRAGMA table_info(tasks)").fetchall()}
+            if "conversation_id" not in columns:
+                db.execute("ALTER TABLE tasks ADD COLUMN conversation_id TEXT")
+            # Preserve legacy chats by giving every old chat task its own conversation.
+            legacy = db.execute(
+                "SELECT id, goal, created_at, updated_at FROM tasks WHERE conversation_id IS NULL "
+                "AND goal NOT LIKE 'Generate image: %' AND goal NOT LIKE 'Design %'"
+            ).fetchall()
+            for row in legacy:
+                db.execute(
+                    "INSERT OR IGNORE INTO conversations(id,title,created_at,updated_at) VALUES(?,?,?,?)",
+                    (row["id"], row["goal"][:90], row["created_at"], row["updated_at"])
+                )
+                db.execute("UPDATE tasks SET conversation_id=? WHERE id=?", (row["id"], row["id"]))
 
     def _connect(self):
         db = sqlite3.connect(self.path, timeout=30)
@@ -46,13 +64,40 @@ class TaskStore:
         db.row_factory = sqlite3.Row
         return db
 
-    def create(self, goal):
+    def create_conversation(self, title="New chat"):
+        conversation_id, now = uuid.uuid4().hex, _now()
+        clean_title = str(title or "New chat").strip()[:90] or "New chat"
+        with self._lock, self._connect() as db:
+            db.execute(
+                "INSERT INTO conversations(id,title,created_at,updated_at) VALUES(?,?,?,?)",
+                (conversation_id, clean_title, now, now)
+            )
+        return conversation_id
+
+    def has_conversation(self, conversation_id):
+        if not conversation_id:
+            return False
+        with self._connect() as db:
+            return db.execute("SELECT 1 FROM conversations WHERE id=?", (str(conversation_id),)).fetchone() is not None
+
+    def create(self, goal, conversation_id=None):
         if not isinstance(goal, str) or not goal.strip():
             raise ValueError("Task goal must be a non-empty string")
         task_id, now = uuid.uuid4().hex, _now()
+        if not conversation_id:
+            conversation_id = self.create_conversation(goal[:90])
         with self._lock, self._connect() as db:
-            db.execute("INSERT INTO tasks VALUES (?, ?, 'queued', NULL, NULL, ?, ?)",
-                       (task_id, goal.strip(), now, now))
+            row = db.execute("SELECT title FROM conversations WHERE id=?", (str(conversation_id),)).fetchone()
+            if not row:
+                raise ValueError("Conversation not found. Start a new chat and try again.")
+            if row["title"] == "New chat":
+                db.execute("UPDATE conversations SET title=? WHERE id=?", (goal.strip()[:90], conversation_id))
+            db.execute(
+                "INSERT INTO tasks(id,goal,status,result,error,created_at,updated_at,conversation_id) "
+                "VALUES (?, ?, 'queued', NULL, NULL, ?, ?, ?)",
+                (task_id, goal.strip(), now, now, str(conversation_id))
+            )
+            db.execute("UPDATE conversations SET updated_at=? WHERE id=?", (now, str(conversation_id)))
         self.emit(task_id, "queued", "Task accepted and queued.")
         return task_id
 
@@ -84,15 +129,24 @@ class TaskStore:
                               (task_id, int(after))).fetchall()
         return [dict(row) | {"details": json.loads(row["details"])} for row in rows]
 
-    def recent_history(self, limit=8):
-        """Return completed chat turns in chronological order for conversational context."""
+    def recent_history(self, limit=8, conversation_id=None):
+        """Return only the selected conversation's completed turns, in chronological order."""
         if limit < 1:
             return []
         with self._connect() as db:
-            rows = db.execute(
-                "SELECT goal, result FROM tasks WHERE status='completed' AND result IS NOT NULL AND goal NOT LIKE 'Generate image: %' ORDER BY created_at DESC, rowid DESC LIMIT ?",
-                (int(limit),)
-            ).fetchall()
+            if conversation_id:
+                rows = db.execute(
+                    "SELECT goal, result FROM tasks WHERE status='completed' AND result IS NOT NULL "
+                    "AND conversation_id=? ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                    (str(conversation_id), int(limit))
+                ).fetchall()
+            else:
+                rows = db.execute(
+                    "SELECT goal, result FROM tasks WHERE status='completed' AND result IS NOT NULL "
+                    "AND goal NOT LIKE 'Generate image: %' AND goal NOT LIKE 'Design %' "
+                    "ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                    (int(limit),)
+                ).fetchall()
         history = []
         for row in reversed(rows):
             history.append({"role": "user", "content": row["goal"]})
@@ -100,36 +154,36 @@ class TaskStore:
         return history
 
     def recent_conversations(self, limit=60):
-        """Return individual persisted chat turns for the history sidebar."""
+        """Return saved conversations, not individual message tasks."""
         with self._connect() as db:
             rows = db.execute(
-                "SELECT id, goal, result, status, created_at, updated_at FROM tasks "
-                "WHERE goal NOT LIKE 'Generate image: %' AND goal NOT LIKE 'Design %' "
-                "ORDER BY created_at DESC, rowid DESC LIMIT ?",
+                "SELECT c.id,c.title,c.created_at,c.updated_at,"
+                "(SELECT t.status FROM tasks t WHERE t.conversation_id=c.id ORDER BY t.created_at DESC,t.rowid DESC LIMIT 1) AS status "
+                "FROM conversations c ORDER BY c.updated_at DESC LIMIT ?",
                 (max(1, min(200, int(limit))),)
             ).fetchall()
-        return [{
-            "id": row["id"], "title": row["goal"][:90],
-            "message": row["goal"], "response": row["result"] or "",
-            "status": row["status"], "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-        } for row in rows]
+        return [dict(row) for row in rows]
 
-    def conversation(self, task_id):
-        """Return one saved chat turn, if it belongs to the chat history."""
+    def conversation(self, conversation_id):
+        """Return every saved user/assistant turn in one conversation."""
         with self._connect() as db:
-            row = db.execute(
-                "SELECT id, goal, result, status, created_at, updated_at FROM tasks WHERE id=?",
-                (str(task_id),)
+            conv = db.execute(
+                "SELECT id,title,created_at,updated_at FROM conversations WHERE id=?",
+                (str(conversation_id),)
             ).fetchone()
-        if not row or row["goal"].startswith(("Generate image: ", "Design ")):
-            return None
-        return {
-            "id": row["id"], "title": row["goal"][:90],
-            "message": row["goal"], "response": row["result"] or "",
-            "status": row["status"], "created_at": row["created_at"],
-            "updated_at": row["updated_at"],
-        }
+            if not conv:
+                return None
+            rows = db.execute(
+                "SELECT id,goal,result,status,created_at,updated_at FROM tasks "
+                "WHERE conversation_id=? ORDER BY created_at,rowid",
+                (str(conversation_id),)
+            ).fetchall()
+        messages = []
+        for row in rows:
+            messages.append({"role": "user", "content": row["goal"], "task_id": row["id"], "status": row["status"], "timestamp": row["created_at"]})
+            if row["result"]:
+                messages.append({"role": "assistant", "content": row["result"], "task_id": row["id"], "status": row["status"], "timestamp": row["updated_at"]})
+        return dict(conv) | {"messages": messages}
 
     def recent_images(self, limit=20):
         """Return completed image artifacts for restoring the local conversation view."""
