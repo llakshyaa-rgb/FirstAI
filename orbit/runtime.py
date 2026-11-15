@@ -161,6 +161,8 @@ class OrbitRuntime:
                 else:
                     next_id = torch.argmax(next_logits, dim=-1, keepdim=True)
                 token = int(next_id.item())
+                if token == self.tokenizer.eos_token_id:
+                    break
                 generated.append(token)
                 input_ids = torch.cat((input_ids, next_id), dim=1)
                 decoded_so_far = self.tokenizer.decode(generated)
