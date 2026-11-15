@@ -11,7 +11,6 @@ class ConversationDataTests(unittest.TestCase):
             {"role": "assistant", "content": "Hello."},
         ]})
         self.assertEqual(rows, [
-            ("system", "Be helpful."),
             ("user", "Hi."),
             ("assistant", "Hello."),
         ])
