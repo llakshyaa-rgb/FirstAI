@@ -798,6 +798,10 @@ def make_handler(app):
                     seed = payload.get("seed")
                     if not isinstance(prompt, str) or not prompt.strip():
                         return self._json(400, {"error": "prompt must be a non-empty string"})
+                    try:
+                        validate_media_prompt(prompt)
+                    except ValueError as exc:
+                        return self._json(400, {"error": str(exc)})
                     backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
                     if backend_kind == "comfyui":
                         workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
