@@ -18,8 +18,8 @@ def classify_request(message: str) -> dict:
 
     # Explicit video generation is distinct from analysing uploaded video.
     video_verbs = ("generate", "create", "make", "animate", "render")
-    wants_video = any(re.search(r"\\b" + re.escape(v) + r"\\b", lower) for v in video_verbs) and any(
-        re.search(r"\\b" + re.escape(n) + r"\\b", lower) for n in ("video", "clip", "animation", "animated scene")
+    wants_video = any(re.search(r"\b" + re.escape(v) + r"\b", lower) for v in video_verbs) and any(
+        re.search(r"\b" + re.escape(n) + r"\b", lower) for n in ("video", "clip", "animation", "animated scene")
     )
     if wants_video:
         route.update(kind="video_generation", prompt=text)
