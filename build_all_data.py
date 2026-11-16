@@ -13,16 +13,27 @@ import sys
 import time
 import threading
 import queue
+import json
 from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent
+LOG_DIR = ROOT / 'run_logs'
+LOG_DIR.mkdir(parents=True, exist_ok=True)
+PROGRESS_FILE = LOG_DIR / 'build_progress.json'
+
+def save_progress(payload):
+    tmp = PROGRESS_FILE.with_suffix('.tmp')
+    tmp.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+    tmp.replace(PROGRESS_FILE)
 
 
 def run_step(label, args):
     print("\n" + "=" * 72 + "\n" + label + "\n" + "=" * 72, flush=True)
     print("[START] " + time.strftime("%H:%M:%S") + " | " + " ".join(args), flush=True)
+    started_wall = time.time()
     started = time.monotonic()
+    save_progress({'stage': label, 'status': 'running', 'started_at': time.strftime('%Y-%m-%dT%H:%M:%S'), 'command': args})
     process = subprocess.Popen(
         [sys.executable, "-u", *args],
         cwd=ROOT,
@@ -69,11 +80,13 @@ def run_step(label, args):
     return_code = process.wait()
     elapsed = time.monotonic() - started
     if return_code:
+        save_progress({'stage': label, 'status': 'failed', 'started_epoch': started_wall, 'finished_at': time.strftime('%Y-%m-%dT%H:%M:%S'), 'elapsed_seconds': round(elapsed, 1), 'exit_code': return_code, 'command': args})
         raise SystemExit(
             f"[FAILED] {label} after {elapsed/60:.1f} min "
             f"(exit {return_code}). Earlier outputs are preserved; "
             "inspect the log above, fix the issue, and rerun."
         )
+    save_progress({'stage': label, 'status': 'completed', 'started_epoch': started_wall, 'finished_at': time.strftime('%Y-%m-%dT%H:%M:%S'), 'elapsed_seconds': round(elapsed, 1), 'exit_code': 0, 'command': args})
     print(f"[DONE] {label} | elapsed {elapsed/60:.1f} min", flush=True)
 
 
