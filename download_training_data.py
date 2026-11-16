@@ -1,172 +1,94 @@
-"""Stream and incrementally checkpoint public text/instruction datasets.
-
-Writes directly to the workspace (no Drive mount). Partial outputs are retained
-and resumed on rerun. Progress is printed periodically so notebook cells are
-observable instead of appearing frozen during a large dataset download.
-"""
+"""Resumable, progress-reporting CPU data downloads for FirstAI."""
 from __future__ import annotations
-
-import argparse
-import json
-import time
+import argparse, json, time
 from datetime import datetime, timezone
 from pathlib import Path
 
-
-def _count_jsonl(path):
-    if not path.is_file():
-        return 0
-    with path.open(encoding="utf-8") as handle:
-        return sum(1 for line in handle if line.strip())
-
-
-def download_wikitext(output, config="wikitext-103-raw-v1", max_chars=5_000_000,
-                      progress_every=10_000, resume=True):
-    try:
-        from datasets import load_dataset
-    except ImportError as exc:
-        raise RuntimeError("Install the optional datasets package: pip install datasets") from exc
-
-    target = Path(output)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    partial = target.with_suffix(target.suffix + ".partial")
-    if target.exists() and not resume:
-        target.unlink()
+def download_wikitext(output, config, max_chars, progress_every=100_000):
+    from datasets import load_dataset
+    target=Path(output); target.parent.mkdir(parents=True,exist_ok=True)
+    partial=target.with_suffix(target.suffix+".partial")
     if target.exists() and target.stat().st_size:
-        existing = target.stat().st_size
-        print(f"WikiText already present: {existing:,} bytes; keeping it.", flush=True)
-        return target
-
-    written = partial.stat().st_size if resume and partial.exists() else 0
-    if not resume:
-        partial.unlink(missing_ok=True)
-    print(f"Streaming Salesforce/wikitext [{config}] — target up to {max_chars:,} chars; resuming at {written:,} bytes.", flush=True)
-    dataset = load_dataset("Salesforce/wikitext", config, split="train", streaming=True)
-    started = time.monotonic()
-    last_report = written
-    mode = "a" if written else "w"
-    with partial.open(mode, encoding="utf-8") as handle:
-        for index, row in enumerate(dataset):
-            text = str(row.get("text", "")).strip()
-            if not text:
-                continue
-            remaining = max_chars - written
-            if remaining <= 0:
-                break
-            text = text[:remaining]
-            chunk = text + "\\n\\n"
-            handle.write(chunk)
-            written += len(chunk)
-            if written - last_report >= progress_every:
-                handle.flush()
-                elapsed = max(time.monotonic() - started, 0.001)
-                print(f"WikiText: {written:,}/{max_chars:,} chars | row {index:,} | {written / elapsed:,.0f} chars/sec", flush=True)
-                last_report = written
-            if written >= max_chars:
-                break
-        handle.flush()
-
-    if written < 20_000:
-        raise RuntimeError(f"Downloaded corpus is unexpectedly small: {written} characters. Partial data retained at {partial}.")
+        print(f"[WikiText] already complete: {target.stat().st_size:,} bytes",flush=True); return target
+    saved_rows=0; saved_chars=0
+    if partial.exists():
+        with partial.open(encoding="utf-8") as f:
+            for line in f:
+                saved_rows+=1; saved_chars+=len(line)
+        print(f"[WikiText] RESUME: {saved_rows:,} rows, {saved_chars:,} chars saved",flush=True)
+    print(f"[WikiText] opening streaming dataset {config}",flush=True)
+    ds=load_dataset("Salesforce/wikitext",config,split="train",streaming=True)
+    started=time.monotonic(); chars=saved_chars; last=chars
+    with partial.open("a" if saved_rows else "w",encoding="utf-8") as out:
+        for idx,row in enumerate(ds):
+            if idx<saved_rows: continue
+            text=str(row.get("text") or "").strip()
+            if not text: continue
+            chunk=text+"\n"
+            if chars+len(chunk)>max_chars: chunk=chunk[:max_chars-chars]
+            if not chunk: break
+            out.write(chunk); chars+=len(chunk)
+            if chars-last>=progress_every:
+                out.flush()
+                elapsed=max(time.monotonic()-started,.001)
+                print(f"[WikiText] {chars:,}/{max_chars:,} chars ({chars/max_chars:.1%}) | source row {idx:,} | {((chars-saved_chars)/elapsed):,.0f} chars/s",flush=True)
+                last=chars
+            if chars>=max_chars: break
+        out.flush()
+    if chars<20_000: raise RuntimeError(f"WikiText only produced {chars:,} chars; partial kept at {partial}")
     partial.replace(target)
-    manifest = {
-        "dataset": "Salesforce/wikitext", "config": config, "split": "train",
-        "license": "CC-BY-SA-3.0 and GFDL (verify current dataset card)",
-        "source_url": "https://huggingface.co/datasets/Salesforce/wikitext",
-        "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
-        "characters_written": written, "max_chars": max_chars,
-    }
-    target.with_suffix(target.suffix + ".manifest.json").write_text(json.dumps(manifest, indent=2) + "\\n", encoding="utf-8")
-    print(f"WikiText COMPLETE: {target} | {written:,} characters", flush=True)
+    manifest={"dataset":"Salesforce/wikitext","config":config,"split":"train","source_url":"https://huggingface.co/datasets/Salesforce/wikitext","retrieved_at_utc":datetime.now(timezone.utc).isoformat(),"characters":chars,"target_characters":max_chars}
+    target.with_suffix(target.suffix+".manifest.json").write_text(json.dumps(manifest,indent=2)+"\n",encoding="utf-8")
+    print(f"[WikiText] COMPLETE: {chars:,} chars -> {target}",flush=True)
     return target
 
-
-def download_dolly(output, max_examples=15_000, extra_examples=None,
-                   progress_every=1000, resume=True):
-    try:
-        from datasets import load_dataset
-    except ImportError as exc:
-        raise RuntimeError("Install the optional datasets package: pip install datasets") from exc
-    target = Path(output)
-    target.parent.mkdir(parents=True, exist_ok=True)
-    partial = target.with_suffix(target.suffix + ".partial")
+def download_dolly(output,max_examples=15000,extra_examples=None,progress_every=500):
+    from datasets import load_dataset
+    target=Path(output); target.parent.mkdir(parents=True,exist_ok=True)
+    partial=target.with_suffix(target.suffix+".partial")
     if target.exists() and target.stat().st_size:
-        print(f"Dolly output already present: {_count_jsonl(target):,} examples; keeping it.", flush=True)
-        return target
-    if not resume:
-        partial.unlink(missing_ok=True)
-    count = _count_jsonl(partial) if partial.exists() else 0
-    print(f"Streaming databricks-dolly-15k; resuming at {count:,} examples.", flush=True)
-    dataset = load_dataset("databricks/databricks-dolly-15k", split="train", streaming=True)
-    started = time.monotonic()
-    mode = "a" if count else "w"
-    with partial.open(mode, encoding="utf-8") as handle:
-        for index, row in enumerate(dataset):
-            if count >= max_examples:
-                break
-            instruction = str(row.get("instruction", "")).strip()
-            response = str(row.get("response", "")).strip()
-            context = str(row.get("context", "")).strip()
-            if not instruction or not response:
-                continue
-            prompt = instruction + ("\\n\\nReference context:\\n" + context if context else "")
-            handle.write(json.dumps({
-                "prompt": prompt, "response": response,
-                "metadata": {
-                    "dataset_id": "dolly15k", "dataset": "databricks/databricks-dolly-15k",
-                    "split": "train", "license": "CC-BY-SA-3.0",
-                    "source_url": "https://huggingface.co/datasets/databricks/databricks-dolly-15k",
-                },
-            }, ensure_ascii=False) + "\\n")
-            count += 1
-            if count % progress_every == 0:
-                handle.flush()
-                elapsed = max(time.monotonic() - started, 0.001)
-                print(f"Dolly: {count:,}/{max_examples:,} examples | row {index:,} | {count / elapsed:.1f} examples/sec", flush=True)
-        handle.flush()
-    if extra_examples:
-        extra_path = Path(extra_examples)
-        if extra_path.is_file():
-            with partial.open("a", encoding="utf-8") as dest, extra_path.open(encoding="utf-8") as source:
-                for line in source:
-                    if line.strip():
-                        dest.write(line)
-                        count += 1
-    if count < 4:
-        raise RuntimeError(f"Instruction dataset download produced only {count} examples; partial retained at {partial}.")
+        print(f"[Dolly] already complete: {target}",flush=True); return target
+    count=0
+    if partial.exists():
+        with partial.open(encoding="utf-8") as f: count=sum(1 for x in f if x.strip())
+    print(f"[Dolly] streaming databricks-dolly-15k; resume at {count:,}",flush=True)
+    ds=load_dataset("databricks/databricks-dolly-15k",split="train",streaming=True)
+    started=time.monotonic()
+    with partial.open("a" if count else "w",encoding="utf-8") as out:
+        for idx,row in enumerate(ds):
+            if idx<count: continue
+            if count>=max_examples: break
+            instruction=str(row.get("instruction") or "").strip()
+            response=str(row.get("response") or "").strip()
+            context=str(row.get("context") or "").strip()
+            if not instruction or not response: continue
+            prompt=instruction+(("\n\nReference context:\n"+context) if context else "")
+            item={"prompt":prompt,"response":response,"metadata":{"dataset_id":"dolly15k","dataset":"databricks/databricks-dolly-15k","split":"train","license":"CC-BY-SA-3.0","source_url":"https://huggingface.co/datasets/databricks/databricks-dolly-15k","source_record_index":idx}}
+            out.write(json.dumps(item,ensure_ascii=False)+"\n"); count+=1
+            if count%progress_every==0:
+                out.flush(); elapsed=max(time.monotonic()-started,.001)
+                print(f"[Dolly] {count:,}/{max_examples:,} examples | {count/elapsed:.1f} examples/s",flush=True)
+        out.flush()
+    if extra_examples and Path(extra_examples).is_file():
+        with partial.open("a",encoding="utf-8") as out,Path(extra_examples).open(encoding="utf-8") as src:
+            for line in src:
+                if line.strip(): out.write(line); count+=1
+    if count<4: raise RuntimeError(f"Dolly produced {count} examples; partial retained")
     partial.replace(target)
-    manifest = {
-        "dataset": "databricks/databricks-dolly-15k", "split": "train",
-        "license": "CC-BY-SA-3.0",
-        "source_url": "https://huggingface.co/datasets/databricks/databricks-dolly-15k",
-        "retrieved_at_utc": datetime.now(timezone.utc).isoformat(),
-        "total_examples_including_extra": count,
-        "note": "Orbit extra examples are appended after Dolly; inspect their individual metadata/source file.",
-    }
-    target.with_suffix(target.suffix + ".manifest.json").write_text(json.dumps(manifest, indent=2) + "\\n", encoding="utf-8")
-    print(f"Instruction data COMPLETE: {target} | {count:,} examples", flush=True)
+    target.with_suffix(target.suffix+".manifest.json").write_text(json.dumps({"dataset":"databricks/databricks-dolly-15k","examples_including_local_extras":count,"source_url":"https://huggingface.co/datasets/databricks/databricks-dolly-15k"},indent=2)+"\n",encoding="utf-8")
+    print(f"[Dolly] COMPLETE: {count:,} examples",flush=True)
     return target
-
 
 def main():
-    parser = argparse.ArgumentParser(description="Stream open text/instruction data with visible progress and resumable partial files.")
-    parser.add_argument("--wikitext-out", default="data/wikitext_train.txt")
-    parser.add_argument("--wikitext-config", choices=("wikitext-2-raw-v1", "wikitext-103-raw-v1"), default="wikitext-103-raw-v1")
-    parser.add_argument("--max-chars", type=int, default=5_000_000)
-    parser.add_argument("--instructions-out", default="data/orbit_instructions_full.jsonl")
-    parser.add_argument("--max-instructions", type=int, default=15_000)
-    parser.add_argument("--extra-instructions", default="data/orbit_instructions.example.jsonl")
-    parser.add_argument("--skip-wikitext", action="store_true")
-    parser.add_argument("--skip-instructions", action="store_true")
-    parser.add_argument("--no-resume", action="store_true", help="Discard partial files and start downloads from the beginning.")
-    args = parser.parse_args()
-    if args.max_chars < 20_000 or args.max_instructions < 4:
-        parser.error("max-chars must be >= 20000 and max-instructions >= 4")
-    if not args.skip_wikitext:
-        download_wikitext(args.wikitext_out, args.wikitext_config, args.max_chars, resume=not args.no_resume)
-    if not args.skip_instructions:
-        download_dolly(args.instructions_out, args.max_instructions, args.extra_instructions, resume=not args.no_resume)
-
-
-if __name__ == "__main__":
-    main()
+    p=argparse.ArgumentParser()
+    p.add_argument("--wikitext-out",default="data/raw/wikitext_train.txt")
+    p.add_argument("--wikitext-config",choices=["wikitext-2-raw-v1","wikitext-103-raw-v1"],default="wikitext-103-raw-v1")
+    p.add_argument("--max-chars",type=int,default=30_000_000)
+    p.add_argument("--instructions-out",default="data/orbit_instructions_full.jsonl")
+    p.add_argument("--max-instructions",type=int,default=15000)
+    p.add_argument("--extra-instructions",default="data/orbit_instructions.example.jsonl")
+    p.add_argument("--skip-wikitext",action="store_true"); p.add_argument("--skip-instructions",action="store_true")
+    a=p.parse_args()
+    if not a.skip_wikitext: download_wikitext(a.wikitext_out,a.wikitext_config,a.max_chars)
+    if not a.skip_instructions: download_dolly(a.instructions_out,a.max_instructions,a.extra_instructions)
+if __name__=="__main__": main()
