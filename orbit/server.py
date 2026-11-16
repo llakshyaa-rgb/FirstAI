@@ -21,6 +21,8 @@ from .runtime import OrbitRuntime, ModelNotReady
 from .tasks import TaskStore
 from .memory import MemoryStore
 from .images import ComfyUIImageBackend
+from .videos import ComfyUIVideoBackend, load_video_workflow_template
+from .safe_media import validate_media_prompt
 from .image_workflow import load_workflow_template
 from .agent import LocalAgent
 from .media import parse_multipart, save_upload, list_uploads, get_upload, delete_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
@@ -91,6 +93,11 @@ class OrbitApplication:
     def start_chat(self, message, attachments=None, conversation_id=None):
         route = classify_request(message)
         # Artifacts and generated images are still submitted from the same chat box.
+        if route["kind"] == "video_generation":
+            workflow_path = os.environ.get("ORBIT_VIDEO_WORKFLOW", "").strip()
+            if not workflow_path or not Path(workflow_path).is_file():
+                raise RuntimeError("Video generation is not configured. Set ORBIT_VIDEO_WORKFLOW to a ComfyUI API-format video workflow.")
+            return self.start_video(message)
         if route["kind"] == "image_generation":
             backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
             if backend_kind == "diffusers" and find_spec("diffusers") is None:
@@ -119,6 +126,12 @@ class OrbitApplication:
         if task["status"] not in {"failed", "interrupted", "needs_input"}:
             raise ValueError("Only failed, interrupted or waiting tasks can be retried.")
         goal = task["goal"]
+        if goal.startswith("Generate video: "):
+            prompt = goal.removeprefix("Generate video: ")
+            self.store.update(task_id, "queued", result=None, error=None)
+            self.store.emit(task_id, "queued", "Video task queued for another attempt.")
+            self._submit(self._video_worker, task_id, prompt, "", None)
+            return task_id
         if goal.startswith("Generate image: "):
             prompt = goal.removeprefix("Generate image: ")
             self.store.update(task_id, "queued", result=None, error=None)
@@ -184,13 +197,57 @@ class OrbitApplication:
         except Exception as exc:
             self.store.update(task_id, "failed", error=type(exc).__name__ + ": " + str(exc))
             self.store.emit(task_id, "method_failed", "Design creation failed: " + type(exc).__name__ + ": " + str(exc))
+    def start_video(self, prompt, negative_prompt="", seed=None):
+        validate_media_prompt(prompt)
+        task_id = self.store.create("Generate video: " + prompt)
+        self._submit(self._video_worker, task_id, prompt, negative_prompt, seed)
+        return task_id
+
+    def _video_worker(self, task_id, prompt, negative_prompt="", seed=None):
+        try:
+            validate_media_prompt(prompt)
+            self.store.update(task_id, "running")
+            self.store.emit(task_id, "status", "Orbit is preparing the video workflow and rendering frames.")
+            workflow_path = os.environ.get("ORBIT_VIDEO_WORKFLOW", "").strip()
+            if not workflow_path or not Path(workflow_path).is_file():
+                raise RuntimeError("Set ORBIT_VIDEO_WORKFLOW to a ComfyUI API-format workflow with a video output node.")
+            workflow = load_video_workflow_template(
+                workflow_path, prompt, negative_prompt=negative_prompt, seed=seed,
+                width=int(os.environ.get("ORBIT_VIDEO_WIDTH", "576")),
+                height=int(os.environ.get("ORBIT_VIDEO_HEIGHT", "576")),
+                frames=int(os.environ.get("ORBIT_VIDEO_FRAMES", "49")),
+                fps=int(os.environ.get("ORBIT_VIDEO_FPS", "12")),
+                steps=int(os.environ.get("ORBIT_VIDEO_STEPS", "20")),
+                cfg=float(os.environ.get("ORBIT_VIDEO_CFG", "6.0")),
+            )
+            backend = ComfyUIVideoBackend(base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188"))
+            progress = lambda event: self.store.emit(task_id, event["kind"], event["message"])
+            outputs = backend.generate(workflow, timeout=int(os.environ.get("ORBIT_VIDEO_TIMEOUT", "1800")), on_progress=progress)
+            if not outputs:
+                raise RuntimeError("The video workflow completed without returning a video file.")
+            GENERATED.mkdir(parents=True, exist_ok=True)
+            for item in outputs:
+                suffix = Path(item.get("filename", "video.mp4")).suffix.lower()
+                if suffix not in {".mp4", ".webm", ".mov", ".gif", ".webp"}:
+                    suffix = ".mp4"
+                name = uuid.uuid4().hex + suffix
+                (GENERATED / name).write_bytes(item["content"])
+                self.store.emit(task_id, "video", "Video generated.", url="/generated/" + name, filename=name)
+            self.store.update(task_id, "completed", result=f"Generated {len(outputs)} video(s).")
+            self.store.emit(task_id, "completed", f"Generated {len(outputs)} video(s).")
+        except Exception as exc:
+            self.store.update(task_id, "failed", error=f"{type(exc).__name__}: {exc}")
+            self.store.emit(task_id, "method_failed", f"Video generation failed: {type(exc).__name__}: {exc}")
+
     def start_image(self, prompt, negative_prompt="", seed=None):
+        validate_media_prompt(prompt)
         task_id = self.store.create("Generate image: " + prompt)
         self._submit(self._image_worker, task_id, prompt, negative_prompt, seed)
         return task_id
 
     def _image_worker(self, task_id, prompt, negative_prompt, seed):
         try:
+            validate_media_prompt(prompt)
             self.store.update(task_id, "running")
             self.store.emit(task_id, "status", "The image backend is preparing the requested artwork.")
             backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
@@ -716,12 +773,35 @@ def make_handler(app):
                     key, value = payload.get("key"), payload.get("value")
                     app.memory.set(key, value)
                     return self._json(201, {"saved": True, "memories": app.memory.get_all()})
+                if route == "/api/video":
+                    prompt = payload.get("prompt")
+                    negative_prompt = payload.get("negative_prompt", "")
+                    seed = payload.get("seed")
+                    if not isinstance(prompt, str) or not prompt.strip() or len(prompt) > 5000:
+                        return self._json(400, {"error": "prompt must be non-empty text up to 5000 characters"})
+                    if not isinstance(negative_prompt, str) or len(negative_prompt) > 2000:
+                        return self._json(400, {"error": "negative_prompt must be text up to 2000 characters"})
+                    if seed is not None and (type(seed) is not int or not 0 <= seed <= 2**64 - 1):
+                        return self._json(400, {"error": "seed must be an integer between 0 and 2^64-1"})
+                    try:
+                        validate_media_prompt(prompt)
+                    except ValueError as exc:
+                        return self._json(400, {"error": str(exc)})
+                    workflow_path = os.environ.get("ORBIT_VIDEO_WORKFLOW", "").strip()
+                    if not workflow_path or not Path(workflow_path).is_file():
+                        return self._json(503, {"error": "Video generation is not configured. Set ORBIT_VIDEO_WORKFLOW to a ComfyUI API-format workflow."})
+                    task_id = app.start_video(prompt.strip(), negative_prompt, seed)
+                    return self._json(202, {"task_id": task_id, "status": "queued"})
                 if route == "/api/image":
                     prompt = payload.get("prompt")
                     negative_prompt = payload.get("negative_prompt", "")
                     seed = payload.get("seed")
                     if not isinstance(prompt, str) or not prompt.strip():
                         return self._json(400, {"error": "prompt must be a non-empty string"})
+                    try:
+                        validate_media_prompt(prompt)
+                    except ValueError as exc:
+                        return self._json(400, {"error": str(exc)})
                     backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
                     if backend_kind == "comfyui":
                         workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
