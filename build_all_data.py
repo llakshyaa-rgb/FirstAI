@@ -23,8 +23,14 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 PROGRESS_FILE = LOG_DIR / 'build_progress.json'
 
 def save_progress(payload):
-    tmp = PROGRESS_FILE.with_suffix('.tmp')
-    tmp.write_text(json.dumps(payload, indent=2), encoding='utf-8')
+    try:
+        state = json.loads(PROGRESS_FILE.read_text(encoding="utf-8")) if PROGRESS_FILE.exists() else {"stages": {}}
+    except (OSError, ValueError):
+        state = {"stages": {}}
+    state.setdefault("stages", {})[payload["stage"]] = payload
+    state["updated_at"] = time.strftime("%Y-%m-%dT%H:%M:%S")
+    tmp = PROGRESS_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(state, indent=2), encoding="utf-8")
     tmp.replace(PROGRESS_FILE)
 
 
@@ -33,7 +39,8 @@ def run_step(label, args):
     if PROGRESS_FILE.exists():
         try:
             previous = json.loads(PROGRESS_FILE.read_text(encoding="utf-8"))
-            if previous.get("stage") == label and previous.get("status") == "completed":
+            stage_state = previous.get("stages", {}).get(label, {})
+            if stage_state.get("status") == "completed":
                 print("[SKIP] This stage is already marked completed in the saved progress manifest.", flush=True)
                 return
         except (OSError, ValueError):
