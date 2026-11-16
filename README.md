@@ -602,3 +602,7 @@ Committing the pipeline does not train model weights. The training commands must
 ## Image generation quick start
 
 Orbit already supports image-generation requests through its chat composer using either a ComfyUI API workflow or the optional Diffusers backend. See [`docs/ORBIT_IMAGE_GENERATION.md`](docs/ORBIT_IMAGE_GENERATION.md) for setup instructions and the ready-to-parameterize ComfyUI workflow at [`examples/comfyui/orbit_workflow_api.example.json`](examples/comfyui/orbit_workflow_api.example.json). Image models run separately from FirstGPT; use a separate GPU host for practical rendering rather than the Android phone.
+
+### Video generation
+
+Orbit also includes a ComfyUI text-to-video route and in-chat Video Studio. See [video setup](docs/ORBIT_VIDEO_GENERATION.md) and the [example workflow](examples/comfyui/orbit_video_workflow_api.example.json). Rendering requires a compatible video model/custom-node workflow and a separate GPU host. The example must be adapted to the selected model. Explicit nudity and sexual prompts are rejected by the media prompt guard.
