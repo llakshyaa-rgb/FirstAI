@@ -10,6 +10,9 @@ from __future__ import annotations
 import argparse
 import subprocess
 import sys
+import time
+import threading
+import queue
 from pathlib import Path
 
 
@@ -18,10 +21,61 @@ ROOT = Path(__file__).resolve().parent
 
 def run_step(label, args):
     print("\n" + "=" * 72 + "\n" + label + "\n" + "=" * 72, flush=True)
-    result = subprocess.run([sys.executable, *args], cwd=ROOT)
-    if result.returncode:
-        raise SystemExit(f"Stopped at '{label}' (exit {result.returncode}). Earlier outputs are preserved; fix the issue and rerun.")
-    
+    print("[START] " + time.strftime("%H:%M:%S") + " | " + " ".join(args), flush=True)
+    started = time.monotonic()
+    process = subprocess.Popen(
+        [sys.executable, "-u", *args],
+        cwd=ROOT,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+    )
+    lines = queue.Queue()
+
+    def read_output():
+        try:
+            for line in process.stdout:
+                lines.put(line.rstrip("\\n"))
+        finally:
+            lines.put(None)
+
+    reader = threading.Thread(target=read_output, daemon=True)
+    reader.start()
+    finished_reading = False
+    last_output = time.monotonic()
+    while not finished_reading:
+        try:
+            line = lines.get(timeout=5)
+            if line is None:
+                finished_reading = True
+            else:
+                print(line, flush=True)
+                last_output = time.monotonic()
+        except queue.Empty:
+            elapsed = time.monotonic() - started
+            quiet = time.monotonic() - last_output
+            if process.poll() is not None and not reader.is_alive():
+                finished_reading = True
+            elif quiet >= 30:
+                print(
+                    f"[HEARTBEAT] {label} still running | "
+                    f"elapsed {elapsed/60:.1f} min | "
+                    f"no child output for {quiet:.0f}s",
+                    flush=True,
+                )
+                last_output = time.monotonic()
+
+    return_code = process.wait()
+    elapsed = time.monotonic() - started
+    if return_code:
+        raise SystemExit(
+            f"[FAILED] {label} after {elapsed/60:.1f} min "
+            f"(exit {return_code}). Earlier outputs are preserved; "
+            "inspect the log above, fix the issue, and rerun."
+        )
+    print(f"[DONE] {label} | elapsed {elapsed/60:.1f} min", flush=True)
+
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
