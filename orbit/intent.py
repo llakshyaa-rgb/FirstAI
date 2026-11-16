@@ -16,6 +16,16 @@ def classify_request(message: str) -> dict:
     lower = text.casefold()
     route = {"kind": "chat", "format": None, "prompt": text, "capabilities": []}
 
+    # Explicit video generation is distinct from analysing uploaded video.
+    video_verbs = ("generate", "create", "make", "animate", "render")
+    wants_video = any(re.search(r"\\b" + re.escape(v) + r"\\b", lower) for v in video_verbs) and any(
+        re.search(r"\\b" + re.escape(n) + r"\\b", lower) for n in ("video", "clip", "animation", "animated scene")
+    )
+    if wants_video:
+        route.update(kind="video_generation", prompt=text)
+        route["capabilities"].append("video_generation")
+        return route
+
     # Explicit image generation is distinct from searching for existing images.
     image_verbs = ("generate", "draw", "create", "make", "design")
     image_nouns = ("image", "picture", "illustration", "wallpaper", "artwork", "logo", "avatar", "icon", "thumbnail", "cover art")
