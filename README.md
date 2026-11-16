@@ -597,3 +597,8 @@ Android GPU acceleration is not claimed: the current Debian PyTorch wheel does n
 Live public records are retrieved at data-build time. Practical examples (currency calculations, population density, weather planning, air-quality interpretation and earthquake-field explanations) are derived from those exact records and retain source URL, retrieval time, units and caveats. These are refreshed snapshots, not timeless facts. Dataset licenses and attribution metadata are retained. Private uploads are not included in training by default.
 
 Committing the pipeline does not train model weights. The training commands must actually run. FirstGPT remains a small experimental from-scratch model and must be evaluated on held-out data before relying on its answers.
+
+
+## Image generation quick start
+
+Orbit already supports image-generation requests through its chat composer using either a ComfyUI API workflow or the optional Diffusers backend. See [`docs/ORBIT_IMAGE_GENERATION.md`](docs/ORBIT_IMAGE_GENERATION.md) for setup instructions and the ready-to-parameterize ComfyUI workflow at [`examples/comfyui/orbit_workflow_api.example.json`](examples/comfyui/orbit_workflow_api.example.json). Image models run separately from FirstGPT; use a separate GPU host for practical rendering rather than the Android phone.
