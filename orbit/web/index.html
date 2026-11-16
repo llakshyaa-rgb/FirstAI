@@ -34,6 +34,16 @@
     <div id="upload-results"></div>
 
   </details>
+  <details class="video-panel">
+    <summary>Video Studio <span>Text-to-video · ComfyUI workflow</span></summary>
+    <p>Render short fashion films, swimwear and lingerie editorials, non-explicit figure studies, character animation and cinematic clips. Requires a connected ComfyUI video workflow on a GPU host.</p>
+    <form id="video-composer" class="video-composer">
+      <textarea id="video-prompt" rows="3" maxlength="5000" placeholder="Describe the scene, subject, camera movement, lighting and motion…" required></textarea>
+      <textarea id="video-negative" rows="2" maxlength="2000" placeholder="Optional negative prompt (flicker, distorted hands, text artifacts)…"></textarea>
+      <button id="video-send" type="submit">Generate video</button>
+    </form>
+    <p class="video-note">Video models are separate from FirstGPT. Android can host Orbit's interface, but rendering needs a suitable GPU host. Workflow must return ComfyUI video outputs.</p>
+  </details>
   <details class="design-panel">
     <summary>Creative Studio <span>Documents · spreadsheets · presentations · web assets</span></summary>
     <p>Create a finished, downloadable deliverable from one brief. Files are generated locally in Orbit's output folder.</p>
