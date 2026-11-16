@@ -30,6 +30,14 @@ def save_progress(payload):
 
 def run_step(label, args):
     print("\n" + "=" * 72 + "\n" + label + "\n" + "=" * 72, flush=True)
+    if PROGRESS_FILE.exists():
+        try:
+            previous = json.loads(PROGRESS_FILE.read_text(encoding="utf-8"))
+            if previous.get("stage") == label and previous.get("status") == "completed":
+                print("[SKIP] This stage is already marked completed in the saved progress manifest.", flush=True)
+                return
+        except (OSError, ValueError):
+            print("[WARN] Saved progress manifest could not be read; rerunning this stage.", flush=True)
     print("[START] " + time.strftime("%H:%M:%S") + " | " + " ".join(args), flush=True)
     started_wall = time.time()
     started = time.monotonic()
