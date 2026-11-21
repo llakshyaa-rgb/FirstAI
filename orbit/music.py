@@ -83,24 +83,25 @@ def has_audio(path: str | Path) -> bool:
     return bool(probe_audio_streams(path))
 
 
-def _parse_loudnorm(stderr: str, path: str | Path) -> Dict[str, float]:
-    """Parse FFmpeg loudnorm's JSON measurement block."""
+def _parse_loudnorm(stderr: str, path: str | Path) -> Dict[str, Any]:
+    """Return FFmpeg's complete loudnorm JSON measurement object."""
     start, end = stderr.rfind("{"), stderr.rfind("}")
     if start < 0 or end < start:
         raise RuntimeError(f"loudnorm produced no JSON for {path}:\\n{stderr}")
     try:
-        raw = json.loads(stderr[start:end + 1])
-        keys = ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")
-        values = {key: float(raw[key]) for key in keys}
+        data = json.loads(stderr[start:end + 1])
+        required = ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")
+        for key in required:
+            value = float(data[key])
+            if not __import__("math").isfinite(value):
+                raise ValueError(f"non-finite {key}")
     except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
         raise RuntimeError(f"loudnorm JSON malformed for {path}") from exc
-    if any(not __import__("math").isfinite(value) for value in values.values()):
-        raise RuntimeError(f"loudnorm returned non-finite values for {path}")
-    return values
+    return data
 
 
-def probe_loudness(path: str | Path) -> Dict[str, float]:
-    """Return loudnorm measurement values (input_i, input_tp, input_lra, etc.)."""
+def probe_loudness(path: str | Path) -> Dict[str, Any]:
+    """Return FFmpeg's raw loudnorm JSON measurements and output fields."""
     proc = _run([
         _ffmpeg(), "-hide_banner", "-nostats", "-i", str(path),
         "-af", "loudnorm=I=-14:TP=-1:LRA=11:print_format=json",
