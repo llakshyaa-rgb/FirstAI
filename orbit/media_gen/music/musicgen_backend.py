@@ -38,9 +38,9 @@ class MusicGenBackend(MusicBackend):
     ) -> Tuple[str, Dict[str, Any]]:
         OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
         model = self._load()
-        model.set_generation_params(duration=req.duration_s)
-        # AudioCraft uses torch's global RNG; serialize seeded generations.
+        # AudioCraft's generation settings and torch RNG are process-global.
         with self._generation_lock:
+            model.set_generation_params(duration=req.duration_s)
             if req.seed is not None:
                 import torch  # type: ignore
                 with torch.random.fork_rng(devices=list(range(torch.cuda.device_count())) if torch.cuda.is_available() else []):
@@ -78,4 +78,23 @@ class MusicGenBackend(MusicBackend):
         }
         if not path.is_file() or path.stat().st_size == 0:
             raise RuntimeError("MusicGen produced no audio file")
+        # AudioCraft writes at the model's native rate; convert to the
+        # caller-requested PCM format instead of merely reporting it.
+        import shutil
+        import subprocess
+        ffmpeg = shutil.which("ffmpeg")
+        if sample_rate != int(model.sample_rate) or channels != 2:
+            if not ffmpeg:
+                raise RuntimeError("ffmpeg is required to convert MusicGen output format")
+            converted = path.with_name(path.stem + ".converted.wav")
+            proc = subprocess.run(
+                [ffmpeg, "-y", "-i", str(path), "-ar", str(sample_rate),
+                 "-ac", str(channels), str(converted)],
+                capture_output=True, text=True, check=False,
+            )
+            if proc.returncode != 0 or not converted.is_file() or converted.stat().st_size == 0:
+                raise RuntimeError(f"MusicGen audio conversion failed: {proc.stderr[-1200:]}")
+            converted.replace(path)
+        meta["sample_rate"] = sample_rate
+        meta["channels"] = channels
         return str(path), meta
