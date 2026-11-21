@@ -56,16 +56,18 @@ def _probe_json(path: str | Path) -> Dict:
 # ---------------------------------------------------------------------------
 
 def probe_duration(path: str | Path) -> float:
-    """Duration in seconds. Reads format.duration; falls back to stream."""
-    info = _probe_json(path)
-    fmt = info.get("format", {})
-    dur = fmt.get("duration")
-    if dur is not None:
-        return float(dur)
-    for stream in info.get("streams", []):
-        if "duration" in stream:
-            return float(stream["duration"])
-    raise RuntimeError(f"could not determine duration for {path}")
+    """Return container duration in seconds using ffprobe scalar output."""
+    proc = _run([
+        _ffprobe(), "-v", "error", "-show_entries", "format=duration",
+        "-of", "default=nw=1:nk=1", str(path),
+    ])
+    try:
+        value = float(proc.stdout.decode().strip())
+    except (ValueError, AttributeError) as exc:
+        raise RuntimeError(f"could not determine duration for {path}") from exc
+    if value <= 0:
+        raise RuntimeError(f"invalid duration for {path}: {value}")
+    return value
 
 
 def probe_audio_streams(path: str | Path) -> List[Dict]:
@@ -81,37 +83,30 @@ def has_audio(path: str | Path) -> bool:
     return bool(probe_audio_streams(path))
 
 
+def _parse_loudnorm(stderr: str, path: str | Path) -> Dict[str, float]:
+    """Parse FFmpeg loudnorm's JSON measurement block."""
+    start, end = stderr.rfind("{"), stderr.rfind("}")
+    if start < 0 or end < start:
+        raise RuntimeError(f"loudnorm produced no JSON for {path}:\\n{stderr}")
+    try:
+        raw = json.loads(stderr[start:end + 1])
+        keys = ("input_i", "input_tp", "input_lra", "input_thresh", "target_offset")
+        values = {key: float(raw[key]) for key in keys}
+    except (ValueError, KeyError, TypeError, json.JSONDecodeError) as exc:
+        raise RuntimeError(f"loudnorm JSON malformed for {path}") from exc
+    if any(not __import__("math").isfinite(value) for value in values.values()):
+        raise RuntimeError(f"loudnorm returned non-finite values for {path}")
+    return values
+
+
 def probe_loudness(path: str | Path) -> Dict[str, float]:
-    """Measure integrated loudness via ebur128. Returns LUFS + true peak."""
+    """Return loudnorm measurement values (input_i, input_tp, input_lra, etc.)."""
     proc = _run([
-        _ffmpeg(), "-hide_banner", "-nostats",
-        "-i", str(path),
-        "-af", "ebur128=peak=true",
+        _ffmpeg(), "-hide_banner", "-nostats", "-i", str(path),
+        "-af", "loudnorm=I=-14:TP=-1:LRA=11:print_format=json",
         "-f", "null", "-",
     ])
-
-    # ebur128 writes its summary to stderr. Parse the final block.
-    text = proc.stderr.decode(errors="replace")
-    summary = text.rsplit("Summary:", 1)
-    if len(summary) != 2:
-        raise RuntimeError(f"ebur128 produced no summary for {path}")
-    block = summary[1]
-
-    result: Dict[str, float] = {}
-    for line in block.splitlines():
-        line = line.strip()
-        if line.startswith("I:") and "LUFS" in line:
-            result["integrated_lufs"] = float(line.split()[1])
-        elif line.startswith("LRA:") and "LU" in line:
-            result["lra_lu"] = float(line.split()[1])
-        elif line.startswith("Peak:") and "dBFS" in line:
-            result["true_peak_dbfs"] = float(line.split()[1])
-
-    if "integrated_lufs" not in result:
-        raise RuntimeError(
-            f"ebur128 summary malformed for {path}:\n{block}"
-        )
-    return result
+    return _parse_loudnorm(proc.stderr.decode(errors="replace"), path)
 
 
 # ---------------------------------------------------------------------------
@@ -140,16 +135,9 @@ def normalize(
         f"loudnorm=I={target_lufs}:TP={true_peak_db}:LRA={lra}:print_format=json",
         "-f", "null", "-",
     ])
-    text = proc.stderr.decode(errors="replace")
-
-    # The JSON block is the last {...} object printed to stderr.
-    start = text.rfind("{")
-    end = text.rfind("}")
-    if start == -1 or end == -1 or end < start:
-        raise RuntimeError(
-            f"loudnorm pass 1 emitted no JSON for {src}:\n{text}"
-        )
-    measured = json.loads(text[start:end + 1])
+    measured = _parse_loudnorm(
+        proc.stderr.decode(errors="replace"), src
+    )
 
     # Pass 2: apply measured values.
     _run([
