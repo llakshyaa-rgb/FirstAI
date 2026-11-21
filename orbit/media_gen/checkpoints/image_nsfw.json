@@ -1,12 +1,28 @@
 {
   "name": "image_nsfw",
   "kind": "image",
-  "threshold": 0.6,
-  "keywords": [
-    "explicit nudity",
-    "pornographic",
-    "sexualized"
-  ],
-  "explicit_markers": [],
+  "family": "sdxl",
+  "format": "diffusers",
+  "task": "text-to-image",
+  "base_model": "stabilityai/stable-diffusion-xl-base-1.0",
+  "source": "huggingface_hub",
+  "vae": "madebyollin/sdxl-vae-fp16-fix",
+  "defaults": {
+    "width": 1024,
+    "height": 1024,
+    "steps": 30,
+    "cfg_scale": 7.0,
+    "sampler": "dpmpp_2m",
+    "scheduler": "karras",
+    "seed": null
+  },
+  "precision": "fp16",
+  "requires": {
+    "vram_gb": 10.0,
+    "runtime": "cuda",
+    "python": ">=3.10"
+  },
+  "tags": ["image-generation", "photoreal", "sdxl"],
+  "license": "see-model-card",
   "version": "1.0.0"
 }
