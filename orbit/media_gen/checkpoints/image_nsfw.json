@@ -1,1 +1,12 @@
-.
+{
+  "name": "image_nsfw",
+  "kind": "image",
+  "threshold": 0.6,
+  "keywords": [
+    "explicit nudity",
+    "pornographic",
+    "sexualized"
+  ],
+  "explicit_markers": [],
+  "version": "1.0.0"
+}
