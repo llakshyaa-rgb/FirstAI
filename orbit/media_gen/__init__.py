@@ -1,4 +1,4 @@
-"""Media generation subpackage: music + video backends, safety, jobs, routing."""
+"""Media generation subpackage: music and video backends, jobs, and routing."""
 from .base import MediaRequest, MediaResult, MediaKind
 from .registry import Registry, backend_registry
 from .jobs import Job, JobStatus, JobQueue, global_queue
