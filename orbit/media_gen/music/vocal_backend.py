@@ -56,8 +56,7 @@ class VocalBackend(MusicBackend):
         else:
             final_path = raw_path
 
-        if channels == 1:
-            self._to_mono(str(final_path))
+        self._convert_audio(str(final_path), sample_rate, channels)
 
         meta: Dict[str, Any] = {
             "voice": voice,
@@ -135,14 +134,17 @@ class VocalBackend(MusicBackend):
             check=True,
         )
 
-    def _to_mono(self, path: str) -> None:
+    def _convert_audio(self, path: str, sample_rate: int, channels: int) -> None:
         ffmpeg = shutil.which("ffmpeg")
         if not ffmpeg:
-            return
-        tmp = path + ".mono.wav"
+            raise RuntimeError("ffmpeg is required to enforce vocal output format")
+        tmp = path + ".converted.wav"
         subprocess.run(
-            [ffmpeg, "-y", "-i", path, "-ac", "1", tmp],
+            [ffmpeg, "-y", "-i", path, "-ar", str(sample_rate),
+             "-ac", str(channels), tmp],
             capture_output=True,
             check=True,
         )
+        if not os.path.isfile(tmp) or os.path.getsize(tmp) == 0:
+            raise RuntimeError("TTS audio conversion produced an empty file")
         shutil.move(tmp, path)
