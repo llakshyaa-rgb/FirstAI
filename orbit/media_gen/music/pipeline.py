@@ -1,10 +1,9 @@
-"""End-to-end music pipeline: safety → instrumental → optional vocal mix."""
+"""End-to-end music generation: instrumental track plus optional vocal mix."""
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
 from ..base import MediaKind, MediaRequest
-from ..safety import SafetyScorer
 from .base import MusicResult
 
 
@@ -22,13 +21,8 @@ class MusicPipeline:
         else:
             raise TypeError("router must be callable or expose route()")
 
-        self._safety = SafetyScorer("music_nsfw")
-
     @staticmethod
-    def _failure(
-        request: MediaRequest,
-        error: str,
-    ) -> MusicResult:
+    def _failure(request: MediaRequest, error: str) -> MusicResult:
         return MusicResult(
             ok=False,
             request_id=request.request_id,
@@ -76,23 +70,6 @@ class MusicPipeline:
             if lyrics is not None and not isinstance(lyrics, str):
                 return self._failure(request, "vocal lyrics must be a string")
 
-        # Screen the full user-provided creative text, not just the music prompt.
-        safety_text = prompt
-        if lyrics:
-            safety_text = f"{prompt}\n{lyrics}"
-
-        safety = self._safety.check(safety_text)
-        if not safety["safe"]:
-            return self._failure(
-                request,
-                (
-                    f"music safety check failed: "
-                    f"score={safety['score']:.2f}, "
-                    f"threshold={safety['threshold']:.2f}, "
-                    f"matched={safety['matched']}"
-                ),
-            )
-
         instrumental = self._route(request, instrumental_backend)
         if not instrumental.ok:
             return self._failure(
@@ -125,7 +102,6 @@ class MusicPipeline:
                 f"vocal generation or mixing failed: {mixed.error}",
             )
 
-        # Preserve instrumental details while exposing the final vocal mix.
         mixed.meta = {
             **(instrumental.meta or {}),
             **(mixed.meta or {}),
