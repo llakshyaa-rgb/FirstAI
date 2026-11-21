@@ -5,7 +5,7 @@ import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 
 class MediaKind(str, Enum):
@@ -24,6 +24,7 @@ class MediaRequest:
     seed: Optional[int] = None
     extras: Dict[str, Any] = field(default_factory=dict)
     request_id: str = field(default_factory=lambda: uuid.uuid4().hex)
+    negative_prompt: Optional[str] = None
 
 
 @dataclass
@@ -44,7 +45,11 @@ class MediaBackend(ABC):
     kind: MediaKind = MediaKind.IMAGE
 
     @abstractmethod
-    def generate(self, req: MediaRequest, context: Optional[Dict[str, Any]] = None) -> MediaResult:
+    def generate(
+        self,
+        req: MediaRequest,
+        context: Optional[Dict[str, Any]] = None,
+    ) -> MediaResult:
         ...
 
     def healthcheck(self) -> bool:
