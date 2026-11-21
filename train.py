@@ -246,7 +246,7 @@ def main():
         step_started = time.perf_counter()
         log(f"STEP {step + 1}/{args.steps}: started.")
 
-        if step % args.eval_interval == 0:
+        if step % args.eval_interval == 0 or step == args.steps - 1:
             scores = estimate()
             perplexity = math.exp(min(scores["validation"], 20))
             log(f"Metrics at step {step}: train={scores['train']:.4f}, validation={scores['validation']:.4f}, perplexity={perplexity:.2f}.")
