@@ -77,8 +77,12 @@ def trim(
     """Trim [start, end) or [start, start+duration). Stream-copy fast; re-encode on cut drift."""
     if end is None and duration is None:
         raise VideoPostError("trim requires end or duration")
+    if start < 0 or (duration is not None and duration <= 0):
+        raise VideoPostError("trim start must be non-negative and duration positive")
     if end is None and duration is not None:
         end = start + duration
+    if end <= start:
+        raise VideoPostError("trim end must be greater than start")
 
     Path(dst).parent.mkdir(parents=True, exist_ok=True)
     _run(
@@ -285,8 +289,12 @@ def concat(
     Path(dst).parent.mkdir(parents=True, exist_ok=True)
 
     listfile = Path(dst).with_suffix(".concat.txt")
+    def quote_concat_path(path: str | Path) -> str:
+        value = str(Path(path).resolve()).replace("\\", "/")
+        return "file '" + value.replace("'", "'\\''") + "'"
+
     listfile.write_text(
-        "\n".join(f"file '{Path(p).resolve()}'" for p in parts) + "\n",
+        "\n".join(quote_concat_path(p) for p in parts) + "\n",
         encoding="utf-8",
     )
 
@@ -393,74 +401,62 @@ def finalize(
     thumbnail_path: Optional[str | Path] = None,
     thumbnail_at: float = 0.5,
 ) -> Dict[str, Any]:
-    """Run the full finishing chain in one pass. Returns metadata dict."""
+    """Apply each finishing stage to a distinct temporary file, then publish."""
     dst_path = Path(dst)
     dst_path.parent.mkdir(parents=True, exist_ok=True)
-    work = dst_path.with_name(f"{dst_path.stem}.{uuid.uuid4().hex}.work.mp4")
-    cur = str(src)
+    token = uuid.uuid4().hex
+    intermediates: List[Path] = []
+    current = Path(src)
+
+    def next_path(label: str) -> Path:
+        path = dst_path.with_name(f"{dst_path.stem}.{token}.{label}.mp4")
+        intermediates.append(path)
+        return path
 
     try:
-        # 1. Optional trim to max duration.
         if max_duration is not None:
-            trim(cur, work, start=0.0, duration=max_duration)
-            cur = str(work)
-
-        # 2. Resize.
+            if max_duration <= 0:
+                raise VideoPostError("max_duration must be positive")
+            target = next_path("trim")
+            trim(current, target, start=0.0, duration=max_duration)
+            current = target
         if target_size is not None:
-            w, h = target_size
-            resize(cur, work, width=w, height=h, keep_aspect=True)
-            cur = str(work)
-
-        # 3. Retime fps.
+            width, height = target_size
+            if width <= 0 or height <= 0:
+                raise VideoPostError("target_size dimensions must be positive")
+            target = next_path("resize")
+            resize(current, target, width=width, height=height, keep_aspect=True)
+            current = target
         if target_fps is not None:
-            change_fps(cur, work, fps=target_fps, interpolate=False)
-            cur = str(work)
-
-        # 4. Attach or replace audio.
+            if target_fps <= 0:
+                raise VideoPostError("target_fps must be positive")
+            target = next_path("fps")
+            change_fps(current, target, fps=target_fps, interpolate=False)
+            current = target
         if audio is not None:
-            mux_audio(
-                cur,
-                audio,
-                work,
-                shortest=True,
-                loop_audio=True,
-            )
-            cur = str(work)
+            target = next_path("audio")
+            mux_audio(current, audio, target, shortest=True, loop_audio=True)
+            current = target
 
-        # 5. Final normalize pass to dst with faststart.
-        if cur == str(src):
-            # No transforms requested; remux streams without re-encoding.
-            _run(
-                [
-                    _ffmpeg(), "-y",
-                    "-i", cur,
-                    "-c", "copy",
-                    "-movflags", "+faststart",
-                    str(dst),
-                ]
-            )
+        if current == Path(src):
+            _run([_ffmpeg(), "-y", "-i", str(current), "-c", "copy",
+                  "-movflags", "+faststart", str(dst_path)])
         else:
-            shutil.move(cur, dst)
+            shutil.move(str(current), str(dst_path))
 
-        # 6. Thumbnail.
         if thumbnail_path is not None:
             try:
-                thumbnail(dst, thumbnail_path, at=thumbnail_at)
+                thumbnail(dst_path, thumbnail_path, at=thumbnail_at)
             except VideoPostError:
                 thumbnail_path = None
 
-        info = probe(dst)
+        info = probe(dst_path)
         fmt = info.get("format", {})
         streams = info.get("streams", [])
-        vstream = next(
-            (s for s in streams if s.get("codec_type") == "video"), {}
-        )
-        astream = next(
-            (s for s in streams if s.get("codec_type") == "audio"), {}
-        )
-
+        vstream = next((item for item in streams if item.get("codec_type") == "video"), {})
+        astream = next((item for item in streams if item.get("codec_type") == "audio"), {})
         return {
-            "path": str(dst),
+            "path": str(dst_path),
             "duration": float(fmt.get("duration", 0.0) or 0.0),
             "size_bytes": int(fmt.get("size", 0) or 0),
             "width": int(vstream.get("width", 0) or 0),
@@ -472,11 +468,11 @@ def finalize(
             "thumbnail": str(thumbnail_path) if thumbnail_path else None,
         }
     finally:
-        try:
-            if work.exists():
-                work.unlink()
-        except OSError:
-            pass
+        for temporary in intermediates:
+            try:
+                temporary.unlink(missing_ok=True)
+            except OSError:
+                pass
 
 
 def probe_width(path: str | Path) -> int:
