@@ -1,1 +1,11 @@
-.
+{
+  "name": "music_nsfw",
+  "kind": "audio",
+  "threshold": 0.5,
+  "keywords": [
+    "explicit sexual content",
+    "pornographic"
+  ],
+  "explicit_markers": [],
+  "version": "1.0.0"
+}
