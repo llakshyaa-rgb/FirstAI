@@ -1,12 +1,30 @@
 {
   "name": "video_nsfw",
   "kind": "video",
-  "threshold": 0.55,
-  "keywords": [
-    "explicit nudity",
-    "pornographic",
-    "sexualized"
-  ],
-  "explicit_markers": [],
+  "family": "svd",
+  "format": "diffusers",
+  "task": "image-to-video",
+  "base_model": "stabilityai/stable-video-diffusion-img2vid-xt",
+  "source": "huggingface_hub",
+  "components": "loaded_from_base_model",
+  "defaults": {
+    "width": 1024,
+    "height": 576,
+    "num_frames": 25,
+    "fps": 7,
+    "motion_bucket_id": 127,
+    "augmentation_level": 0.0,
+    "steps": 25,
+    "cfg_scale": 3.0,
+    "seed": null
+  },
+  "precision": "fp16",
+  "requires": {
+    "vram_gb": 18.0,
+    "runtime": "cuda",
+    "python": ">=3.10"
+  },
+  "tags": ["image-to-video", "svd"],
+  "license": "see-model-card",
   "version": "1.0.0"
 }
