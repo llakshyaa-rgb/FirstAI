@@ -1,19 +1,41 @@
-"""End-to-end music pipeline: safety → optional instrumental → optional vocal → mix."""
+"""End-to-end music pipeline: safety → instrumental → optional vocal mix."""
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
 
-from ..base import MediaKind, MediaRequest, MediaResult
+from ..base import MediaKind, MediaRequest
 from ..safety import SafetyScorer
-from .base import MusicBackend, MusicResult
+from .base import MusicResult
 
 
 class MusicPipeline:
     def __init__(self, router=None) -> None:
-        from ..router import route_request  # lazy to avoid cycle
-        self._route = route_request
+        """Accept a Router instance; otherwise use Orbit's default router."""
+        if router is None:
+            from ..router import route_request
+
+            self._route = route_request
+        elif callable(getattr(router, "route", None)):
+            self._route = router.route
+        elif callable(router):
+            self._route = router
+        else:
+            raise TypeError("router must be callable or expose route()")
+
         self._safety = SafetyScorer("music_nsfw")
-        self._router = router
+
+    @staticmethod
+    def _failure(
+        request: MediaRequest,
+        error: str,
+    ) -> MusicResult:
+        return MusicResult(
+            ok=False,
+            request_id=request.request_id,
+            kind=MediaKind.MUSIC,
+            backend="pipeline",
+            error=error,
+        )
 
     def run(
         self,
@@ -23,49 +45,91 @@ class MusicPipeline:
         instrumental_backend: str = "musicgen",
         vocal: Optional[Dict[str, Any]] = None,
     ) -> MusicResult:
-        req = MediaRequest(
+        if not isinstance(prompt, str) or not prompt.strip():
+            request = MediaRequest(
+                kind=MediaKind.MUSIC,
+                prompt=str(prompt or ""),
+                duration_s=duration_s,
+                seed=seed,
+            )
+            return self._failure(request, "music prompt cannot be empty")
+
+        if duration_s <= 0:
+            request = MediaRequest(
+                kind=MediaKind.MUSIC,
+                prompt=prompt,
+                duration_s=duration_s,
+                seed=seed,
+            )
+            return self._failure(request, "duration_s must be greater than zero")
+
+        request = MediaRequest(
             kind=MediaKind.MUSIC,
             prompt=prompt,
             duration_s=duration_s,
             seed=seed,
         )
 
-        safety = self._safety.check(prompt)
+        lyrics = None
+        if vocal is not None:
+            lyrics = vocal.get("lyrics")
+            if lyrics is not None and not isinstance(lyrics, str):
+                return self._failure(request, "vocal lyrics must be a string")
+
+        # Screen the full user-provided creative text, not just the music prompt.
+        safety_text = prompt
+        if lyrics:
+            safety_text = f"{prompt}\n{lyrics}"
+
+        safety = self._safety.check(safety_text)
         if not safety["safe"]:
-            return MusicResult(
-                ok=False,
-                request_id=req.request_id,
-                kind=MediaKind.MUSIC,
-                backend="pipeline",
-                error=f"nsfw_score={safety['score']:.2f} matched={safety['matched']}",
+            return self._failure(
+                request,
+                (
+                    f"music safety check failed: "
+                    f"score={safety['score']:.2f}, "
+                    f"threshold={safety['threshold']:.2f}, "
+                    f"matched={safety['matched']}"
+                ),
             )
 
-        instr = self._route(req, instrumental_backend)
-        if not instr.ok:
-            return MusicResult(
-                ok=False,
-                request_id=req.request_id,
-                kind=MediaKind.MUSIC,
-                backend="pipeline",
-                error=f"instrumental failed: {instr.error}",
+        instrumental = self._route(request, instrumental_backend)
+        if not instrumental.ok:
+            return self._failure(
+                request,
+                f"instrumental generation failed: {instrumental.error}",
             )
 
         if not vocal:
-            return instr
+            return instrumental
 
-        vocal_req = MediaRequest(
+        vocal_request = MediaRequest(
             kind=MediaKind.MUSIC,
             prompt=prompt,
             duration_s=duration_s,
             seed=seed,
             extras={
-                "instrumental_uri": instr.uri,
+                "instrumental_uri": instrumental.uri,
                 "voice": vocal.get("voice", "default"),
-                "lyrics": vocal.get("lyrics"),
+                "lyrics": lyrics,
                 "pitch_semitones": vocal.get("pitch_semitones", 0.0),
+                "sample_rate": vocal.get("sample_rate", 44100),
+                "channels": vocal.get("channels", 1),
             },
         )
-        mixed = self._route(vocal_req, "vocal")
+
+        mixed = self._route(vocal_request, "vocal")
         if not mixed.ok:
-            return instr  # fall back to instrumental-only
+            return self._failure(
+                request,
+                f"vocal generation or mixing failed: {mixed.error}",
+            )
+
+        # Preserve instrumental details while exposing the final vocal mix.
+        mixed.meta = {
+            **(instrumental.meta or {}),
+            **(mixed.meta or {}),
+            "instrumental_uri": instrumental.uri,
+            "vocal_mix": True,
+        }
         return mixed
