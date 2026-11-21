@@ -1,11 +1,27 @@
 {
   "name": "music_nsfw",
-  "kind": "audio",
-  "threshold": 0.5,
-  "keywords": [
-    "explicit sexual content",
-    "pornographic"
-  ],
-  "explicit_markers": [],
+  "kind": "music",
+  "family": "musicgen",
+  "format": "audiocraft",
+  "task": "text-to-music",
+  "base_model": "facebook/musicgen-large",
+  "source": "huggingface_hub",
+  "defaults": {
+    "duration": 30.0,
+    "sample_rate": 48000,
+    "channels": 2,
+    "music_lufs": -18.0,
+    "voice_lufs": -16.0,
+    "master_lufs": -14.0,
+    "seed": null
+  },
+  "precision": "fp16",
+  "requires": {
+    "vram_gb": 12.0,
+    "runtime": "cuda",
+    "python": ">=3.10"
+  },
+  "tags": ["text-to-music", "musicgen"],
+  "license": "see-model-card",
   "version": "1.0.0"
 }
