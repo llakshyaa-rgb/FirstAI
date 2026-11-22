@@ -35,39 +35,94 @@ def load_examples(path):
 
 
 def encode_examples(examples, tokenizer, block_size):
+    """Encode SFT rows while preserving the complete answer and trimming prompts at turn boundaries."""
+    import re
+
     rows = []
-    for prompt, response in examples:
-        # Training prompts must match OrbitRuntime's inference format. Most
-        # checked-in examples already include "Owner:" or a specialised role
-        # prefix (for example "Tool planner:"); never prepend a second Owner.
+    stats = {"unchanged": 0, "history_turns_removed": 0, "long_current_prompt_compacted": 0}
+
+    for row_number, (prompt, response) in enumerate(examples, 1):
         normalized_prompt = prompt.strip()
         if not normalized_prompt.startswith(("Owner:", "Tool planner:")):
             normalized_prompt = "Owner: " + normalized_prompt
-        completion_marker = "\nJSON:" if normalized_prompt.startswith("Tool planner:") else "\nOrbit:"
-        prefix = tokenizer.encode(normalized_prompt + completion_marker)
+
+        is_tool = normalized_prompt.startswith("Tool planner:")
+        completion_marker = "\nJSON:" if is_tool else "\nOrbit:"
         answer_text = response.strip()
         if answer_text.startswith("Orbit:"):
             answer_text = answer_text[len("Orbit:"):].lstrip()
+
         response_text = " " + answer_text + "\n"
-        # Real BPETokenizer supports EOS; simple tokenizer adapters may not.
         try:
             answer = tokenizer.encode(response_text, add_eos=True)
         except TypeError as exc:
             if "add_eos" not in str(exc):
                 raise
             answer = tokenizer.encode(response_text)
+
+        # Never silently train on only the tail of an answer. The V3 builder
+        # should have removed these rows; this is a second, fail-closed guard.
         if len(answer) >= block_size:
-            answer = answer[-(block_size - 1):]
-            prefix = []
+            raise ValueError(
+                f"Example {row_number} response is {len(answer)} tokens; "
+                f"maximum allowed is {block_size - 1}. Rebuild/filter the dataset."
+            )
+
+        available = block_size - len(answer)
+        full_prefix = tokenizer.encode(normalized_prompt + completion_marker)
+        if len(full_prefix) <= available:
+            prefix = full_prefix
+            stats["unchanged"] += 1
         else:
-            prefix = prefix[-(block_size - len(answer)):]
+            # Keep the newest complete Owner turn and its intervening context.
+            # This avoids starting the prompt halfway through an old message.
+            owner_starts = [m.start() for m in re.finditer(r"(?m)^Owner:\s*", normalized_prompt)]
+            selected = None
+            for start in owner_starts:
+                candidate = tokenizer.encode(normalized_prompt[start:] + completion_marker)
+                if len(candidate) <= available:
+                    selected = candidate
+                    break
+
+            if selected is not None:
+                prefix = selected
+                stats["history_turns_removed"] += 1
+            else:
+                # A single current Owner turn is itself too long. Preserve its
+                # beginning (the task framing) and ending (the latest details),
+                # plus the required completion marker; never touch the answer.
+                role = "Tool planner:" if is_tool else "Owner:"
+                role_ids = tokenizer.encode(role + " ")
+                marker_ids = tokenizer.encode(completion_marker)
+                body = normalized_prompt[len(role):].lstrip()
+                body_ids = tokenizer.encode(body)
+                fixed = len(role_ids) + len(marker_ids)
+                body_budget = available - fixed
+                if body_budget < 2:
+                    raise ValueError(
+                        f"Example {row_number} leaves no room for its prompt role and completion marker."
+                    )
+                if len(body_ids) <= body_budget:
+                    body_kept = body_ids
+                else:
+                    # Keep roughly one quarter of the opening and three
+                    # quarters of the newest request content.
+                    opening = max(1, body_budget // 4)
+                    closing = body_budget - opening
+                    body_kept = body_ids[:opening] + body_ids[-closing:]
+                prefix = role_ids + body_kept + marker_ids
+                stats["long_current_prompt_compacted"] += 1
+
         ids = prefix + answer
-        if len(ids) >= 2:
+        if len(ids) > block_size:
+            raise AssertionError(f"Internal length error on example {row_number}: {len(ids)} > {block_size}")
+        if len(ids) >= 2 and len(ids) - len(prefix) > 0:
             rows.append((ids, len(prefix)))
+
     if not rows:
         raise ValueError("No usable examples after applying block_size")
+    encode_examples.last_stats = stats
     return rows
-
 
 def make_batch(rows, batch_size, block_size, device):
     selected = [rows[random.randrange(len(rows))] for _ in range(batch_size)]
