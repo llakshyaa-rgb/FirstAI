@@ -18,22 +18,23 @@ from firstai.bpe import BPETokenizer
 
 def load_examples(path):
     examples = []
-    # JSONL records are separated only by LF/CRLF. str.splitlines() also\n    # splits Unicode U+2028/U+2029 characters that may legally occur inside\n    # JSON string values, corrupting otherwise valid records.\n    from io import StringIO\n    with Path(path).open("r", encoding="utf-8", newline="") as source:\n        records = StringIO(source.read())\n    for line_no, line in enumerate(records, 1):
-        if not line.strip():
-            continue
-        try:
-            item = json.loads(line)
-        except json.JSONDecodeError as exc:
-            raise ValueError(f"Invalid JSON on line {line_no}: {exc}") from exc
-        prompt, response = item.get("prompt"), item.get("response")
-        if not isinstance(prompt, str) or not prompt.strip() or not isinstance(response, str) or not response.strip():
-            raise ValueError(f"Line {line_no} needs non-empty string fields 'prompt' and 'response'")
-        examples.append((prompt.strip(), response.strip()))
+    # JSONL records are separated by LF/CRLF only. str.splitlines() also
+    # splits Unicode U+2028/U+2029 inside valid JSON string values.
+    with Path(path).open("r", encoding="utf-8", newline="") as source:
+        for line_no, line in enumerate(source, 1):
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+            except json.JSONDecodeError as exc:
+                raise ValueError(f"Invalid JSON on line {line_no}: {exc}") from exc
+            prompt, response = item.get("prompt"), item.get("response")
+            if not isinstance(prompt, str) or not prompt.strip() or not isinstance(response, str) or not response.strip():
+                raise ValueError(f"Line {line_no} needs non-empty string fields 'prompt' and 'response'")
+            examples.append((prompt.strip(), response.strip()))
     if len(examples) < 10:
         raise ValueError("At least ten instruction examples are required for a stable train/validation split")
     return examples
-
-
 def encode_examples(examples, tokenizer, block_size):
     """Encode SFT rows while preserving the complete answer and trimming prompts at turn boundaries."""
     import re
