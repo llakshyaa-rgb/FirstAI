@@ -415,7 +415,7 @@ def main():
             order[position:position + group_capacity]
             for position in range(0, len(order), group_capacity)
         ]
-        first_group = start_at // group_capacity
+        first_group = len(groups) if start_at == len(order) else start_at // group_capacity
 
         print(
             f"\nEPOCH {epoch + 1}/{args.epochs}: "
