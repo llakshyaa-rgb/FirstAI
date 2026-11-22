@@ -18,7 +18,7 @@ from firstai.bpe import BPETokenizer
 
 def load_examples(path):
     examples = []
-    for line_no, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
+    # JSONL records are separated only by LF/CRLF. str.splitlines() also\n    # splits Unicode U+2028/U+2029 characters that may legally occur inside\n    # JSON string values, corrupting otherwise valid records.\n    from io import StringIO\n    with Path(path).open("r", encoding="utf-8", newline="") as source:\n        records = StringIO(source.read())\n    for line_no, line in enumerate(records, 1):
         if not line.strip():
             continue
         try:
