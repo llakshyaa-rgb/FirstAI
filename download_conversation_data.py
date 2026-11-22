@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Stream clean, turn-aligned assistant examples from UltraChat.
 
-Conversation context is truncated only at message boundaries. Resume restores
-turn hashes from the partial file so interrupted downloads do not duplicate
-already-written examples.
+Context is kept as a continuous suffix of complete messages. If the next
+older message does not fit, selection stops rather than skipping it.
+Resume restores hashes from the partial file to avoid duplicate examples.
 """
 from __future__ import annotations
 
@@ -37,31 +37,39 @@ def messages(row):
 
 
 def format_context(prior, max_context_chars, max_messages=12):
-    """Keep the newest whole messages; never slice through a role or message."""
+    """Keep the newest continuous suffix of complete messages."""
     selected = []
     used = 0
+
     for role, body in reversed(prior[-max_messages:]):
-        line = ("Owner: " if role == "user" else "Orbit: ") + body
+        prefix = "Owner: " if role == "user" else "Orbit: "
+        line = prefix + body
         cost = len(line) + (1 if selected else 0)
+
+        # Stop at the first message that cannot fit. Never skip over it.
         if used + cost > max_context_chars:
-            continue
+            break
+
         selected.append(line)
         used += cost
+
     selected.reverse()
 
-    # A training prompt must end with a user turn, and should start with one
-    # whenever possible. Drop leading assistant messages after trimming.
-    while selected and selected[0].startswith("Orbit: "):
+    # A prompt should begin with a user message.
+    while selected and not selected[0].startswith("Owner: "):
         selected.pop(0)
+
+    # The final context message must be the user turn being answered.
     if not selected or not selected[-1].startswith("Owner: "):
         return ""
+
     return "\n".join(selected)
 
 
 def examples(msgs, source_index, max_context_chars):
     prior = []
     for role, body in msgs:
-        if role == "assistant" and len(body) >= 12 and len(body) <= 1800:
+        if role == "assistant" and 12 <= len(body) <= 1800:
             prompt = format_context(prior, max_context_chars)
             if prompt:
                 response = "Orbit: " + body
@@ -99,17 +107,26 @@ def load_resume_state(partial):
                 item = json.loads(line)
                 metadata = item.get("metadata") or {}
                 saved += 1
-                skip = max(skip, int(metadata.get("source_record_index", -1)) + 1)
+                skip = max(
+                    skip,
+                    int(metadata.get("source_record_index", -1)) + 1,
+                )
                 digest = metadata.get("turn_hash")
                 if not digest:
                     digest = hashlib.sha256(
-                        (item.get("prompt", "") + "\0" + item.get("response", "")).encode("utf-8")
+                        (
+                            item.get("prompt", "")
+                            + "\0"
+                            + item.get("response", "")
+                        ).encode("utf-8")
                     ).hexdigest()
                 seen.add(digest)
             except (json.JSONDecodeError, TypeError, ValueError) as exc:
                 raise ValueError(
-                    f"Cannot safely resume: invalid partial JSONL at line {line_number}: {exc}"
+                    f"Cannot safely resume: invalid partial JSONL at "
+                    f"line {line_number}: {exc}"
                 ) from exc
+
     return saved, skip, seen
 
 
@@ -117,7 +134,8 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--limit", type=int, default=20000)
     parser.add_argument(
-        "--output", type=Path,
+        "--output",
+        type=Path,
         default=Path("data/instructions_conversations.jsonl"),
     )
     parser.add_argument("--max-context-chars", type=int, default=2500)
@@ -157,11 +175,12 @@ def main():
                 digest = item["metadata"]["turn_hash"]
                 if digest in seen:
                     continue
+
                 seen.add(digest)
                 output.write(json.dumps(item, ensure_ascii=False) + "\n")
                 count += 1
 
-                if count % 500 == 0:
+                if count % 100 == 0:
                     output.flush()
                     elapsed = max(time.monotonic() - started, 0.001)
                     print(
@@ -169,8 +188,10 @@ def main():
                         f"row {index:,} | {count / elapsed:.1f}/s",
                         flush=True,
                     )
+
                 if count >= args.limit:
                     break
+
         output.flush()
 
     if count < 100:
@@ -185,12 +206,16 @@ def main():
         "examples": count,
         "source_url": SOURCE_URL,
         "license_declared_by_dataset_card": "MIT",
-        "context_truncation": "whole messages only; newest messages retained",
+        "context_truncation": (
+            "newest continuous suffix of complete messages; "
+            "stops at first oversized message"
+        ),
         "resume_hashes_restored": len(seen),
         "warning": "Generated conversations are not independently fact-checked.",
     }
     args.output.with_suffix(".manifest.json").write_text(
-        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+        json.dumps(manifest, indent=2) + "\n",
+        encoding="utf-8",
     )
     print(f"[UltraChat] COMPLETE {count:,} turns -> {args.output}", flush=True)
 
