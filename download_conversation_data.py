@@ -1,57 +1,199 @@
 #!/usr/bin/env python3
-"""Stream and checkpoint assistant turns from UltraChat."""
+"""Stream clean, turn-aligned assistant examples from UltraChat.
+
+Conversation context is truncated only at message boundaries. Resume restores
+turn hashes from the partial file so interrupted downloads do not duplicate
+already-written examples.
+"""
 from __future__ import annotations
-import argparse,hashlib,json,time
+
+import argparse
+import hashlib
+import json
+import time
 from pathlib import Path
-DATASET="HuggingFaceH4/ultrachat_200k"; SPLIT="train_sft"
+
+DATASET = "HuggingFaceH4/ultrachat_200k"
+SPLIT = "train_sft"
+SOURCE_URL = "https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k"
+
+
 def messages(row):
-    out=[]
-    for x in row.get("messages") or row.get("conversation") or []:
-        if not isinstance(x,dict):continue
-        role=str(x.get("role") or x.get("from") or "").lower()
-        body=x.get("content",x.get("value"))
-        role={"human":"user","user":"user","assistant":"assistant","gpt":"assistant"}.get(role)
-        if role and isinstance(body,str) and body.strip():out.append((role,body.strip()))
+    out = []
+    for item in row.get("messages") or row.get("conversation") or []:
+        if not isinstance(item, dict):
+            continue
+        role = str(item.get("role") or item.get("from") or "").lower()
+        body = item.get("content", item.get("value"))
+        role = {
+            "human": "user",
+            "user": "user",
+            "assistant": "assistant",
+            "gpt": "assistant",
+        }.get(role)
+        if role and isinstance(body, str) and body.strip():
+            out.append((role, body.strip()))
     return out
-def examples(msgs,index,max_context):
-    prior=[]
-    for role,body in msgs:
-        if role=="assistant" and any(r=="user" for r,_ in prior) and len(body)<=1800:
-            prompt="\n".join(("Owner: " if r=="user" else "Orbit: ")+t for r,t in prior[-12:])
-            prompt=prompt[-max_context:]
-            response="Orbit: "+body
-            digest=hashlib.sha256((prompt+"\0"+response).encode()).hexdigest()
-            yield {"prompt":prompt,"response":response,"metadata":{"dataset_id":"ultrachat_200k","dataset":DATASET,"split":SPLIT,"source_url":"https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k","license_declared_by_dataset_card":"MIT","source_record_index":index,"turn_hash":digest}}
-        prior.append((role,body))
+
+
+def format_context(prior, max_context_chars, max_messages=12):
+    """Keep the newest whole messages; never slice through a role or message."""
+    selected = []
+    used = 0
+    for role, body in reversed(prior[-max_messages:]):
+        line = ("Owner: " if role == "user" else "Orbit: ") + body
+        cost = len(line) + (1 if selected else 0)
+        if used + cost > max_context_chars:
+            continue
+        selected.append(line)
+        used += cost
+    selected.reverse()
+
+    # A training prompt must end with a user turn, and should start with one
+    # whenever possible. Drop leading assistant messages after trimming.
+    while selected and selected[0].startswith("Orbit: "):
+        selected.pop(0)
+    if not selected or not selected[-1].startswith("Owner: "):
+        return ""
+    return "\n".join(selected)
+
+
+def examples(msgs, source_index, max_context_chars):
+    prior = []
+    for role, body in msgs:
+        if role == "assistant" and len(body) >= 12 and len(body) <= 1800:
+            prompt = format_context(prior, max_context_chars)
+            if prompt:
+                response = "Orbit: " + body
+                digest = hashlib.sha256(
+                    (prompt + "\0" + response).encode("utf-8")
+                ).hexdigest()
+                yield {
+                    "prompt": prompt,
+                    "response": response,
+                    "metadata": {
+                        "dataset_id": "ultrachat_200k",
+                        "dataset": DATASET,
+                        "split": SPLIT,
+                        "source_url": SOURCE_URL,
+                        "license_declared_by_dataset_card": "MIT",
+                        "source_record_index": source_index,
+                        "turn_hash": digest,
+                    },
+                }
+        prior.append((role, body))
+
+
+def load_resume_state(partial):
+    saved = 0
+    skip = 0
+    seen = set()
+    if not partial.exists():
+        return saved, skip, seen
+
+    with partial.open(encoding="utf-8") as source:
+        for line_number, line in enumerate(source, 1):
+            if not line.strip():
+                continue
+            try:
+                item = json.loads(line)
+                metadata = item.get("metadata") or {}
+                saved += 1
+                skip = max(skip, int(metadata.get("source_record_index", -1)) + 1)
+                digest = metadata.get("turn_hash")
+                if not digest:
+                    digest = hashlib.sha256(
+                        (item.get("prompt", "") + "\0" + item.get("response", "")).encode("utf-8")
+                    ).hexdigest()
+                seen.add(digest)
+            except (json.JSONDecodeError, TypeError, ValueError) as exc:
+                raise ValueError(
+                    f"Cannot safely resume: invalid partial JSONL at line {line_number}: {exc}"
+                ) from exc
+    return saved, skip, seen
+
+
 def main():
-    p=argparse.ArgumentParser(); p.add_argument("--limit",type=int,default=20000); p.add_argument("--output",type=Path,default=Path("data/instructions_conversations.jsonl")); p.add_argument("--max-context-chars",type=int,default=2500); a=p.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--limit", type=int, default=20000)
+    parser.add_argument(
+        "--output", type=Path,
+        default=Path("data/instructions_conversations.jsonl"),
+    )
+    parser.add_argument("--max-context-chars", type=int, default=2500)
+    args = parser.parse_args()
+
+    if args.limit < 100 or args.max_context_chars < 200:
+        parser.error("--limit must be >=100 and --max-context-chars must be >=200")
+
     from datasets import load_dataset
-    a.output.parent.mkdir(parents=True,exist_ok=True); partial=a.output.with_suffix(a.output.suffix+".partial")
-    if a.output.exists() and a.output.stat().st_size:
-        print(f"[UltraChat] already complete: {a.output}",flush=True); return
-    saved=0; skip=0; seen=set()
-    if partial.exists():
-        with partial.open(encoding="utf-8") as f:
-            for line in f:
-                if line.strip():
-                    saved+=1
-                    try:skip=max(skip,int(json.loads(line)["metadata"]["source_record_index"])+1)
-                    except Exception:pass
-    print(f"[UltraChat] streaming {DATASET}/{SPLIT}; resume {saved:,} turns at source row {skip:,}",flush=True)
-    ds=load_dataset(DATASET,split=SPLIT,streaming=True); count=saved; started=time.monotonic()
-    with partial.open("a" if saved else "w",encoding="utf-8") as out:
-        for idx,row in enumerate(ds):
-            if idx<skip:continue
-            if count>=a.limit:break
-            for item in examples(messages(row),idx,a.max_context_chars):
-                h=item["metadata"]["turn_hash"]
-                if h in seen:continue
-                seen.add(h); out.write(json.dumps(item,ensure_ascii=False)+"\n"); count+=1
-                if count%500==0:
-                    out.flush(); print(f"[UltraChat] {count:,}/{a.limit:,} turns | row {idx:,} | {count/max(time.monotonic()-started,.001):.1f}/s",flush=True)
-                if count>=a.limit:break
-        out.flush()
-    if count<100:raise RuntimeError(f"UltraChat yielded only {count} turns; partial retained")
-    partial.replace(a.output); a.output.with_suffix(".manifest.json").write_text(json.dumps({"dataset":DATASET,"split":SPLIT,"examples":count,"source_url":"https://huggingface.co/datasets/HuggingFaceH4/ultrachat_200k","license_declared_by_dataset_card":"MIT","warning":"Generated conversations are not independently fact-checked."},indent=2)+"\n",encoding="utf-8")
-    print(f"[UltraChat] COMPLETE {count:,} turns",flush=True)
-if __name__=="__main__":main()
+
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    partial = args.output.with_suffix(args.output.suffix + ".partial")
+
+    if args.output.exists() and args.output.stat().st_size:
+        print(f"[UltraChat] already complete: {args.output}", flush=True)
+        return
+
+    saved, skip, seen = load_resume_state(partial)
+    print(
+        f"[UltraChat] streaming {DATASET}/{SPLIT}; resume {saved:,} turns "
+        f"at source row {skip:,}; restored {len(seen):,} hashes",
+        flush=True,
+    )
+
+    dataset = load_dataset(DATASET, split=SPLIT, streaming=True)
+    count = saved
+    started = time.monotonic()
+
+    with partial.open("a" if saved else "w", encoding="utf-8") as output:
+        for index, row in enumerate(dataset):
+            if index < skip:
+                continue
+            if count >= args.limit:
+                break
+
+            for item in examples(messages(row), index, args.max_context_chars):
+                digest = item["metadata"]["turn_hash"]
+                if digest in seen:
+                    continue
+                seen.add(digest)
+                output.write(json.dumps(item, ensure_ascii=False) + "\n")
+                count += 1
+
+                if count % 500 == 0:
+                    output.flush()
+                    elapsed = max(time.monotonic() - started, 0.001)
+                    print(
+                        f"[UltraChat] {count:,}/{args.limit:,} turns | "
+                        f"row {index:,} | {count / elapsed:.1f}/s",
+                        flush=True,
+                    )
+                if count >= args.limit:
+                    break
+        output.flush()
+
+    if count < 100:
+        raise RuntimeError(
+            f"UltraChat yielded only {count} turns; partial retained at {partial}"
+        )
+
+    partial.replace(args.output)
+    manifest = {
+        "dataset": DATASET,
+        "split": SPLIT,
+        "examples": count,
+        "source_url": SOURCE_URL,
+        "license_declared_by_dataset_card": "MIT",
+        "context_truncation": "whole messages only; newest messages retained",
+        "resume_hashes_restored": len(seen),
+        "warning": "Generated conversations are not independently fact-checked.",
+    }
+    args.output.with_suffix(".manifest.json").write_text(
+        json.dumps(manifest, indent=2) + "\n", encoding="utf-8"
+    )
+    print(f"[UltraChat] COMPLETE {count:,} turns -> {args.output}", flush=True)
+
+
+if __name__ == "__main__":
+    main()
