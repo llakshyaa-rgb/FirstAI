@@ -182,9 +182,11 @@ def main():
     tokenizer = BPETokenizer.from_dict(saved["tokenizer"])
     config = GPTConfig(**saved["config"])
     train_rows = encode_examples(train_raw, tokenizer, config.block_size)
+    train_prompt_stats = dict(encode_examples.last_stats)
     val_rows = encode_examples(val_raw, tokenizer, config.block_size)
-    print(f"SFT prompt handling (train): {encode_examples.last_stats}")
-    print(f"SFT prompt handling (validation): {encode_examples.last_stats}")
+    val_prompt_stats = dict(encode_examples.last_stats)
+    print(f"SFT prompt handling (train): {train_prompt_stats}")
+    print(f"SFT prompt handling (validation): {val_prompt_stats}")
     device = "cuda" if torch.cuda.is_available() else "cpu"
     model = FirstGPT(config).to(device)
     model.load_state_dict(saved["model"])
