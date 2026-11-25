@@ -11,7 +11,7 @@ import urllib.error
 import urllib.request
 from contextlib import contextmanager
 
-from .identity import build_compact_system_prompt
+from .identity import build_system_prompt
 from .runtime import ModelNotReady
 
 
@@ -71,6 +71,9 @@ class OllamaOrbitRuntime:
             "model": self.model_name,
             "messages": messages,
             "stream": False,
+            # Qwen3 otherwise spends time producing long reasoning traces.
+            # Keep ordinary Orbit chat fast; deeper reasoning can be added
+            # selectively for explicitly complex tasks in a later pass.
             "think": False,
             "keep_alive": self.keep_alive,
             "options": {
@@ -104,12 +107,10 @@ class OllamaOrbitRuntime:
         return answer.strip()
 
     def _messages(self, message, history=None, owner_preferences=None):
-        system = build_compact_system_prompt()
-        if owner_preferences:
-            system += (
-                "\n\nPersistent owner context (use only when relevant; "
-                "the current request takes priority):\n" + str(owner_preferences)[:6000]
-            )
+        # Use the complete canonical Orbit contract, not the abbreviated
+        # personality summary, so the connected model gets Orbit's full style,
+        # autonomy, maturity, privacy and media instructions.
+        system = build_system_prompt(owner_preferences=owner_preferences)
         messages = [{"role": "system", "content": system}]
         if history:
             for item in history[-self.max_history_messages:]:
