@@ -70,7 +70,7 @@ class OrbitApplication:
             if task and task["goal"].startswith("Generate image: "):
                 self.store.update(task_id, "needs_input", error="Image generation was interrupted by a server restart. Resubmit the image request.")
                 self.store.emit(task_id, "method_failed", "The image job was interrupted by a restart. Its prompt is preserved; please resubmit it.")
-            elif task and task["goal"].startswith(("Generate video: ", "Generate audio: ")):
+            elif task and task["goal"].startswith(("Generate video: ", "Generate audio: ", "Generate speech: ")):
                 self.store.update(task_id, "needs_input", error="Media generation was interrupted by a server restart. Retry the task to run it again.")
                 self.store.emit(task_id, "method_failed", "The media job was interrupted by a restart. Its prompt is preserved; retry it when the specialist backend is online.")
             elif task and task["goal"].startswith("Design ") and self.runtime.ready:
@@ -117,8 +117,12 @@ class OrbitApplication:
             elif backend_kind != "diffusers":
                 raise ValueError("ORBIT_IMAGE_BACKEND must be comfyui or diffusers.")
             return self.start_image(message, conversation_id=conversation_id)
-        if route["kind"] in {"video_generation", "audio_generation"}:
-            media_kind = "video" if route["kind"] == "video_generation" else "audio"
+        if route["kind"] in {"video_generation", "audio_generation", "speech_generation"}:
+            media_kind = (
+                "video" if route["kind"] == "video_generation"
+                else "speech" if route["kind"] == "speech_generation"
+                else "audio"
+            )
             workflow_path = os.environ.get("ORBIT_" + media_kind.upper() + "_WORKFLOW", "").strip()
             if not workflow_path or not Path(workflow_path).is_file():
                 raise RuntimeError(
@@ -145,7 +149,7 @@ class OrbitApplication:
             self.store.emit(task_id, "queued", "Image task queued for another attempt.")
             self._submit(self._image_worker, task_id, prompt, "", None)
             return task_id
-        for media_kind in ("video", "audio"):
+        for media_kind in ("video", "audio", "speech"):
             prefix = "Generate " + media_kind + ": "
             if goal.startswith(prefix):
                 prompt = goal.removeprefix(prefix)
@@ -218,7 +222,7 @@ class OrbitApplication:
         return task_id
 
     def start_media_generation(self, prompt, kind, conversation_id=None):
-        if kind not in {"video", "audio"}:
+        if kind not in {"video", "audio", "speech"}:
             raise ValueError("Unsupported generated media type.")
         task_id = self.store.create("Generate " + kind + ": " + prompt, conversation_id=conversation_id)
         self._submit(self._media_generation_worker, task_id, prompt, kind)
@@ -258,7 +262,7 @@ class OrbitApplication:
                     raise RuntimeError("The " + kind + " workflow returned an unsupported file format: " + (suffix or "unknown"))
                 name = uuid.uuid4().hex + suffix
                 (GENERATED / name).write_bytes(item["content"])
-                self.store.emit(task_id, kind, kind.title() + " generated.", url="/generated/" + name, filename=name)
+                self.store.emit(task_id, "video" if kind == "video" else "audio", kind.title() + " generated.", url="/generated/" + name, filename=name)
             self.store.update(task_id, "completed", result=f"Generated {len(outputs)} {kind} file(s).")
             self.store.emit(task_id, "completed", f"Generated {len(outputs)} {kind} file(s).")
         except Exception as exc:
