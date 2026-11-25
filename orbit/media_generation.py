@@ -90,8 +90,12 @@ class ComfyUIMediaBackend:
                 outputs = []
                 for node_id, node_output in (item.get("outputs") or {}).items():
                     for key in keys:
-                        for media in node_output.get(key, []) or []:
-                            outputs.append({"node_id": node_id, "type": key, **media})
+                        raw_media = node_output.get(key, []) or []
+                        if isinstance(raw_media, dict):
+                            raw_media = [raw_media]
+                        for media in raw_media:
+                            if isinstance(media, dict):
+                                outputs.append({"node_id": node_id, "type": key, **media})
                 if outputs:
                     results = []
                     for info in outputs:
