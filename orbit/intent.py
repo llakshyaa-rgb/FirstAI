@@ -17,8 +17,8 @@ def classify_request(message: str) -> dict:
     route = {"kind": "chat", "format": None, "prompt": text, "capabilities": []}
 
     # Explicit image generation is distinct from searching for existing images.
-    image_verbs = ("generate", "draw", "create", "make", "design")
-    image_nouns = ("image", "picture", "illustration", "wallpaper", "artwork", "logo", "avatar", "icon", "thumbnail", "cover art")
+    image_verbs = ("generate", "draw", "create", "make", "design", "render", "paint", "illustrate")
+    image_nouns = ("image", "picture", "illustration", "wallpaper", "artwork", "logo", "avatar", "icon", "thumbnail", "cover art", "portrait", "poster", "photo", "nude", "character", "scene")
     wants_image = any(re.search(r"\b" + re.escape(v) + r"\b", lower) for v in image_verbs) and any(
         re.search(r"\b" + re.escape(n) + r"\b", lower) for n in image_nouns
     )
