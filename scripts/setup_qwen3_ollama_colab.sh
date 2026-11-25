@@ -7,10 +7,12 @@ MODEL_DIR="${MODEL_DIR:-$PWD/models/qwen3-8b-abliterated-v3.2}"
 MODEL_FILE="Qwen3-8B-abliterated-v3.2-Q4_K_M.gguf"
 MODEL_NAME="${ORBIT_OLLAMA_MODEL:-firstai-qwen3-8b}"
 
-python -m pip install -q -U huggingface_hub
-if ! command -v ollama >/dev/null 2>&1; then
-  curl -fsSL https://ollama.com/install.sh | sh
-fi
+# Keep compatibility with Colab's datasets stack (which currently requires Hub <2).
+python -m pip install -q "huggingface_hub>=0.25,<2"
+
+# Refresh an existing install too: Qwen3's think=false API support requires
+# an Ollama release that understands the native chat "think" field.
+curl -fsSL https://ollama.com/install.sh | sh
 
 mkdir -p "$MODEL_DIR"
 if [ ! -s "$MODEL_DIR/$MODEL_FILE" ]; then
