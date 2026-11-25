@@ -31,6 +31,23 @@ def classify_request(message: str) -> dict:
         route["capabilities"].append("image_generation")
         return route
 
+    # Generated video/audio are routed to their configured specialist workflows.
+    media_action = any(re.search(r"\\b" + re.escape(v) + r"\\b", lower)
+                       for v in ("generate", "create", "make", "produce", "compose", "animate"))
+    if media_action and _has(lower, ("video", "clip", "animation", "animated scene", "short film")):
+        route.update(kind="video_generation", prompt=text)
+        route["capabilities"].append("video_generation")
+        return route
+    if media_action and _has(lower, ("music", "song", "soundtrack", "sound effect", "sound effects",
+                                     "audio", "instrumental", "background music", "voiceover", "voice over")):
+        route.update(kind="audio_generation", prompt=text)
+        route["capabilities"].append("audio_generation")
+        return route
+    if _has(lower, ("read this aloud", "speak this", "say this aloud", "narrate this", "text to speech")):
+        route.update(kind="audio_generation", prompt=text)
+        route["capabilities"].append("speech_generation")
+        return route
+
     # Document/export requests go through the existing design engine.
     artifact_terms = (
         "pdf", "word document", "docx", "powerpoint", "pptx", "presentation", "slide deck",
