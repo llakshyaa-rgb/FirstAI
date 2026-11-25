@@ -19,7 +19,7 @@ class MediaGenerationError(RuntimeError):
 
 
 def load_media_workflow(path, prompt, kind, negative_prompt="", seed=None):
-    if kind not in {"video", "audio"}:
+    if kind not in {"video", "audio", "speech"}:
         raise ValueError("Media kind must be video or audio.")
     if not isinstance(prompt, str) or not prompt.strip():
         raise ValueError("A non-empty generation prompt is required.")
