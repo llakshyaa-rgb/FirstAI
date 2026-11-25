@@ -18,6 +18,7 @@ from concurrent.futures import ThreadPoolExecutor
 import uuid
 
 from .runtime import OrbitRuntime, ModelNotReady
+from .ollama_runtime import OllamaOrbitRuntime
 from .tasks import TaskStore
 from .memory import MemoryStore
 from .images import ComfyUIImageBackend
@@ -43,7 +44,13 @@ GENERATED = ROOT / "generated"
 
 class OrbitApplication:
     def __init__(self, checkpoint, state_path):
-        self.runtime = OrbitRuntime(checkpoint)
+        provider = os.environ.get("ORBIT_LLM_PROVIDER", "firstgpt").strip().lower()
+        if provider == "ollama":
+            self.runtime = OllamaOrbitRuntime()
+        elif provider in {"firstgpt", "native"}:
+            self.runtime = OrbitRuntime(checkpoint)
+        else:
+            raise ValueError("ORBIT_LLM_PROVIDER must be firstgpt or ollama.")
         preview_root = Path(os.environ.get('ORBIT_WORKSPACE_ROOT', str(Path(__file__).resolve().parent.parent))).expanduser().resolve()
         self.preview = PreviewManager(preview_root)
         self.browser = BrowserTools()
