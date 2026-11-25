@@ -194,6 +194,12 @@ class TaskStore:
             row = db.execute("SELECT id FROM conversations WHERE id=?", (conversation_id,)).fetchone()
             if not row:
                 return False
+            active = db.execute(
+                "SELECT 1 FROM tasks WHERE conversation_id=? AND status IN ('queued','running') LIMIT 1",
+                (conversation_id,)
+            ).fetchone()
+            if active:
+                raise ValueError("This conversation still has a running task. Wait for it to finish before deleting it.")
             task_ids = [item["id"] for item in db.execute(
                 "SELECT id FROM tasks WHERE conversation_id=?", (conversation_id,)
             ).fetchall()]
