@@ -311,13 +311,6 @@ async function loadHistory(selectId=null){
     }else if(!activeConversationId){
       await createNewConversation(false);
     }
-    for(const item of d.images||[]){
-      const node=document.createElement("article");node.className="bubble orbit";
-      const label=document.createElement("strong");label.textContent="Orbit · Image";
-      const caption=document.createElement("p");caption.textContent=item.prompt||"Previously generated image";
-      const img=document.createElement("img");img.src=item.url;img.alt="Previously generated image";img.loading="lazy";img.className="generated-image";
-      node.append(label,caption,img);conversation.append(node);
-    }
     conversation.scrollTop=conversation.scrollHeight;
   }catch{}
 }
