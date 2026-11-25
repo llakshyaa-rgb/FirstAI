@@ -22,6 +22,7 @@ from .ollama_runtime import OllamaOrbitRuntime
 from .tasks import TaskStore
 from .memory import MemoryStore
 from .images import ComfyUIImageBackend
+from .media_generation import ComfyUIMediaBackend, load_media_workflow
 from .image_workflow import load_workflow_template
 from .agent import LocalAgent
 from .media import parse_multipart, save_upload, list_uploads, get_upload, delete_upload, search_web_images, UPLOAD_DIR, MAX_UPLOAD_BYTES
@@ -69,6 +70,9 @@ class OrbitApplication:
             if task and task["goal"].startswith("Generate image: "):
                 self.store.update(task_id, "needs_input", error="Image generation was interrupted by a server restart. Resubmit the image request.")
                 self.store.emit(task_id, "method_failed", "The image job was interrupted by a restart. Its prompt is preserved; please resubmit it.")
+            elif task and task["goal"].startswith(("Generate video: ", "Generate audio: ")):
+                self.store.update(task_id, "needs_input", error="Media generation was interrupted by a server restart. Retry the task to run it again.")
+                self.store.emit(task_id, "method_failed", "The media job was interrupted by a restart. Its prompt is preserved; retry it when the specialist backend is online.")
             elif task and task["goal"].startswith("Design ") and self.runtime.ready:
                 requests = [event for event in self.store.events(task_id) if event["kind"] == "design_request"]
                 if requests:
@@ -113,6 +117,15 @@ class OrbitApplication:
             elif backend_kind != "diffusers":
                 raise ValueError("ORBIT_IMAGE_BACKEND must be comfyui or diffusers.")
             return self.start_image(message, conversation_id=conversation_id)
+        if route["kind"] in {"video_generation", "audio_generation"}:
+            media_kind = "video" if route["kind"] == "video_generation" else "audio"
+            workflow_path = os.environ.get("ORBIT_" + media_kind.upper() + "_WORKFLOW", "").strip()
+            if not workflow_path or not Path(workflow_path).is_file():
+                raise RuntimeError(
+                    f"{media_kind.title()} generation is not configured yet. "
+                    f"Set ORBIT_{media_kind.upper()}_WORKFLOW to an API-format ComfyUI workflow."
+                )
+            return self.start_media_generation(message, media_kind, conversation_id)
         task_id = self.store.create(message, conversation_id=conversation_id)
         if attachments:
             self.store.emit(task_id, "attachments", "File attachments linked to this task.", file_ids=list(attachments[:5]))
@@ -132,6 +145,14 @@ class OrbitApplication:
             self.store.emit(task_id, "queued", "Image task queued for another attempt.")
             self._submit(self._image_worker, task_id, prompt, "", None)
             return task_id
+        for media_kind in ("video", "audio"):
+            prefix = "Generate " + media_kind + ": "
+            if goal.startswith(prefix):
+                prompt = goal.removeprefix(prefix)
+                self.store.update(task_id, "queued", result=None, error=None)
+                self.store.emit(task_id, "queued", media_kind.title() + " task queued for another attempt.")
+                self._submit(self._media_generation_worker, task_id, prompt, media_kind)
+                return task_id
         if goal.startswith("Design "):
             requests = [event for event in self.store.events(task_id) if event["kind"] == "design_request"]
             if requests:
@@ -195,6 +216,54 @@ class OrbitApplication:
         task_id = self.store.create("Generate image: " + prompt, conversation_id=conversation_id)
         self._submit(self._image_worker, task_id, prompt, negative_prompt, seed)
         return task_id
+
+    def start_media_generation(self, prompt, kind, conversation_id=None):
+        if kind not in {"video", "audio"}:
+            raise ValueError("Unsupported generated media type.")
+        task_id = self.store.create("Generate " + kind + ": " + prompt, conversation_id=conversation_id)
+        self._submit(self._media_generation_worker, task_id, prompt, kind)
+        return task_id
+
+    def _media_generation_worker(self, task_id, prompt, kind):
+        try:
+            self.store.update(task_id, "running")
+            self.store.emit(task_id, "status", "Orbit is handing this request to the " + kind + " specialist.")
+            workflow_path = os.environ.get("ORBIT_" + kind.upper() + "_WORKFLOW", "").strip()
+            if not workflow_path or not Path(workflow_path).is_file():
+                raise RuntimeError("The " + kind + " workflow is not configured.")
+            workflow = load_media_workflow(workflow_path, prompt, kind)
+            backend = ComfyUIMediaBackend(
+                base_url=os.environ.get("ORBIT_COMFYUI_URL", "http://127.0.0.1:8188")
+            )
+            unload_ollama_vision_model()
+            with self.runtime.offload_for_external_gpu_work():
+                outputs = backend.generate(
+                    workflow, kind,
+                    timeout=int(os.environ.get("ORBIT_MEDIA_TIMEOUT", "1800")),
+                    on_progress=lambda event: self.store.emit(
+                        event.get("kind", "status"), event.get("message", "")
+                    ),
+                )
+            if not outputs:
+                raise RuntimeError("The " + kind + " specialist returned no output.")
+            GENERATED.mkdir(parents=True, exist_ok=True)
+            allowed = (
+                {".mp4", ".webm", ".gif", ".mov", ".mkv"} if kind == "video"
+                else {".wav", ".mp3", ".flac", ".ogg", ".m4a", ".aac"}
+            )
+            for item in outputs:
+                original = str(item.get("info", {}).get("filename", ""))
+                suffix = Path(original).suffix.lower()
+                if suffix not in allowed:
+                    raise RuntimeError("The " + kind + " workflow returned an unsupported file format: " + (suffix or "unknown"))
+                name = uuid.uuid4().hex + suffix
+                (GENERATED / name).write_bytes(item["content"])
+                self.store.emit(task_id, kind, kind.title() + " generated.", url="/generated/" + name, filename=name)
+            self.store.update(task_id, "completed", result=f"Generated {len(outputs)} {kind} file(s).")
+            self.store.emit(task_id, "completed", f"Generated {len(outputs)} {kind} file(s).")
+        except Exception as exc:
+            self.store.update(task_id, "failed", error=f"{type(exc).__name__}: {exc}")
+            self.store.emit(task_id, "method_failed", f"{kind.title()} generation failed: {type(exc).__name__}: {exc}")
 
     def _image_worker(self, task_id, prompt, negative_prompt, seed):
         try:
