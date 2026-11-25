@@ -39,11 +39,11 @@ def classify_request(message: str) -> dict:
         route["capabilities"].append("video_generation")
         return route
     if media_action and _has(lower, ("music", "song", "soundtrack", "sound effect", "sound effects",
-                                     "audio", "instrumental", "background music", "voiceover", "voice over")):
+                                     "audio", "instrumental", "background music")):
         route.update(kind="audio_generation", prompt=text)
         route["capabilities"].append("audio_generation")
         return route
-    if _has(lower, ("read this aloud", "speak this", "say this aloud", "narrate this", "text to speech")):
+    if _has(lower, ("read this aloud", "read aloud", "speak this", "say this aloud", "narrate this", "text to speech", "voiceover", "voice over", "narration")):
         route.update(kind="speech_generation", prompt=text)
         route["capabilities"].append("speech_generation")
         return route
