@@ -597,3 +597,35 @@ Android GPU acceleration is not claimed: the current Debian PyTorch wheel does n
 Live public records are retrieved at data-build time. Practical examples (currency calculations, population density, weather planning, air-quality interpretation and earthquake-field explanations) are derived from those exact records and retain source URL, retrieval time, units and caveats. These are refreshed snapshots, not timeless facts. Dataset licenses and attribution metadata are retained. Private uploads are not included in training by default.
 
 Committing the pipeline does not train model weights. The training commands must actually run. FirstGPT remains a small experimental from-scratch model and must be evaluated on held-out data before relying on its answers.
+
+
+## Orbit automatic model routing
+
+Orbit keeps one chat box and chooses the specialist from the request. There is no per-message model selector.
+
+| Request | Automatic route | One-time backend configuration |
+|---|---|---|
+| Normal conversation, planning and coordination | Main Ollama chat model (Qwen) | `ORBIT_OLLAMA_MODEL` |
+| Image understanding from an attachment | Configured vision model | `ORBIT_VISION_MODEL`, `ORBIT_VISION_URL` |
+| Image generation | Existing image workflow | `ORBIT_IMAGE_WORKFLOW` |
+| Video / animation generation | ComfyUI video workflow | `ORBIT_VIDEO_WORKFLOW` |
+| Music / sound generation | ComfyUI audio workflow | `ORBIT_AUDIO_WORKFLOW` |
+| Text-to-speech / narration | ComfyUI speech workflow | `ORBIT_SPEECH_WORKFLOW` |
+
+Video, audio and speech workflows are ComfyUI API-format JSON exports. Configure the model and custom nodes inside each workflow once; Orbit fills these placeholders automatically when present: `{{PROMPT}}`, `{{NEGATIVE_PROMPT}}`, `{{SEED}}`, `{{WIDTH}}`, `{{HEIGHT}}`, `{{FPS}}`, `{{FRAMES}}`, and `{{DURATION}}`. Video outputs should be saved as MP4, WebM, GIF, MOV or MKV; audio/speech outputs as WAV, MP3, FLAC, OGG, M4A or AAC.
+
+Example Colab environment configuration (replace paths with the actual workflow JSON files you install):
+
+```bash
+export ORBIT_LLM_PROVIDER=ollama
+export ORBIT_OLLAMA_MODEL=firstai-qwen3-8b
+export ORBIT_COMFYUI_URL=http://127.0.0.1:8188
+export ORBIT_IMAGE_WORKFLOW=/content/workflows/image_api.json
+export ORBIT_VIDEO_WORKFLOW=/content/workflows/wan_video_api.json
+export ORBIT_AUDIO_WORKFLOW=/content/workflows/stable_audio_api.json
+export ORBIT_SPEECH_WORKFLOW=/content/workflows/kokoro_tts_api.json
+```
+
+When an attachment or media-generation request needs the GPU, Orbit releases its main chat model first; the next normal chat call causes Ollama to load it again. This avoids intentionally keeping multiple large models resident together on a 16 GB T4. The model weights, ComfyUI custom nodes and workflow JSON files are not bundled with this repository. A configured workflow is not proof that its model fits the active GPU: test each specialist independently and check peak VRAM before combining workflows.
+
+Generated video and audio appear inline in chat and are restored when reopening that conversation. Each conversation can be permanently deleted from its own history row; deletion is blocked while one of that conversation's tasks is still running.
