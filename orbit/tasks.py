@@ -186,6 +186,23 @@ class TaskStore:
                 messages.append({"role": "assistant", "content": row["result"], "task_id": row["id"], "status": row["status"], "timestamp": row["updated_at"]})
         return dict(conv) | {"messages": messages}
 
+    def delete_conversation(self, conversation_id):
+        """Permanently delete one conversation and all of its task/event history."""
+        if not isinstance(conversation_id, str) or not conversation_id.strip():
+            raise ValueError("A conversation ID is required.")
+        with self._lock, self._connect() as db:
+            row = db.execute("SELECT id FROM conversations WHERE id=?", (conversation_id,)).fetchone()
+            if not row:
+                return False
+            task_ids = [item["id"] for item in db.execute(
+                "SELECT id FROM tasks WHERE conversation_id=?", (conversation_id,)
+            ).fetchall()]
+            if task_ids:
+                db.executemany("DELETE FROM events WHERE task_id=?", [(task_id,) for task_id in task_ids])
+            db.execute("DELETE FROM tasks WHERE conversation_id=?", (conversation_id,))
+            db.execute("DELETE FROM conversations WHERE id=?", (conversation_id,))
+        return True
+
     def recent_images(self, limit=20):
         """Return completed image artifacts for restoring the local conversation view."""
         with self._connect() as db:
