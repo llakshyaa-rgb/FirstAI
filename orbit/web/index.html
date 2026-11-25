@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="theme-color" content="#11151b">
 <title>Orbit</title>
-<link rel="stylesheet" href="/static/style.css?v=orbit-auto-routing-2">
+<link rel="stylesheet" href="/static/style.css?v=orbit-image-preview-2">
 </head>
 <body>
 <main class="shell">
@@ -15,7 +15,7 @@
     <div class="history-toolbar"><button id="new-chat" type="button">＋ New chat</button></div>
     <nav id="history-list" class="history-list" aria-label="Saved conversations"></nav>
   </details>
-  <section id="conversation" class="conversation" aria-live="polite">
+  <section id="image-studio" class="image-studio" hidden aria-live="polite"><div class="image-studio-heading"><strong>Image Preview</strong><span id="image-studio-state">Ready</span></div><div id="image-studio-content" class="image-studio-content"><p>Your generated image will appear here.</p></div></section><section id="conversation" class="conversation" aria-live="polite">
     <article class="bubble orbit"><strong>Orbit</strong><p>Good evening. I'm ready when you are.</p></article>
   </section>
   <div id="attachment-queue" class="attachment-queue" aria-live="polite"></div>
@@ -67,6 +67,6 @@
   <details class="memory-panel"><summary>Orbit memory</summary><p>Orbit saves clear preferences and project details you explicitly state, and uses relevant saved memories in later chats on this device. Review or delete anything here. It does not train model weights automatically.</p><div class="memory-form"><input id="memory-key" maxlength="120" placeholder="Preference name"><input id="memory-value" maxlength="4000" placeholder="Preference value"><button id="memory-save" type="button">Save</button></div><div id="memory-list"></div></details>
   <footer>Local prototype · Responses depend on the trained checkpoint</footer>
 </main>
-<script src="/static/app.js?v=orbit-image-download-1" defer></script>
+<script src="/static/app.js?v=orbit-image-preview-2" defer></script>
 </body>
 </html>
