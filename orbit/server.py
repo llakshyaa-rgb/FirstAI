@@ -97,7 +97,11 @@ class OrbitApplication:
 
     def start_chat(self, message, attachments=None, conversation_id=None):
         route = classify_request(message)
-        # Artifacts and generated images are still submitted from the same chat box.
+        if conversation_id and not self.store.has_conversation(conversation_id):
+            raise ValueError("That conversation no longer exists. Start a new chat.")
+        if not conversation_id:
+            conversation_id = self.store.create_conversation(message[:90])
+        # Media generation uses the same conversation record and history as ordinary chat.
         if route["kind"] == "image_generation":
             backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
             if backend_kind == "diffusers" and find_spec("diffusers") is None:
@@ -108,11 +112,7 @@ class OrbitApplication:
                     raise RuntimeError("Image generation is not configured. Configure ComfyUI or enable the Diffusers backend.")
             elif backend_kind != "diffusers":
                 raise ValueError("ORBIT_IMAGE_BACKEND must be comfyui or diffusers.")
-            return self.start_image(message)
-        if conversation_id and not self.store.has_conversation(conversation_id):
-            raise ValueError("That conversation no longer exists. Start a new chat.")
-        if not conversation_id:
-            conversation_id = self.store.create_conversation(message[:90])
+            return self.start_image(message, conversation_id=conversation_id)
         task_id = self.store.create(message, conversation_id=conversation_id)
         if attachments:
             self.store.emit(task_id, "attachments", "File attachments linked to this task.", file_ids=list(attachments[:5]))
@@ -191,8 +191,8 @@ class OrbitApplication:
         except Exception as exc:
             self.store.update(task_id, "failed", error=type(exc).__name__ + ": " + str(exc))
             self.store.emit(task_id, "method_failed", "Design creation failed: " + type(exc).__name__ + ": " + str(exc))
-    def start_image(self, prompt, negative_prompt="", seed=None):
-        task_id = self.store.create("Generate image: " + prompt)
+    def start_image(self, prompt, negative_prompt="", seed=None, conversation_id=None):
+        task_id = self.store.create("Generate image: " + prompt, conversation_id=conversation_id)
         self._submit(self._image_worker, task_id, prompt, negative_prompt, seed)
         return task_id
 
