@@ -6,6 +6,7 @@ const presence=document.querySelector("#presence");
 const device=document.querySelector("#device");
 let busy=false;
 let livePartial=null;
+let thinkingNode=null;
 let modelReady=false;
 let pendingAttachments=[];
 const attachmentQueue=document.querySelector("#attachment-queue");
@@ -49,6 +50,20 @@ function bubble(role,text,kind=""){
   const p=document.createElement("p");p.textContent=text;
   node.append(label,p);conversation.append(node);conversation.scrollTop=conversation.scrollHeight;return p;
 }
+function showThinking(){
+  if(thinkingNode?.isConnected)return;
+  const node=document.createElement("article");node.className="bubble orbit thinking";
+  const label=document.createElement("strong");label.textContent="Orbit";
+  const indicator=document.createElement("span");indicator.className="thinking-indicator";
+  indicator.setAttribute("role","status");indicator.setAttribute("aria-label","Thinking");
+  const mark=document.createElement("span");mark.className="thinking-mark";mark.setAttribute("aria-hidden","true");
+  const dots=document.createElement("span");dots.className="thinking-dots";dots.setAttribute("aria-hidden","true");
+  dots.textContent="•••";indicator.append(mark,dots);node.append(label,indicator);
+  conversation.append(node);conversation.scrollTop=conversation.scrollHeight;thinkingNode=node;
+}
+function hideThinking(){
+  thinkingNode?.remove();thinkingNode=null;
+}
 async function health(){
   try{const r=await fetch("/api/health");const d=await r.json();
     modelReady=d.status==="ready";
@@ -72,14 +87,17 @@ async function follow(taskId,afterStart=0){
     for(const event of d.events){
       after=Math.max(after,event.seq);
       if(event.kind==="message"){
+        hideThinking();
         const suggested=event.details?.coding_result?.suggested_preview_path;
         if(suggested&&previewProjectPath)previewProjectPath.value=suggested==="."?"":suggested;
         if(livePartial){livePartial.textContent=event.message;livePartial=null;}else bubble("orbit",event.message);
       }
       else if(event.kind==="partial_reset"){
         if(livePartial){livePartial.parentElement?.remove();livePartial=null;}
+        showThinking();
       }
       else if(event.kind==="partial"){
+        hideThinking();
         if(!livePartial)livePartial=bubble("orbit",event.message,"partial");
         else livePartial.textContent=event.message;
         conversation.scrollTop=conversation.scrollHeight;
@@ -148,12 +166,13 @@ async function follow(taskId,afterStart=0){
         node.append(label,p,link);conversation.append(node);conversation.scrollTop=conversation.scrollHeight;
       }
       else if(event.kind==="memory_saved")bubble("orbit","Memory updated: "+((event.details.memories||[]).map(x=>x.key+": "+x.value).join("; ")),"status");
-      else if(event.kind==="method_failed"||event.kind==="status")bubble("orbit",event.message,"status");
+      else if(event.kind==="method_failed")bubble("orbit",event.message,"status");
     }
     const status=d.task.status;finalStatus=status;
     if(["completed","failed","needs_input","interrupted"].includes(status))finished=true;
     else await new Promise(resolve=>setTimeout(resolve,650));
   }
+  hideThinking();
   if(["failed","needs_input","interrupted"].includes(finalStatus)){
     const node=document.createElement("article");node.className="bubble orbit task-retry";
     const label=document.createElement("strong");label.textContent="Task stopped";
@@ -174,15 +193,15 @@ form.addEventListener("submit",async e=>{
   e.preventDefault();if(busy)return;
   const message=input.value.trim();if(!message)return;
   livePartial=null;
-  bubble("user",message);input.value="";busy=true;send.disabled=true;presence.textContent="Personal AI · Working";
+  bubble("user",message);showThinking();input.value="";busy=true;send.disabled=true;presence.textContent="Personal AI · Working";
   try{
     const r=await fetch("/api/chat",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({message,attachments:pendingAttachments.map(x=>x.id),conversation_id:activeConversationId})});
     const d=await r.json();if(!r.ok)throw new Error(d.error||"Request failed");
     pendingAttachments=[];renderAttachmentQueue();
     await follow(d.task_id);
     await loadHistory();
-  }catch(err){bubble("orbit","I couldn't complete that request: "+err.message);}
-  finally{busy=false;send.disabled=false;presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";input.focus();}
+  }catch(err){hideThinking();bubble("orbit","I couldn't complete that request: "+err.message);}
+  finally{hideThinking();busy=false;send.disabled=false;presence.textContent=modelReady?"Personal AI · Online":"Local tools online · language model not loaded";input.focus();}
 });
 let activeConversationId=null;
 const historyList=document.querySelector("#history-list");
@@ -326,15 +345,21 @@ const uploadForm=document.querySelector("#upload-form");
 const fileInput=document.querySelector("#file-input");
 const uploadSend=document.querySelector("#upload-send");
 const uploadResults=document.querySelector("#upload-results");
-uploadForm?.addEventListener("submit",async e=>{
-  e.preventDefault();
-  const files=[...(fileInput.files||[])]; if(!files.length)return;
-  uploadSend.disabled=true;
-  const body=new FormData(); for(const file of files)body.append("files",file,file.name);
+let uploadInProgress=false;
+async function uploadSelectedFiles(){
+  if(uploadInProgress)return;
+  const files=[...(fileInput?.files||[])];
+  if(!files.length)return;
+  uploadInProgress=true;uploadSend.disabled=true;
+  const originalLabel=uploadSend.textContent;uploadSend.textContent="Uploading…";
+  const body=new FormData();for(const file of files)body.append("files",file,file.name);
   try{
     const r=await fetch("/api/upload",{method:"POST",body});
-    const d=await r.json(); if(!r.ok)throw new Error(d.error||"Upload failed");
-    for(const item of d.files||[]){
+    const d=await r.json().catch(()=>({error:"The server returned an unreadable response (HTTP "+r.status+")."}));
+    if(!r.ok)throw new Error(d.error||"Upload failed");
+    if(!Array.isArray(d.files)||!d.files.length)throw new Error("The server returned no uploaded files.");
+    let queued=0;
+    for(const item of d.files){
       const card=document.createElement("article");card.className="upload-card";
       const heading=document.createElement("strong");heading.textContent=item.name+" · "+Math.ceil(item.size/1024)+" KB";card.append(heading);
       const fileLink=document.createElement("a");fileLink.href=item.url;fileLink.download=item.name;fileLink.textContent="Open / download";fileLink.className="file-link";card.append(fileLink);
@@ -354,7 +379,7 @@ uploadForm?.addEventListener("submit",async e=>{
           try{
             const response=await fetch("/api/vision",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({file_id:item.id,prompt:"Analyse this uploaded media carefully. For audio, transcribe speech and identify language. For video, summarise sampled scenes and available audio. For images, describe visible content and readable text. State uncertainty clearly."})});
             const result=await response.json();if(!response.ok)throw new Error(result.error||"Media analysis failed");
-            bubble("orbit",result.kind.toUpperCase()+" · "+result.name+"\\n\\n"+result.description);
+            bubble("orbit",result.kind.toUpperCase()+" · "+result.name+"\n\n"+result.description);
           }catch(err){bubble("orbit","Media analysis isn't available: "+err.message,"status");}
           finally{analyze.disabled=false;analyze.textContent=original;}
         });card.append(analyze);
@@ -364,13 +389,13 @@ uploadForm?.addEventListener("submit",async e=>{
       }
       if(item.text){
         const use=document.createElement("button");use.type="button";use.textContent="Use extracted text in chat";
-        use.addEventListener("click",()=>{input.value="Please work with this uploaded file ("+item.name+"):\\n\\n"+item.text;input.focus();});
+        use.addEventListener("click",()=>{input.value="Please work with this uploaded file ("+item.name+"):\n\n"+item.text;input.focus();});
         card.append(use);
         const details=document.createElement("details");const summary=document.createElement("summary");summary.textContent="Extracted text preview";
         const pre=document.createElement("pre");pre.textContent=item.text.slice(0,3000);details.append(summary,pre);card.append(details);
       }
       if(pendingAttachments.length<5 && !pendingAttachments.some(x=>x.id===item.id)){
-        pendingAttachments.push({id:item.id,name:item.name});renderAttachmentQueue();
+        pendingAttachments.push({id:item.id,name:item.name});queued++;renderAttachmentQueue();
       }
       const attach=document.createElement("button");attach.type="button";
       const updateAttachLabel=()=>{attach.textContent=pendingAttachments.some(x=>x.id===item.id)?"Queued for next chat · Remove":"Attach to next chat";};
@@ -383,14 +408,18 @@ uploadForm?.addEventListener("submit",async e=>{
         }
         renderAttachmentQueue();updateAttachLabel();
       });
-      updateAttachLabel();
-      card.append(attach);
-      await addUploadDelete(card,item);uploadResults.prepend(card);bubble("user","Stored "+item.name+" ("+item.category+").");
+      updateAttachLabel();card.append(attach);
+      await addUploadDelete(card,item);uploadResults.prepend(card);
     }
+    if(queued)bubble("orbit",d.files.length+" file"+(d.files.length===1?"":"s")+" uploaded and queued for your next message.","status");
+    if(queued<d.files.length)bubble("orbit","Some files were uploaded but not queued because a message can contain at most five attachments.","status");
     fileInput.value="";
-  }catch(err){bubble("orbit","I couldn't attach those files: "+err.message,"status");}
-  finally{uploadSend.disabled=false;}
-});
+  }catch(err){bubble("orbit","I couldn't upload those files: "+err.message,"status");}
+  finally{uploadInProgress=false;uploadSend.disabled=false;uploadSend.textContent=originalLabel;}
+}
+uploadForm?.addEventListener("submit",e=>{e.preventDefault();uploadSelectedFiles();});
+// Selecting a file uploads and queues it immediately; the button remains as a fallback.
+fileInput?.addEventListener("change",uploadSelectedFiles);
 const imageSearchForm=document.querySelector("#image-search-form");
 const imageSearchQuery=document.querySelector("#image-search-query");
 const imageSearchResults=document.querySelector("#image-search-results");
