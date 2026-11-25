@@ -60,10 +60,29 @@ class OllamaOrbitRuntime:
             )
             return False
 
+    def unload(self):
+        """Ask Ollama to release Orbit's chat model so a specialist can use the GPU."""
+        payload = {"model": self.model_name, "keep_alive": 0, "stream": False}
+        request = urllib.request.Request(
+            self.base_url + "/api/generate",
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(request, timeout=30) as response:
+                response.read(4096)
+            return True
+        except Exception as exc:
+            raise ModelNotReady(
+                f"Could not unload chat model '{self.model_name}' before specialist GPU work: "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+
     @contextmanager
     def offload_for_external_gpu_work(self):
-        # Ollama manages model residency itself. This no-op preserves the
-        # context-manager interface used by optional Orbit GPU integrations.
+        # The next normal reply automatically reloads the configured chat model.
+        self.unload()
         yield
 
     def _chat(self, messages, max_tokens=None, temperature=0.7):
