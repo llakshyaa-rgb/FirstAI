@@ -12,7 +12,7 @@ import threading
 
 class DiffusionImageBackend:
     def __init__(self, model_id=None, device=None):
-        self.model_id = model_id or os.environ.get("ORBIT_IMAGE_MODEL", "Lykon/dreamshaper-8")
+        self.model_id = model_id or os.environ.get("ORBIT_IMAGE_MODEL", "Qwen/Qwen-Image")
         self.device = device or os.environ.get("ORBIT_IMAGE_DEVICE", "auto")
         self._pipeline = None
         self._lock = threading.RLock()
@@ -34,9 +34,7 @@ class DiffusionImageBackend:
         )
         if use_cuda:
             try:
-                pipeline.enable_attention_slicing()
-                pipeline.enable_vae_slicing()
-                pipeline.enable_model_cpu_offload()
+                pipeline.enable_sequential_cpu_offload()
             except (AttributeError, ImportError):
                 pipeline.to("cuda")
         else:
@@ -69,11 +67,16 @@ class DiffusionImageBackend:
                 generator = torch.Generator(device="cpu").manual_seed(int(seed))
             if on_progress:
                 on_progress({"kind": "status", "message": "The image model is rendering the requested artwork."})
-            result = pipeline(
-                prompt=prompt.strip(), negative_prompt=negative_prompt.strip() or None,
-                width=width, height=height, num_inference_steps=steps,
-                guidance_scale=float(guidance), generator=generator,
-            )
+            call_args = {
+                "prompt": prompt.strip(), "negative_prompt": negative_prompt.strip() or None,
+                "width": width, "height": height, "num_inference_steps": steps,
+                "generator": generator,
+            }
+            if "QwenImage" in type(pipeline).__name__ or "qwen-image" in self.model_id.lower():
+                call_args["true_cfg_scale"] = float(guidance)
+            else:
+                call_args["guidance_scale"] = float(guidance)
+            result = pipeline(**call_args)
             if not result.images:
                 raise RuntimeError("Diffusers completed without returning an image.")
             stream = io.BytesIO()
