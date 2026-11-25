@@ -184,6 +184,15 @@ class TaskStore:
             messages.append({"role": "user", "content": row["goal"], "task_id": row["id"], "status": row["status"], "timestamp": row["created_at"]})
             if row["result"]:
                 messages.append({"role": "assistant", "content": row["result"], "task_id": row["id"], "status": row["status"], "timestamp": row["updated_at"]})
+            for event in self.events(row["id"]):
+                if event["kind"] in {"image", "video", "audio"}:
+                    details = event.get("details") or {}
+                    if details.get("url"):
+                        messages.append({
+                            "role": "assistant", "kind": event["kind"],
+                            "url": details["url"], "filename": details.get("filename"),
+                            "task_id": row["id"], "timestamp": event["timestamp"],
+                        })
         return dict(conv) | {"messages": messages}
 
     def delete_conversation(self, conversation_id):
