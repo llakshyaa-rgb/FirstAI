@@ -107,13 +107,13 @@ class OrbitApplication:
             conversation_id = self.store.create_conversation(message[:90])
         # Media generation uses the same conversation record and history as ordinary chat.
         if route["kind"] == "image_generation":
-            backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
+            backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "diffusers").strip().lower()
             if backend_kind == "diffusers" and find_spec("diffusers") is None:
                 raise RuntimeError("Diffusers is not installed. Install requirements-image.txt or configure ComfyUI.")
             if backend_kind == "comfyui":
                 workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
                 if not workflow_path or not Path(workflow_path).is_file():
-                    raise RuntimeError("Image generation is not configured. Configure ComfyUI or enable the Diffusers backend.")
+                    raise RuntimeError("Qwen-Image is not configured. Set ORBIT_IMAGE_BACKEND=diffusers and ORBIT_IMAGE_MODEL=Qwen/Qwen-Image.")
             elif backend_kind != "diffusers":
                 raise ValueError("ORBIT_IMAGE_BACKEND must be comfyui or diffusers.")
             return self.start_image(message, conversation_id=conversation_id)
@@ -273,7 +273,7 @@ class OrbitApplication:
         try:
             self.store.update(task_id, "running")
             self.store.emit(task_id, "status", "The image backend is preparing the requested artwork.")
-            backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
+            backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "diffusers").strip().lower()
             progress = lambda event: self.store.emit(
                 task_id, event["kind"], event["message"],
                 **{key: value for key, value in event.items() if key not in ("kind", "message")}
@@ -297,7 +297,7 @@ class OrbitApplication:
             elif backend_kind == "comfyui":
                 workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
                 if not workflow_path or not Path(workflow_path).is_file():
-                    raise RuntimeError("ComfyUI workflow is not configured. Set ORBIT_IMAGE_WORKFLOW, or select ORBIT_IMAGE_BACKEND=diffusers and install requirements-image.txt.")
+                    raise RuntimeError("Qwen-Image backend is not configured. Install requirements-image.txt and set ORBIT_IMAGE_BACKEND=diffusers.")
                 workflow = load_workflow_template(
                     workflow_path, prompt, negative_prompt=negative_prompt, seed=seed,
                     checkpoint=os.environ.get("ORBIT_IMAGE_CHECKPOINT", "model.safetensors"),
@@ -594,7 +594,7 @@ def make_handler(app):
             if parsed.path == "/api/preview/logs":
                 return self._json(200, app.preview.logs())
             if parsed.path == "/api/health":
-                image_backend = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
+                image_backend = os.environ.get("ORBIT_IMAGE_BACKEND", "diffusers").strip().lower()
                 workflow_configured = bool(os.environ.get("ORBIT_IMAGE_WORKFLOW")) and Path(os.environ.get("ORBIT_IMAGE_WORKFLOW", "")).is_file()
                 image_connected, image_error = False, None
                 if image_backend == "diffusers":
@@ -821,11 +821,11 @@ def make_handler(app):
                     seed = payload.get("seed")
                     if not isinstance(prompt, str) or not prompt.strip():
                         return self._json(400, {"error": "prompt must be a non-empty string"})
-                    backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "comfyui").strip().lower()
+                    backend_kind = os.environ.get("ORBIT_IMAGE_BACKEND", "diffusers").strip().lower()
                     if backend_kind == "comfyui":
                         workflow_path = os.environ.get("ORBIT_IMAGE_WORKFLOW", "").strip()
                         if not workflow_path or not Path(workflow_path).is_file():
-                            return self._json(503, {"error": "ComfyUI workflow is not configured. Set ORBIT_IMAGE_WORKFLOW, or select Diffusers in Colab."})
+                            return self._json(503, {"error": "Qwen-Image backend is not configured. Install requirements-image.txt and set ORBIT_IMAGE_BACKEND=diffusers."})
                     elif backend_kind == "diffusers":
                         if find_spec("diffusers") is None:
                             return self._json(503, {"error": "Diffusers is not installed. Run pip install -r requirements-image.txt."})
