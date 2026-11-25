@@ -236,7 +236,20 @@ function renderSavedConversation(item){
     node.append(label,p);conversation.append(node);
   }else{
     for(const entry of item.messages||[]){
-      bubble(entry.role==="user"?"user":"orbit",entry.content||"");
+      if(entry.kind==="image"||entry.kind==="video"||entry.kind==="audio"){
+        const node=document.createElement("article");node.className="bubble orbit generated-media";
+        const label=document.createElement("strong");label.textContent="Orbit · "+entry.kind.charAt(0).toUpperCase()+entry.kind.slice(1);
+        const url=safeHttpUrl(entry.url);
+        if(url){
+          const media=document.createElement(entry.kind==="image"?"img":entry.kind);
+          media.src=url;
+          if(entry.kind==="image"){media.alt="Previously generated image";media.loading="lazy";media.className="generated-image";}
+          else{media.controls=true;media.preload="metadata";media.className=entry.kind==="video"?"generated-video":"generated-audio";if(entry.kind==="video")media.playsInline=true;}
+          node.append(label,media);
+          const link=document.createElement("a");link.href=url;link.download=entry.filename||("orbit-generated."+ (entry.kind==="video"?"mp4":entry.kind==="audio"?"wav":"png"));link.textContent="Download "+entry.kind;link.className="file-link";node.append(link);
+        }
+        conversation.append(node);
+      }else bubble(entry.role==="user"?"user":"orbit",entry.content||"");
     }
     if(!(item.messages||[]).length){
       const node=document.createElement("article");node.className="bubble orbit";
