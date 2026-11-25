@@ -787,6 +787,14 @@ def make_handler(app):
                     return self._json(200, {"deleted": True, "files": list_uploads()})
                 except FileNotFoundError:
                     return self._json(404, {"error": "Uploaded file not found"})
+            if parsed.path == "/api/conversations":
+                conversation_id = (parse_qs(parsed.query).get("id") or [""])[0]
+                if not conversation_id:
+                    return self._json(400, {"error": "id query parameter is required"})
+                deleted = app.store.delete_conversation(conversation_id)
+                if not deleted:
+                    return self._json(404, {"error": "Conversation not found"})
+                return self._json(200, {"deleted": True, "conversation_id": conversation_id})
             if parsed.path != "/api/memory":
                 return self._json(404, {"error": "Not found"})
             key = (parse_qs(parsed.query).get("key") or [""])[0]
