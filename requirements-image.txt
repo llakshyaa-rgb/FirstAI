@@ -1,5 +1,7 @@
-# Optional image generation backend (Colab GPU or a suitable local GPU)
-diffusers>=0.32
-transformers>=4.45
+# Optional Qwen-Image backend (Colab GPU; sequential CPU offload supported)
+diffusers>=0.35.1
+transformers>=4.51.3
 accelerate>=1.1
 safetensors>=0.4
+sentencepiece>=0.2
+protobuf>=4.25
