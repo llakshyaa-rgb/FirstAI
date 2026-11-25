@@ -187,3 +187,8 @@ body{min-height:100%;min-height:100dvh}
 @keyframes orbit-thinking-spin{to{transform:rotate(360deg)}}
 @keyframes orbit-thinking-pulse{0%,100%{opacity:.35}50%{opacity:1}}
 @media(prefers-reduced-motion:reduce){.thinking-mark,.thinking-dots{animation:none}}
+
+.history-row{display:flex;align-items:stretch;gap:6px}
+.history-row .history-item{flex:1;min-width:0}
+.history-row .history-delete{flex:0 0 auto;padding:7px 9px;border:1px solid #573e3e;border-radius:8px;background:#2a1c20;color:#e5baba;font-size:10px}
+.history-row .history-delete:disabled{opacity:.5}
