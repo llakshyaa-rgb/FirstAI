@@ -302,9 +302,16 @@ class OrbitApplication:
             )
             # One automatic capability router serves the single conversational interface.
             route = classify_request(message)
-            specialist_results = AgentTeam(
-                agent.registry, progress=emit_progress
-            ).run(message, attachments=attachments, capabilities=route.get("capabilities", []))
+            if attachments and hasattr(self.runtime, "offload_for_external_gpu_work"):
+                self.store.emit(task_id, "status", "Orbit is freeing GPU memory before handing attachments to the specialist model.")
+                with self.runtime.offload_for_external_gpu_work():
+                    specialist_results = AgentTeam(
+                        agent.registry, progress=emit_progress
+                    ).run(message, attachments=attachments, capabilities=route.get("capabilities", []))
+            else:
+                specialist_results = AgentTeam(
+                    agent.registry, progress=emit_progress
+                ).run(message, attachments=attachments, capabilities=route.get("capabilities", []))
             for item in specialist_results:
                 if item.get("agent") == "image_researcher" and item.get("ok"):
                     image_results = item.get("result") or []
