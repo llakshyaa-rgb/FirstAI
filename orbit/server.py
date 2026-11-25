@@ -528,11 +528,17 @@ def make_handler(app):
                         image_connected = True
                     except Exception as exc:
                         image_error = f"{type(exc).__name__}: {exc}"
+                runtime = app.runtime
+                runtime_ready = runtime.ready
+                model = getattr(runtime, "model", None)
+                model_config = getattr(model, "config", None)
                 return self._json(200, {
-                    "name": "Orbit", "status": "ready" if app.runtime.ready else "model_missing",
+                    "name": "Orbit", "status": "ready" if runtime_ready else "model_missing",
+                    "runtime_provider": os.environ.get("ORBIT_LLM_PROVIDER", "firstgpt").strip().lower(),
                     "workspace_root": str(Path(os.environ.get("ORBIT_WORKSPACE_ROOT", str(Path(__file__).resolve().parent.parent))).expanduser().resolve()),
-                    "device": app.runtime.device, "checkpoint": str(app.runtime.checkpoint_path),
-                    "model_error": app.runtime.load_error,
+                    "device": getattr(runtime, "device", "Ollama" if hasattr(runtime, "base_url") else "Unknown"),
+                    "checkpoint": str(getattr(runtime, "checkpoint_path", "")),
+                    "model_error": getattr(runtime, "load_error", None),
                     "image_workflow_configured": workflow_configured,
                     "image_backend_connected": image_connected,
                     "image_backend_error": image_error,
@@ -550,10 +556,14 @@ def make_handler(app):
                     "vision_provider": os.environ.get("ORBIT_VISION_PROVIDER", "ollama"),
                     "agent_workers": max(1, min(4, int(os.environ.get("ORBIT_AGENT_WORKERS", "3")))),
                     "task_workers": max(1, min(4, int(os.environ.get("ORBIT_TASK_WORKERS", "3")))),
-                    "gpu_memory_fraction": app.runtime.gpu_memory_fraction,
-                    "cpu_threads": app.runtime.cpu_threads,
-                    "max_new_tokens": app.runtime.max_new_tokens,
-                    "context_window_tokens": app.runtime.model.config.block_size if app.runtime.ready else None,
+                    "gpu_memory_fraction": getattr(runtime, "gpu_memory_fraction", None),
+                    "cpu_threads": getattr(runtime, "cpu_threads", None),
+                    "max_new_tokens": getattr(runtime, "max_new_tokens", None),
+                    "context_window_tokens": (
+                        getattr(runtime, "context_length", None)
+                        if runtime_ready and hasattr(runtime, "context_length")
+                        else getattr(model_config, "block_size", None) if runtime_ready else None
+                    ),
                     "gpu_memory_policy": "per-process PyTorch allocator ceiling; not a target utilization percentage"
                 })
             if parsed.path == "/api/memory":
