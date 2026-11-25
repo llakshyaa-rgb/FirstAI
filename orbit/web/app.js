@@ -243,6 +243,7 @@ async function loadHistory(selectId=null){
       const items=d.conversations||[];
       if(historyCount)historyCount.textContent=items.length+" saved";
       for(const item of items){
+        const row=document.createElement("div");row.className="history-row";
         const button=document.createElement("button");button.type="button";button.className="history-item";
         button.dataset.conversationId=item.id;
         const title=document.createElement("span");title.className="history-title";title.textContent=item.title||"Untitled chat";
@@ -255,7 +256,21 @@ async function loadHistory(selectId=null){
             renderSavedConversation(saved.conversation);
           }catch(error){bubble("orbit","Couldn't open that saved chat: "+error.message,"status");}
         });
-        historyList.append(button);
+        const remove=document.createElement("button");remove.type="button";remove.className="history-delete";remove.textContent="Delete";
+        remove.setAttribute("aria-label","Delete conversation "+(item.title||"Untitled chat"));
+        remove.addEventListener("click",async()=>{
+          if(!confirm("Permanently delete this conversation and all its messages? This cannot be undone."))return;
+          remove.disabled=true;
+          try{
+            const response=await fetch("/api/conversations?id="+encodeURIComponent(item.id),{method:"DELETE"});
+            const result=await response.json();if(!response.ok)throw new Error(result.error||"Delete failed");
+            if(activeConversationId===item.id){
+              activeConversationId=null;
+              await createNewConversation(false);
+            }else await loadHistory();
+          }catch(error){remove.disabled=false;bubble("orbit","Couldn't delete that conversation: "+error.message,"status");}
+        });
+        row.append(button,remove);historyList.append(row);
       }
       if(!items.length){const empty=document.createElement("p");empty.className="history-empty";empty.textContent="Your conversations will appear here.";historyList.append(empty);}
     }
