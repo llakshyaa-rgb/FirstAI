@@ -837,7 +837,10 @@ def make_handler(app):
                         return self._json(400, {"error": "negative_prompt must be text up to 2000 characters"})
                     if seed is not None and (type(seed) is not int or not 0 <= seed <= 2**64 - 1):
                         return self._json(400, {"error": "seed must be an integer between 0 and 2^64-1"})
-                    task_id = app.start_image(prompt.strip(), negative_prompt, seed)
+                    conversation_id = payload.get("conversation_id")
+                    if conversation_id is not None and (not isinstance(conversation_id, str) or len(conversation_id) > 64):
+                        return self._json(400, {"error": "conversation_id must be a valid conversation ID"})
+                    task_id = app.start_image(prompt.strip(), negative_prompt, seed, conversation_id)
                     return self._json(202, {"task_id": task_id, "status": "queued"})
                 message = payload.get("message")
                 attachments = payload.get("attachments", [])
