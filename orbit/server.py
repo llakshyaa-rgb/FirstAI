@@ -791,7 +791,10 @@ def make_handler(app):
                 conversation_id = (parse_qs(parsed.query).get("id") or [""])[0]
                 if not conversation_id:
                     return self._json(400, {"error": "id query parameter is required"})
-                deleted = app.store.delete_conversation(conversation_id)
+                try:
+                    deleted = app.store.delete_conversation(conversation_id)
+                except ValueError as exc:
+                    return self._json(409, {"error": str(exc)})
                 if not deleted:
                     return self._json(404, {"error": "Conversation not found"})
                 return self._json(200, {"deleted": True, "conversation_id": conversation_id})
