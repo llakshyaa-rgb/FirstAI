@@ -241,7 +241,7 @@ class OrbitApplication:
                     workflow, kind,
                     timeout=int(os.environ.get("ORBIT_MEDIA_TIMEOUT", "1800")),
                     on_progress=lambda event: self.store.emit(
-                        event.get("kind", "status"), event.get("message", "")
+                        task_id, event.get("kind", "status"), event.get("message", "")
                     ),
                 )
             if not outputs:
