@@ -192,3 +192,6 @@ body{min-height:100%;min-height:100dvh}
 .history-row .history-item{flex:1;min-width:0}
 .history-row .history-delete{flex:0 0 auto;padding:7px 9px;border:1px solid #573e3e;border-radius:8px;background:#2a1c20;color:#e5baba;font-size:10px}
 .history-row .history-delete:disabled{opacity:.5}
+
+.generated-video{display:block;width:min(100%,620px);max-height:65vh;margin-top:8px;border-radius:9px;background:#000}
+.generated-audio{display:block;width:min(100%,480px);margin-top:8px}
