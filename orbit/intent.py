@@ -32,7 +32,7 @@ def classify_request(message: str) -> dict:
         return route
 
     # Generated video/audio are routed to their configured specialist workflows.
-    media_action = any(re.search(r"\\b" + re.escape(v) + r"\\b", lower)
+    media_action = any(re.search(r"\b" + re.escape(v) + r"\b", lower)
                        for v in ("generate", "create", "make", "produce", "compose", "animate"))
     if media_action and _has(lower, ("video", "clip", "animation", "animated scene", "short film")):
         route.update(kind="video_generation", prompt=text)
