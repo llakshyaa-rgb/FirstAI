@@ -873,12 +873,29 @@ def make_handler(app):
                 conversation_id = (parse_qs(parsed.query).get("id") or [""])[0]
                 if not conversation_id:
                     return self._json(400, {"error": "id query parameter is required"})
+                saved = app.store.conversation(conversation_id)
+                if not saved:
+                    return self._json(404, {"error": "Conversation not found"})
+                media_names = []
+                for entry in saved.get("messages", []):
+                    media_url = entry.get("url", "")
+                    if entry.get("kind") in {"image", "video", "audio"} and isinstance(media_url, str):
+                        name = Path(urlparse(media_url).path).name
+                        if name:
+                            media_names.append(name)
                 try:
                     deleted = app.store.delete_conversation(conversation_id)
                 except ValueError as exc:
                     return self._json(409, {"error": str(exc)})
                 if not deleted:
                     return self._json(404, {"error": "Conversation not found"})
+                for name in media_names:
+                    target = (GENERATED / name).resolve()
+                    if GENERATED.resolve() in target.parents and target.is_file():
+                        try:
+                            target.unlink()
+                        except OSError:
+                            pass
                 return self._json(200, {"deleted": True, "conversation_id": conversation_id})
             if parsed.path != "/api/memory":
                 return self._json(404, {"error": "Not found"})
